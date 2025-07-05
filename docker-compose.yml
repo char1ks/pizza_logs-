@@ -1,0 +1,458 @@
+networks:
+  pizza-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  kafka-data:
+  zookeeper-data:
+  prometheus-data:
+  grafana-data:
+  pgadmin-data:
+
+services:
+  # ========================
+  # INFRASTRUCTURE SERVICES
+  # ========================
+  
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    environment:
+      POSTGRES_USER: pizza_user
+      POSTGRES_PASSWORD: pizza_password
+      POSTGRES_DB: pizza_system
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infrastructure/databases/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pizza_user -d pizza_system"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pizza-network
+
+  # Zookeeper for Kafka
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.1
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+    networks:
+      - pizza-network
+
+  # Kafka Message Broker
+  kafka:
+    image: confluentinc/cp-kafka:7.4.1
+    container_name: kafka
+    depends_on:
+      zookeeper:
+        condition: service_started
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      # Message size limits - set to reasonable values
+      KAFKA_MESSAGE_MAX_BYTES: 104857600  # 100MB
+      KAFKA_REPLICA_FETCH_MAX_BYTES: 104857600  # 100MB
+      KAFKA_SOCKET_REQUEST_MAX_BYTES: 104857600  # 100MB
+      # JVM Settings for Kafka - с direct buffer memory
+      KAFKA_HEAP_OPTS: '-Xmx1G -Xms1G -XX:MaxDirectMemorySize=512M'
+      KAFKA_JVM_PERFORMANCE_OPTS: '-server -XX:+UseG1GC -XX:MaxGCPauseMillis=20 -XX:InitiatingHeapOccupancyPercent=35 -XX:+ExplicitGCInvokesConcurrent -Djava.awt.headless=true -XX:+HeapDumpOnOutOfMemoryError -XX:NativeMemoryTracking=summary'
+      # Zookeeper connection timeout settings
+      KAFKA_ZOOKEEPER_CONNECTION_TIMEOUT_MS: 60000
+      KAFKA_ZOOKEEPER_SESSION_TIMEOUT_MS: 60000
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    networks:
+      - pizza-network
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092"]
+      interval: 30s
+      timeout: 15s
+      retries: 10
+      start_period: 60s
+
+  # Kafka UI for monitoring events
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    depends_on:
+      kafka:
+        condition: service_healthy
+      zookeeper:
+        condition: service_started
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+      # Connection timeout settings
+      KAFKA_CLUSTERS_0_PROPERTIES_CONNECTIONS_MAX_IDLE_MS: 60000
+      KAFKA_CLUSTERS_0_PROPERTIES_REQUEST_TIMEOUT_MS: 60000
+    networks:
+      - pizza-network
+    restart: unless-stopped
+
+  # Prometheus Monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infrastructure/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - pizza-network
+
+  # Grafana Visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./infrastructure/monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./infrastructure/monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    networks:
+      - pizza-network
+
+  # Nginx API Gateway
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infrastructure/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./infrastructure/nginx/conf.d:/etc/nginx/conf.d
+      - ./ui:/usr/share/nginx/html
+    depends_on:
+      - frontend-service
+      - order-service
+    networks:
+      - pizza-network
+
+  # pgAdmin - PostgreSQL Administration Tool
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@pizza.app
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
+      # Configuration for running behind nginx proxy
+      PGADMIN_CONFIG_X_FRAME_OPTIONS: '"SAMEORIGIN"'
+      PGADMIN_CONFIG_ENHANCED_COOKIE_PROTECTION: 'False'
+    ports:
+      - "8081:80"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+      - ./infrastructure/databases/pgadmin-servers.json:/pgadmin4/servers.json
+    depends_on:
+      - postgres
+    networks:
+      - pizza-network
+
+  # Node Exporter - System Metrics
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    networks:
+      - pizza-network
+
+  # PostgreSQL Exporter - Database Metrics
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: postgres-exporter
+    ports:
+      - "9187:9187"
+    environment:
+      DATA_SOURCE_NAME: "postgresql://pizza_user:pizza_password@postgres:5432/pizza_system?sslmode=disable"
+      PG_EXPORTER_EXTEND_QUERY_PATH: /etc/postgres_exporter/queries.yaml
+    volumes:
+      - ./infrastructure/monitoring/postgres-queries.yaml:/etc/postgres_exporter/queries.yaml
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - pizza-network
+
+  # Kafka Exporter - Message Broker Metrics
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:latest
+    container_name: kafka-exporter
+    ports:
+      - "9308:9308"
+    command:
+      - '--kafka.server=kafka:29092'
+      - '--web.listen-address=:9308'
+      - '--log.level=info'
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - pizza-network
+
+  # cAdvisor - Container Metrics
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.47.0
+    container_name: cadvisor
+    privileged: true
+    ports:
+      - "8083:8080"  # Changed from 8082 to avoid conflict
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+    command:
+      - '--docker_only=true'
+      - '--store_container_labels=false'
+      - '--whitelisted_container_labels=io.kubernetes.pod.namespace,io.kubernetes.pod.name,io.kubernetes.container.name'
+    networks:
+      - pizza-network
+
+  # k6 Load Tester
+  k6:
+    image: grafana/k6:latest
+    container_name: k6
+    profiles: ["tools"]
+    ports:
+      - "6565:6565" # k6 API server
+    volumes:
+      - ./load-testing:/scripts
+    networks:
+      - pizza-network
+    depends_on:
+      - nginx
+      - order-service
+    # To run the test: docker-compose run --build k6 run /scripts/order-create.js
+    entrypoint: [""] # Disable default entrypoint
+
+  # ========================
+  # MICROSERVICES
+  # ========================
+
+  # Frontend Service (Menu & UI Logic)
+  frontend-service:
+    build:
+      context: ./services
+      dockerfile: frontend/Dockerfile
+    container_name: frontend-service
+    ports:
+      - "5000:5000"
+    environment:
+      DATABASE_URL: postgresql://pizza_user:pizza_password@postgres:5432/pizza_system
+      KAFKA_BROKER: kafka:29092
+      SERVICE_NAME: frontend-service
+      SERVICE_VERSION: "1.0.0"
+      PORT: "5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - pizza-network
+    volumes:
+      - ./services/frontend/logs:/app/logs
+    restart: unless-stopped
+
+  # Order Service (Order Management + Outbox)
+  order-service:
+    build:
+      context: ./services
+      dockerfile: order/Dockerfile
+    container_name: order-service
+    ports:
+      - "5001:5001"
+    environment:
+      DATABASE_URL: postgresql://pizza_user:pizza_password@postgres:5432/pizza_system
+      KAFKA_BROKER: kafka:29092
+      FRONTEND_SERVICE_URL: http://frontend-service:5000
+      SERVICE_NAME: order-service
+      SERVICE_VERSION: "1.0.0"
+      PORT: "5001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - pizza-network
+    volumes:
+      - ./services/order/logs:/app/logs
+    restart: unless-stopped
+
+  # Payment Service (Payment Processing + Retry Pattern)
+  payment-service:
+    build:
+      context: ./services
+      dockerfile: payment/Dockerfile
+    container_name: payment-service
+    ports:
+      - "5002:5002"
+    environment:
+      DATABASE_URL: postgresql://pizza_user:pizza_password@postgres:5432/pizza_system
+      KAFKA_BROKER: kafka:29092
+      PAYMENT_MOCK_URL: http://payment-mock:5003
+      SERVICE_NAME: payment-service
+      SERVICE_VERSION: "1.0.0"
+      PORT: "5002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - pizza-network
+    volumes:
+      - ./services/payment/logs:/app/logs
+    restart: unless-stopped
+
+  # Notification Service (User Notifications)
+  notification-service:
+    build:
+      context: ./services
+      dockerfile: notification/Dockerfile
+    container_name: notification-service
+    ports:
+      - "5004:5004"
+    environment:
+      DATABASE_URL: postgresql://pizza_user:pizza_password@postgres:5432/pizza_system
+      KAFKA_BROKER: kafka:29092
+      SERVICE_NAME: notification-service
+      SERVICE_VERSION: "1.0.0"
+      PORT: "5004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - pizza-network
+    volumes:
+      - ./services/notification/logs:/app/logs
+    restart: unless-stopped
+
+  # Payment Mock (External Payment Provider Simulation)
+  payment-mock:
+    build:
+      context: ./services
+      dockerfile: payment-mock/Dockerfile
+    container_name: payment-mock
+    ports:
+      - "5003:5003"
+    environment:
+      DATABASE_URL: postgresql://pizza_user:pizza_password@postgres:5432/pizza_system
+      KAFKA_BROKER: kafka:29092
+      FAILURE_RATE: "0.1"
+      SERVICE_NAME: payment-mock
+      SERVICE_VERSION: "1.0.0"
+      PORT: "5003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - pizza-network
+    volumes:
+      - ./services/payment-mock/logs:/app/logs
+    restart: unless-stopped
+
+  # ========================
+  # OUTBOX PROCESSORS
+  # ========================
+
+  # Order Outbox Processor (Publishes events from Order Service)
+  order-outbox-processor:
+    build:
+      context: ./services
+      dockerfile: order/Dockerfile.outbox
+    container_name: order-outbox-processor
+    environment:
+      DATABASE_URL: postgresql://pizza_user:pizza_password@postgres:5432/pizza_system
+      KAFKA_BROKER: kafka:29092
+      SERVICE_NAME: order-outbox-processor
+      SERVICE_VERSION: "1.0.0"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - pizza-network
+    volumes:
+      - ./services/order/logs:/app/logs
+    restart: unless-stopped
+
+  # ========================
+  # TOOLS & UTILITIES
+  # ========================
+
+  # Initialize Kafka Topics
+  kafka-setup:
+    image: confluentinc/cp-kafka:7.4.1
+    container_name: kafka-setup
+    depends_on:
+      kafka:
+        condition: service_healthy
+    command: >
+      bash -c "
+        echo 'Creating Kafka topics...' &&
+        kafka-topics --create --if-not-exists --topic order-events --bootstrap-server kafka:29092 --partitions 1 --replication-factor 1 &&
+        kafka-topics --create --if-not-exists --topic payment-events --bootstrap-server kafka:29092 --partitions 1 --replication-factor 1 &&
+        kafka-topics --create --if-not-exists --topic notification-events --bootstrap-server kafka:29092 --partitions 1 --replication-factor 1 &&
+        kafka-topics --create --if-not-exists --topic dlq-events --bootstrap-server kafka:29092 --partitions 1 --replication-factor 1 &&
+        echo 'Topics created successfully!'
+      "
+    networks:
+      - pizza-network
+
+# ========================
+# TOOLS & UTILITIES
+# ======================== 

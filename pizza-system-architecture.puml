@@ -1,0 +1,200 @@
+@startuml Pizza Order System - Event-Driven Saga Architecture
+
+!define CLOUDOGU_BLUE #006998
+!define CLOUDOGU_GREEN #00A651
+!define CLOUDOGU_ORANGE #FFA500
+!define CLOUDOGU_RED #C53030
+!define CLOUDOGU_PURPLE #805AD5
+
+skinparam backgroundColor #F8F9FA
+skinparam defaultFontName Arial
+skinparam defaultFontSize 10
+
+title **🍕 Pizza Order System - Event-Driven Saga Architecture**
+
+' User interface
+actor "👤 User" as User
+
+' API Gateway
+component "🚪 Nginx\nAPI Gateway" as Nginx {
+  interface "HTTP" as NgxHTTP
+  note right : Load Balancing\\nRate Limiting\\nSSL Termination
+}
+
+' Frontend Web UI
+component "💻 Web UI" as WebUI {
+  [index.html] 
+  [script.js]
+  [styles.css]
+}
+
+' Microservices
+package "🍕 Frontend Service" as FrontendService {
+  component "Frontend App" as FrontendApp
+  database "Pizzas Catalog" as FrontendDB
+  note right : Menu Management\\nPizza Information\\nAPI Gateway for Catalog
+}
+
+package "📦 Order Service" as OrderService {
+  component "Order App" as OrderApp
+  component "Outbox Processor" as OutboxProcessor
+  database "Orders DB" as OrderDB {
+    [orders.orders]
+    [orders.order_items]
+    [orders.outbox_events]
+    [orders.order_saga_state]
+  }
+  note right : Order Management\\nSaga Coordination\\nOutbox Pattern
+}
+
+package "💳 Payment Service" as PaymentService {
+  component "Payment App" as PaymentApp
+  database "Payments DB" as PaymentDB {
+    [payments.payments]
+    [payments.payment_attempts]
+  }
+  note right : Payment Processing\\nRetry Pattern\\nCircuit Breaker
+}
+
+package "📧 Notification Service" as NotificationService {
+  component "Notification App" as NotificationApp
+  database "Notifications DB" as NotificationDB {
+    [notifications.notifications]
+    [notifications.delivery_attempts]
+    [notifications.notification_templates]
+  }
+  note right : Multi-channel Notifications\\n(Email, SMS, Push, Webhook)
+}
+
+package "🏦 Payment Mock" as PaymentMock {
+  component "Mock Provider" as MockProvider
+  note right : External Payment Provider\\nSimulation with Configurable\\nFailure Rates
+}
+
+' Infrastructure
+cloud "🔄 Kafka Ecosystem" as KafkaEco {
+  component "Kafka Broker" as Kafka
+  component "Zookeeper" as Zookeeper
+  component "Kafka UI" as KafkaUI
+  
+  collections "order-events" as OrderEvents
+  collections "payment-events" as PaymentEvents
+  collections "notification-events" as NotificationEvents
+  collections "dlq-events" as DLQEvents
+}
+
+database "🗄️ PostgreSQL\nCluster" as PostgreSQL {
+  folder "frontend" as FrontendSchema
+  folder "orders" as OrdersSchema  
+  folder "payments" as PaymentsSchema
+  folder "notifications" as NotificationsSchema
+}
+
+' Monitoring Stack
+package "📊 Monitoring & Observability" as Monitoring {
+  component "Prometheus" as Prometheus
+  component "Grafana" as Grafana
+  component "NodeExporter" as NodeExporter
+  component "PostgresExporter" as PostgresExporter
+  component "KafkaExporter" as KafkaExporter
+  component "cAdvisor" as CAdvisor
+  component "pgAdmin" as PgAdmin
+}
+
+' Service Discovery & Configuration
+package "🔧 Infrastructure" as Infrastructure {
+  component "DockerCompose" as DockerCompose
+  component "Network" as Network
+  component "Volumes" as Volumes
+}
+
+' Main user flow arrows
+User --> WebUI : Browse Menu\\nPlace Order
+User --> Nginx : API Requests
+Nginx --> FrontendApp : /api/v1/menu
+Nginx --> OrderApp : /api/v1/orders
+
+' Service interactions
+FrontendApp <--> FrontendDB : CRUD Operations
+OrderApp <--> OrderDB : Transactional Writes
+PaymentApp <--> PaymentDB : Payment State
+NotificationApp <--> NotificationDB : Notification History
+
+' Event-driven flows
+OrderApp --> OutboxProcessor : Transactional Outbox
+OutboxProcessor --> OrderEvents : Publish Events
+OrderEvents --> PaymentApp : OrderCreated
+OrderEvents --> NotificationApp : OrderCreated
+
+PaymentApp --> PaymentEvents : PaymentSuccess/Failed
+PaymentEvents --> OrderApp : Status Updates
+PaymentEvents --> NotificationApp : Payment Notifications
+
+PaymentApp --> MockProvider : External Payment\\nHTTP Calls
+MockProvider --> PaymentApp : Payment Response
+
+NotificationApp --> NotificationEvents : Delivery Status
+
+' Database connections
+FrontendApp --> PostgreSQL : frontend schema
+OrderApp --> PostgreSQL : orders schema
+PaymentApp --> PostgreSQL : payments schema
+NotificationApp --> PostgreSQL : notifications schema
+
+' Monitoring connections
+FrontendApp --> Prometheus : /metrics
+OrderApp --> Prometheus : /metrics
+PaymentApp --> Prometheus : /metrics
+NotificationApp --> Prometheus : /metrics
+MockProvider --> Prometheus : /metrics
+
+PostgresExporter --> PostgreSQL : DB Metrics
+KafkaExporter --> Kafka : Broker Metrics
+NodeExporter --> Infrastructure : System Metrics
+CAdvisor --> Infrastructure : Container Metrics
+
+Prometheus --> Grafana : Data Source
+PgAdmin --> PostgreSQL : DB Administration
+KafkaUI --> Kafka : Topic Management
+
+' Saga Pattern Flow
+note as SagaNote
+**Event-Driven Saga (Choreography)**
+
+1. OrderCreated -> Payment Processing
+2. PaymentCompleted -> Order Status Update
+3. PaymentFailed -> Compensation Logic
+4. Status Changes -> User Notifications
+end note
+
+SagaNote .. OrderApp
+SagaNote .. PaymentApp
+SagaNote .. NotificationApp
+
+' Technical Patterns
+note top of OutboxProcessor : **Outbox Pattern**\\nTransactional Event Publishing\\nGuaranteed Message Delivery
+note top of PaymentApp : **Retry Pattern + Circuit Breaker**\\nExponential Backoff\\nFault Tolerance
+note top of NotificationApp : **Multi-Channel Delivery**\\nReliable Notification System
+note top of MockProvider : **External System Simulation**\\nConfigurable Failure Rates
+
+' Event Topics
+note top of OrderEvents : **Order Events**\\n- OrderCreated\\n- OrderStatusChanged\\n- OrderCompleted
+note top of PaymentEvents : **Payment Events**\\n- PaymentRequested\\n- PaymentCompleted\\n- PaymentFailed
+note top of NotificationEvents : **Notification Events**\\n- NotificationSent\\n- DeliveryConfirmed
+note top of DLQEvents : **Dead Letter Queue**\\n- Failed Events\\n- Retry Exhausted
+
+' Port mapping
+note bottom of Nginx : Ports: 80, 443
+note bottom of FrontendApp : Port: 5000
+note bottom of OrderApp : Port: 5001  
+note bottom of PaymentApp : Port: 5002
+note bottom of MockProvider : Port: 5003
+note bottom of NotificationApp : Port: 5004
+note bottom of PostgreSQL : Port: 5433
+note bottom of Kafka : Ports: 9092, 29092
+note bottom of KafkaUI : Port: 8080
+note bottom of Prometheus : Port: 9090
+note bottom of Grafana : Port: 3000
+note bottom of PgAdmin : Port: 8081
+
+@enduml 

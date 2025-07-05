@@ -1,0 +1,178 @@
+# PostgreSQL Exporter Custom Queries
+# Business Metrics for Pizza Order System
+
+# RED Metrics for Database
+pg_database_queries:
+  query: |
+    SELECT
+      datname as database,
+      pg_stat_get_db_xact_commit(oid) as transactions_committed,
+      pg_stat_get_db_xact_rollback(oid) as transactions_rollbacked,
+      pg_stat_get_db_blocks_fetched(oid) as blocks_fetched,
+      pg_stat_get_db_blocks_hit(oid) as blocks_hit,
+      pg_stat_get_db_numbackends(oid) as active_connections
+    FROM pg_database
+    WHERE datname NOT IN ('template0', 'template1', 'postgres')
+  metrics:
+    - database:
+        usage: "LABEL"
+        description: "Database name"
+    - transactions_committed:
+        usage: "COUNTER"
+        description: "Number of committed transactions"
+    - transactions_rollbacked:
+        usage: "COUNTER"
+        description: "Number of rollbacked transactions"
+    - blocks_fetched:
+        usage: "COUNTER"
+        description: "Number of disk blocks fetched"
+    - blocks_hit:
+        usage: "COUNTER"
+        description: "Number of buffer hits"
+    - active_connections:
+        usage: "GAUGE"
+        description: "Number of active connections"
+
+# Business Metrics - Order Analysis
+pizza_orders_metrics:
+  query: |
+    SELECT
+      'orders' as metric_type,
+      status,
+      COUNT(*) as count,
+      COALESCE(AVG(EXTRACT(EPOCH FROM (updated_at - created_at))), 0) as avg_processing_time_seconds,
+      COALESCE(SUM(total), 0) as total_revenue_cents
+    FROM orders.orders
+    WHERE created_at >= NOW() - INTERVAL '1 hour'
+    GROUP BY status
+    UNION ALL
+    SELECT
+      'orders_total' as metric_type,
+      'all' as status,
+      COUNT(*) as count,
+      COALESCE(AVG(EXTRACT(EPOCH FROM (updated_at - created_at))), 0) as avg_processing_time_seconds,
+      COALESCE(SUM(total), 0) as total_revenue_cents
+    FROM orders.orders
+    WHERE created_at >= NOW() - INTERVAL '1 hour'
+  metrics:
+    - metric_type:
+        usage: "LABEL"
+        description: "Type of metric"
+    - status:
+        usage: "LABEL"
+        description: "Order status"
+    - count:
+        usage: "GAUGE"
+        description: "Number of orders"
+    - avg_processing_time_seconds:
+        usage: "GAUGE"
+        description: "Average order processing time in seconds"
+    - total_revenue_cents:
+        usage: "GAUGE"
+        description: "Total revenue in cents"
+
+# Payment Success Rate
+pizza_payments_metrics:
+  query: |
+    SELECT
+      status,
+      COUNT(*) as count,
+      COALESCE(AVG(EXTRACT(EPOCH FROM (completed_at - created_at))), 0) as avg_processing_time_seconds
+    FROM payments.payment_attempts
+    WHERE created_at >= NOW() - INTERVAL '1 hour'
+    GROUP BY status
+  metrics:
+    - status:
+        usage: "LABEL"
+        description: "Payment status"
+    - count:
+        usage: "GAUGE"
+        description: "Number of payment attempts"
+    - avg_processing_time_seconds:
+        usage: "GAUGE"
+        description: "Average payment processing time in seconds"
+
+# Database Performance Metrics (USE)
+pg_database_performance:
+  query: |
+    SELECT
+      schemaname,
+      relname as tablename,
+      seq_scan,
+      seq_tup_read,
+      idx_scan,
+      idx_tup_fetch,
+      n_tup_ins,
+      n_tup_upd,
+      n_tup_del,
+      n_tup_hot_upd,
+      n_live_tup,
+      n_dead_tup
+    FROM pg_stat_user_tables
+  metrics:
+    - schemaname:
+        usage: "LABEL"
+        description: "Schema name"
+    - tablename:
+        usage: "LABEL"
+        description: "Table name"
+    - seq_scan:
+        usage: "COUNTER"
+        description: "Number of sequential scans"
+    - seq_tup_read:
+        usage: "COUNTER"
+        description: "Number of tuples read by sequential scans"
+    - idx_scan:
+        usage: "COUNTER"
+        description: "Number of index scans"
+    - idx_tup_fetch:
+        usage: "COUNTER"
+        description: "Number of tuples fetched by index scans"
+    - n_tup_ins:
+        usage: "COUNTER"
+        description: "Number of tuples inserted"
+    - n_tup_upd:
+        usage: "COUNTER"
+        description: "Number of tuples updated"
+    - n_tup_del:
+        usage: "COUNTER"
+        description: "Number of tuples deleted"
+    - n_tup_hot_upd:
+        usage: "COUNTER"
+        description: "Number of HOT updated tuples"
+    - n_live_tup:
+        usage: "GAUGE"
+        description: "Number of live tuples"
+    - n_dead_tup:
+        usage: "GAUGE"
+        description: "Number of dead tuples"
+
+# Slow Queries Detection
+pg_slow_queries:
+  query: |
+    SELECT
+      query,
+      calls,
+      total_time,
+      mean_time,
+      rows
+    FROM pg_stat_statements
+    WHERE mean_time > 100
+    ORDER BY mean_time DESC
+    LIMIT 10
+  metrics:
+    - query:
+        usage: "LABEL"
+        description: "SQL query"
+    - calls:
+        usage: "COUNTER"
+        description: "Number of times executed"
+    - total_time:
+        usage: "COUNTER"
+        description: "Total time spent in milliseconds"
+    - mean_time:
+        usage: "GAUGE"
+        description: "Mean time in milliseconds"
+    - rows:
+        usage: "COUNTER"
+        description: "Total number of rows affected" 
