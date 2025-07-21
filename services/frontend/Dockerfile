@@ -30,13 +30,13 @@ RUN apt-get update && \
     apt-get install -y k6
 
 # Копируем requirements.txt из родительской папки
-COPY ../requirements.txt requirements.txt
+COPY requirements.txt requirements.txt
 
 # Копируем shared из родительской папки
-COPY ../shared/ shared/
+COPY shared/ shared/
 
 # Копируем все файлы текущей папки (frontend)
-COPY . .
+COPY frontend/ .
 
 # Create logs directory
 RUN mkdir -p logs

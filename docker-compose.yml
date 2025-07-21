@@ -279,8 +279,8 @@ services:
   # Frontend Service (Menu & UI Logic)
   frontend-service:
     build:
-      context: ./services/frontend
-      dockerfile: Dockerfile
+      context: ./services
+      dockerfile: frontend/Dockerfile
     container_name: frontend-service
     ports:
       - "5000:5000"
