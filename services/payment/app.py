@@ -406,34 +406,46 @@ class PaymentService(BaseService):
         """Attempt to process payment (with circuit breaker)"""
         try:
             self.logger.info("🔍 Starting payment attempt", payment_id=payment_id)
-            
-            # Check circuit breaker
-            if not self.circuit_breaker.can_execute():
-                self.logger.warning("⚡ Circuit breaker is OPEN, payment blocked", payment_id=payment_id)
-                raise Exception("Payment provider is unavailable (circuit breaker OPEN)")
-            
-            self.logger.info("✅ Circuit breaker check passed", payment_id=payment_id)
-            
-            # Get payment details
-            self.logger.info("📋 Getting payment details", payment_id=payment_id)
             payment = self.get_payment_by_id(payment_id)
             if not payment:
                 raise Exception(f"Payment {payment_id} not found")
-            
-            self.logger.info("✅ Payment details retrieved", payment_id=payment_id, order_id=payment.get('order_id'))
-            
-            # Record payment attempt
+            # Получаем forceFail из заказа
+            order_id = payment.get('order_id')
+            order = self.db.execute_query(
+                "SELECT delivery_address, event_data FROM orders.orders o JOIN orders.outbox_events e ON o.id = e.aggregate_id WHERE o.id = %s ORDER BY e.created_at DESC LIMIT 1",
+                (order_id,),
+                fetch='one'
+            )
+            force_fail = False
+            if order and order.get('event_data'):
+                try:
+                    import json
+                    event_data = order['event_data']
+                    if isinstance(event_data, str):
+                        event_data = json.loads(event_data)
+                    force_fail = event_data.get('forceFail', False)
+                except Exception:
+                    force_fail = False
+            # Если ручной заказ и forceFail == False, всегда успех, игнорируем circuit breaker
+            if force_fail is False and 'forceFail' in (event_data if 'event_data' in locals() else {}):
+                self.logger.info("✅ Ручной заказ: всегда успех, circuit breaker игнорируется", payment_id=payment_id, order_id=order_id)
+                self.update_payment_attempt(self.record_payment_attempt(payment_id), success=True)
+                self.update_payment_status(payment_id, PaymentStatus.COMPLETED.value)
+                return True
+            # Обычная логика для остальных случаев
+            if not self.circuit_breaker.can_execute():
+                self.logger.warning("⚡ Circuit breaker is OPEN, payment blocked", payment_id=payment_id)
+                raise Exception("Payment provider is unavailable (circuit breaker OPEN)")
+            self.logger.info("✅ Circuit breaker check passed", payment_id=payment_id)
+            self.logger.info("📋 Getting payment details", payment_id=payment_id)
+            self.logger.info("✅ Payment details retrieved", payment_id=payment_id, order_id=order_id)
             self.logger.info("📝 Recording payment attempt", payment_id=payment_id)
             attempt_id = self.record_payment_attempt(payment_id)
             self.logger.info("✅ Payment attempt recorded", payment_id=payment_id, attempt_id=attempt_id)
-            
-            # Call external payment provider (mocked)
             self.logger.info("🌐 Calling payment provider", payment_id=payment_id)
             success = self.call_payment_provider(payment)
             self.logger.info(f"🎯 Payment provider call completed, success={success}", payment_id=payment_id)
-            
             if success:
-                # Record successful attempt
                 self.logger.info("✅ Recording successful attempt", payment_id=payment_id, attempt_id=attempt_id)
                 self.update_payment_attempt(attempt_id, success=True)
                 self.circuit_breaker.record_success()
@@ -452,20 +464,14 @@ class PaymentService(BaseService):
                         is_crash_test = (delivery_address_clean == '123')
                 except Exception:
                     pass
-                
-                # Record failed attempt
                 self.logger.warning("❌ Recording failed attempt", payment_id=payment_id, attempt_id=attempt_id)
                 self.update_payment_attempt(attempt_id, success=False, error="Payment provider rejected")
-                
-                # Only affect circuit breaker if it's not a crash test
                 if not is_crash_test:
                     self.circuit_breaker.record_failure()
                     self.logger.info("⚡ Circuit breaker failure recorded for real payment", payment_id=payment_id)
                 else:
                     self.logger.info("🧪 Crash test failure - circuit breaker not affected", payment_id=payment_id)
-                
                 raise Exception("Payment provider rejected the transaction")
-                
         except Exception as e:
             self.logger.warning("⚠️ Payment attempt failed", payment_id=payment_id, error=str(e), exc_info=True)
             self.circuit_breaker.record_failure()
