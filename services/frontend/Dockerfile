@@ -29,15 +29,14 @@ RUN apt-get update && \
     apt-get update && \
     apt-get install -y k6
 
-# Copy requirements and install Python dependencies
-COPY requirements.txt requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+# Копируем requirements.txt из родительской папки
+COPY ../requirements.txt requirements.txt
 
-# Copy shared modules
-COPY shared/ shared/
+# Копируем shared из родительской папки
+COPY ../shared/ shared/
 
-# Copy frontend service files
-COPY frontend/ .
+# Копируем все файлы текущей папки (frontend)
+COPY . .
 
 # Create logs directory
 RUN mkdir -p logs
