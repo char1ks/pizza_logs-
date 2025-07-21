@@ -25,11 +25,6 @@
                             <span class="button-text">Нагрузочный тест 1000 RPS</span>
                         </button>
                         <button class="edit-settings-btn" id="editSettingsBtn" title="Настроить тестирование" onclick="openSettingsDialog()">✏️</button>
-                        <div class="slider-container">
-                            <label for="failRateSlider" class="slider-label">% ошибок:</label>
-                            <input type="range" min="0" max="100" value="0" id="failRateSlider" class="fail-rate-slider" oninput="updateFailRateLabel()">
-                            <span id="failRateValue" class="fail-rate-value">0%</span>
-                        </div>
                     </div>
                 <div class="system-status">
                     <div class="status-indicator" id="systemStatus">
@@ -52,12 +47,12 @@
           <span id="failRateValueModal" class="fail-rate-value">0%</span>
         </div>
         <div class="modal-section">
-          <label for="manualOrderMode">Режим ручных заказов:</label>
-          <select id="manualOrderMode">
-            <option value="success">Всегда успех</option>
-            <option value="fail">Всегда ошибка</option>
-            <option value="random">Случайно по проценту</option>
-          </select>
+          <label for="manualOrderSwitch">Ручные заказы всегда успешны?</label>
+          <label class="switch">
+            <input type="checkbox" id="manualOrderSwitch" checked>
+            <span class="slider-switch"></span>
+          </label>
+          <span id="manualOrderSwitchLabel" class="switch-label">Да</span>
         </div>
         <div class="modal-actions">
           <button onclick="saveSettings()" class="modal-save-btn">Сохранить</button>

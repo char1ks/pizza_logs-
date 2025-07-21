@@ -1213,3 +1213,51 @@ section {
     color: white;
     border-color: var(--error);
 } 
+
+/* Switch (toggle) styles for modal */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 48px;
+  height: 28px;
+}
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.slider-switch {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: var(--error);
+  border-radius: 28px;
+  transition: background 0.3s;
+}
+.slider-switch:before {
+  position: absolute;
+  content: "";
+  height: 22px;
+  width: 22px;
+  left: 3px;
+  bottom: 3px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.3s;
+}
+.switch input:checked + .slider-switch {
+  background: var(--success);
+}
+.switch input:checked + .slider-switch:before {
+  transform: translateX(20px);
+}
+.switch-label {
+  min-width: 32px;
+  font-weight: 600;
+  color: var(--success);
+  margin-left: 0.5rem;
+  font-size: var(--font-size-base);
+}
+.switch input:not(:checked) ~ .switch-label {
+  color: var(--error);
+} 

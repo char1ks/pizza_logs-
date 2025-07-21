@@ -27,8 +27,38 @@ const API_ENDPOINTS = {
 // Настройки тестирования
 let testSettings = {
     failRate: 0,
-    manualOrderMode: 'success' // 'success', 'fail', 'random'
+    manualOrderAlwaysSuccess: true // true — всегда успех, false — всегда fail
 };
+
+function openSettingsDialog() {
+    document.getElementById('settingsModal').style.display = 'flex';
+    document.getElementById('failRateSliderModal').value = testSettings.failRate;
+    document.getElementById('failRateValueModal').textContent = testSettings.failRate + '%';
+    document.getElementById('manualOrderSwitch').checked = testSettings.manualOrderAlwaysSuccess;
+    document.getElementById('manualOrderSwitchLabel').textContent = testSettings.manualOrderAlwaysSuccess ? 'Да' : 'Нет';
+}
+function closeSettingsDialog() {
+    document.getElementById('settingsModal').style.display = 'none';
+}
+function updateFailRateLabelModal() {
+    const slider = document.getElementById('failRateSliderModal');
+    const value = document.getElementById('failRateValueModal');
+    value.textContent = slider.value + '%';
+}
+document.addEventListener('DOMContentLoaded', function() {
+    const manualSwitch = document.getElementById('manualOrderSwitch');
+    if (manualSwitch) {
+        manualSwitch.addEventListener('change', function() {
+            document.getElementById('manualOrderSwitchLabel').textContent = manualSwitch.checked ? 'Да' : 'Нет';
+        });
+    }
+});
+function saveSettings() {
+    testSettings.failRate = parseInt(document.getElementById('failRateSliderModal').value, 10) || 0;
+    testSettings.manualOrderAlwaysSuccess = document.getElementById('manualOrderSwitch').checked;
+    closeSettingsDialog();
+    showToast('Настройки тестирования сохранены', '⚙️');
+}
 
 // ========================================
 // Utility Functions
@@ -239,13 +269,8 @@ async function createOrder() {
     try {
         orderButton.disabled = true;
         orderButton.textContent = '⏳ Обрабатываем заказ...';
-        // Определяем forceFail для ручного заказа
-        let forceFail = false;
-        if (testSettings.manualOrderMode === 'fail') {
-            forceFail = true;
-        } else if (testSettings.manualOrderMode === 'random') {
-            forceFail = Math.random() < (testSettings.failRate / 100);
-        } // success — всегда false
+        // forceFail для ручного заказа: если выключатель Нет — всегда fail, если Да — всегда success
+        let forceFail = !testSettings.manualOrderAlwaysSuccess;
         const orderData = {
             items: AppState.cart.map(item => ({
                 pizzaId: item.pizza.id,
