@@ -24,6 +24,12 @@ const API_ENDPOINTS = {
     base: API_BASE
 };
 
+// Настройки тестирования
+let testSettings = {
+    failRate: 0,
+    manualOrderMode: 'success' // 'success', 'fail', 'random'
+};
+
 // ========================================
 // Utility Functions
 // ========================================
@@ -222,68 +228,55 @@ async function createOrder() {
         showToast('Корзина пуста', '🛒');
         return;
     }
-    
     const deliveryAddress = document.getElementById('deliveryAddress').value;
     const paymentMethod = document.getElementById('paymentMethod').value;
-    
     if (!deliveryAddress) {
         showToast('Укажите адрес доставки', '📍');
         return;
     }
-    
     const orderButton = document.getElementById('orderButton');
     const originalText = orderButton.textContent;
-    
     try {
-        // Disable button and show loading
         orderButton.disabled = true;
         orderButton.textContent = '⏳ Обрабатываем заказ...';
-        
+        // Определяем forceFail для ручного заказа
+        let forceFail = false;
+        if (testSettings.manualOrderMode === 'fail') {
+            forceFail = true;
+        } else if (testSettings.manualOrderMode === 'random') {
+            forceFail = Math.random() < (testSettings.failRate / 100);
+        } // success — всегда false
         const orderData = {
             items: AppState.cart.map(item => ({
                 pizzaId: item.pizza.id,
                 quantity: item.quantity
             })),
             deliveryAddress,
-            paymentMethod
+            paymentMethod,
+            forceFail
         };
-        
         addEventLog('ORDER', 'Создаем заказ...');
-        
         const response = await apiRequest(API_ENDPOINTS.orders, {
             method: 'POST',
             body: JSON.stringify(orderData)
         });
-        
         addEventLog('SUCCESS', `Заказ создан: ${response.orderId}`);
         showToast('Заказ успешно создан!', '🎉');
-
-        // Fetch the full order details immediately to ensure data consistency
         const fullOrderResponse = await getOrderStatus(response.orderId);
         if (!fullOrderResponse || !fullOrderResponse.order) {
             throw new Error('Не удалось получить детали созданного заказа.');
         }
-
-        // Extract the actual order object from the response
         const orderObject = fullOrderResponse.order;
         AppState.currentOrder = orderObject;
-        
-        // Clear cart and form
         AppState.cart = [];
         document.getElementById('deliveryAddress').value = '';
         updateCartDisplay();
-        
-        // Show order status with complete data
         showOrderStatus(orderObject);
-        
-        // Start polling for order status using the correct order ID
         startOrderStatusPolling(orderObject.id);
-        
     } catch (error) {
         addEventLog('ERROR', `Ошибка создания заказа: ${error.message}`);
         showToast('Ошибка создания заказа', '❌');
     } finally {
-        // Restore button
         orderButton.disabled = false;
         orderButton.textContent = originalText;
     }
@@ -788,7 +781,7 @@ async function startLoadTest() {
     const button = document.getElementById('loadTestButton');
     const buttonText = button.querySelector('.button-text');
     const originalText = buttonText.textContent;
-    const failRate = parseInt(document.getElementById('failRateSlider').value, 10) || 0;
+    const failRate = testSettings.failRate;
     try {
         button.disabled = true;
         button.classList.add('running');

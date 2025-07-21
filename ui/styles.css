@@ -1120,3 +1120,96 @@ section {
     font-weight: 600;
     font-size: var(--font-size-sm);
 } 
+
+/* Edit Settings Button */
+.edit-settings-btn {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-secondary);
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    cursor: pointer;
+    margin-left: 0.5rem;
+    transition: background var(--transition-fast), border var(--transition-fast);
+}
+.edit-settings-btn:hover {
+    background: var(--primary-teal-light);
+    border-color: var(--primary-teal);
+}
+
+/* Modal Overlay */
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(15, 23, 42, 0.7);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.modal-content {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-xl);
+    padding: 2rem 2.5rem;
+    box-shadow: var(--shadow-lg);
+    min-width: 320px;
+    max-width: 95vw;
+    color: var(--text-primary);
+    border: 1px solid var(--primary-teal);
+    animation: fadeIn 0.3s;
+}
+.modal-content h2 {
+    margin-bottom: 1.5rem;
+    color: var(--primary-teal);
+    font-size: var(--font-size-xl);
+    text-align: center;
+}
+.modal-section {
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+.modal-section label {
+    min-width: 180px;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+.modal-section select, .modal-section input[type=range] {
+    flex: 1;
+}
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+}
+.modal-save-btn, .modal-cancel-btn {
+    padding: 0.5rem 1.5rem;
+    border-radius: var(--radius-md);
+    border: none;
+    font-weight: 600;
+    font-size: var(--font-size-base);
+    cursor: pointer;
+    transition: background var(--transition-fast);
+}
+.modal-save-btn {
+    background: var(--primary-teal);
+    color: white;
+}
+.modal-save-btn:hover {
+    background: var(--primary-teal-dark);
+}
+.modal-cancel-btn {
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-secondary);
+}
+.modal-cancel-btn:hover {
+    background: var(--error);
+    color: white;
+    border-color: var(--error);
+} 

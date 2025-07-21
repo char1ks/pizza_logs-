@@ -79,7 +79,8 @@ class OrderService(BaseService):
                     pizza_details=pizza_details,
                     total_amount=total_amount,
                     delivery_address=data['deliveryAddress'],
-                    payment_method=data['paymentMethod']
+                    payment_method=data['paymentMethod'],
+                    force_fail=data.get('forceFail', False) # Pass forceFail from request
                 )
                 
                 self.logger.info(
@@ -289,7 +290,7 @@ class OrderService(BaseService):
     
     def create_order_with_outbox(self, order_id: str, user_id: str, items: List[Dict], 
                                 pizza_details: List[Dict], total_amount: int,
-                                delivery_address: str, payment_method: str) -> Dict:
+                                delivery_address: str, payment_method: str, force_fail: bool = False) -> Dict:
         """Create order and outbox event in a single transaction"""
         with self.db.transaction():
             with self.db.get_cursor() as cursor:
@@ -344,7 +345,8 @@ class OrderService(BaseService):
                     'items': simplified_items,
                     'paymentMethod': payment_method,
                     'deliveryAddress': delivery_address,
-                    'timestamp': self.get_timestamp()
+                    'timestamp': self.get_timestamp(),
+                    'forceFail': force_fail
                 }
 
                 cursor.execute("""

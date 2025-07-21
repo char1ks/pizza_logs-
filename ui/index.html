@@ -24,6 +24,7 @@
                             <span class="button-icon">⚡</span>
                             <span class="button-text">Нагрузочный тест 1000 RPS</span>
                         </button>
+                        <button class="edit-settings-btn" id="editSettingsBtn" title="Настроить тестирование" onclick="openSettingsDialog()">✏️</button>
                         <div class="slider-container">
                             <label for="failRateSlider" class="slider-label">% ошибок:</label>
                             <input type="range" min="0" max="100" value="0" id="failRateSlider" class="fail-rate-slider" oninput="updateFailRateLabel()">
@@ -40,6 +41,30 @@
             </div>
         </div>
     </header>
+
+    <!-- Модальное окно настроек -->
+    <div id="settingsModal" class="modal-overlay" style="display:none;">
+      <div class="modal-content">
+        <h2>Настройки тестирования</h2>
+        <div class="modal-section">
+          <label for="failRateSliderModal">% ошибок (нагрузочный тест):</label>
+          <input type="range" min="0" max="100" value="0" id="failRateSliderModal" class="fail-rate-slider" oninput="updateFailRateLabelModal()">
+          <span id="failRateValueModal" class="fail-rate-value">0%</span>
+        </div>
+        <div class="modal-section">
+          <label for="manualOrderMode">Режим ручных заказов:</label>
+          <select id="manualOrderMode">
+            <option value="success">Всегда успех</option>
+            <option value="fail">Всегда ошибка</option>
+            <option value="random">Случайно по проценту</option>
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button onclick="saveSettings()" class="modal-save-btn">Сохранить</button>
+          <button onclick="closeSettingsDialog()" class="modal-cancel-btn">Отмена</button>
+        </div>
+      </div>
+    </div>
 
     <!-- Main Content -->
     <main class="main">
