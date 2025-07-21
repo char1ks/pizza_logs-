@@ -260,6 +260,8 @@ services:
     image: grafana/k6:latest
     container_name: k6
     profiles: ["tools"]
+    environment:
+      FAIL_RATE: "30"
     ports:
       - "6565:6565" # k6 API server
     volumes:
@@ -389,7 +391,7 @@ services:
     environment:
       DATABASE_URL: postgresql://pizza_user:pizza_password@postgres:5432/pizza_system
       KAFKA_BROKER: kafka:29092
-      FAILURE_RATE: "0.1"
+      FAILURE_RATE: "0.3"
       SERVICE_NAME: payment-mock
       SERVICE_VERSION: "1.0.0"
       PORT: "5003"
