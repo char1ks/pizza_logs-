@@ -1,0 +1,184 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'pizza-order-system'
+    environment: 'development'
+
+rule_files:
+  - "alert_rules.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: [] # Add Alertmanager targets here if used
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # System Metrics (Node Exporter)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    metrics_path: /metrics
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'pizza-system-host'
+      - source_labels: []
+        target_label: service_type
+        replacement: 'infrastructure'
+
+  # Nginx API Gateway
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx:8082']
+    metrics_path: /metrics
+    scrape_interval: 15s
+    scrape_timeout: 10s
+
+  # Frontend Service
+  - job_name: 'frontend-service'
+    static_configs:
+      - targets: ['frontend-service:5000']
+    metrics_path: /metrics
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'frontend-service'
+      - source_labels: []
+        target_label: service_name
+        replacement: 'frontend-service'
+      - source_labels: []
+        target_label: service_type
+        replacement: 'microservice'
+
+  # Order Service
+  - job_name: 'order-service'
+    static_configs:
+      - targets: ['order-service:5001']
+    metrics_path: /metrics
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'order-service'
+      - source_labels: []
+        target_label: service_name
+        replacement: 'order-service'
+      - source_labels: []
+        target_label: service_type
+        replacement: 'microservice'
+
+  # Payment Service
+  - job_name: 'payment-service'
+    static_configs:
+      - targets: ['payment-service:5002']
+    metrics_path: /metrics
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'payment-service'
+      - source_labels: []
+        target_label: service_name
+        replacement: 'payment-service'
+      - source_labels: []
+        target_label: service_type
+        replacement: 'microservice'
+
+  # Notification Service
+  - job_name: 'notification-service'
+    static_configs:
+      - targets: ['notification-service:5004']
+    metrics_path: /metrics
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'notification-service'
+      - source_labels: []
+        target_label: service_name
+        replacement: 'notification-service'
+      - source_labels: []
+        target_label: service_type
+        replacement: 'microservice'
+
+  # Payment Mock Service
+  - job_name: 'payment-mock'
+    static_configs:
+      - targets: ['payment-mock:5003']
+    metrics_path: /metrics
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'payment-mock'
+      - source_labels: []
+        target_label: service_name
+        replacement: 'payment-mock'
+      - source_labels: []
+        target_label: service_type
+        replacement: 'external-mock'
+
+  # Docker Container Metrics (cAdvisor integration)
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    metrics_path: /metrics
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'docker-host'
+      - source_labels: []
+        target_label: service_type
+        replacement: 'container-monitoring'
+
+  # PostgreSQL Database Metrics
+  - job_name: 'postgres-exporter'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+    metrics_path: /metrics
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'postgres-database'
+      - source_labels: []
+        target_label: service_type
+        replacement: 'database'
+
+  # Kafka Message Broker Metrics
+  - job_name: 'kafka-exporter'
+    static_configs:
+      - targets: ['kafka-exporter:9308']
+    metrics_path: /metrics
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'kafka-broker'
+      - source_labels: []
+        target_label: service_type
+        replacement: 'message-broker'
+
+# Global recording rules for common metrics aggregation
+# rule_files:
+#   - "recording_rules.yml"  # Enable for performance optimization 

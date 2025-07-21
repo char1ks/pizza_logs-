@@ -1,0 +1,154 @@
+@startuml Pizza Order System - Event Flow Sequence
+
+!theme blueprint
+skinparam backgroundColor #F8F9FA
+skinparam defaultFontName Arial
+
+title **🍕 Pizza Order System - Complete Order Flow Sequence**
+
+actor "👤 User" as User
+participant "💻 Web UI" as WebUI
+participant "🚪 Nginx" as Nginx
+participant "🍕 Frontend\nService" as Frontend
+participant "📦 Order\nService" as OrderService
+participant "🔄 Outbox\nProcessor" as Outbox
+participant "⚡ Kafka" as Kafka
+participant "💳 Payment\nService" as PaymentService
+participant "🏦 Payment\nMock" as PaymentMock
+participant "📧 Notification\nService" as NotificationService
+participant "🗄️ PostgreSQL" as DB
+
+== 🍕 Menu Browsing Phase ==
+
+User -> WebUI : Open pizza app
+WebUI -> Nginx : GET /
+Nginx -> WebUI : Serve static files
+WebUI -> Nginx : GET /api/v1/menu
+Nginx -> Frontend : GET /api/v1/menu
+Frontend -> DB : SELECT * FROM frontend.pizzas
+DB -> Frontend : Pizza catalog
+Frontend -> Nginx : 200 OK + pizzas
+Nginx -> WebUI : Pizza menu
+WebUI -> User : Display menu
+
+== 📦 Order Creation Phase ==
+
+User -> WebUI : Select pizzas + Submit order
+WebUI -> Nginx : POST /api/v1/orders
+note right : {\n  "items": [...],\n  "deliveryAddress": "...",\n  "paymentMethod": "card"\n}
+
+Nginx -> OrderService : POST /api/v1/orders
+
+OrderService -> Frontend : GET /api/v1/menu/{pizzaId}
+Frontend -> DB : SELECT pizza details
+DB -> Frontend : Pizza info
+Frontend -> OrderService : Pizza details + prices
+
+OrderService -> DB : BEGIN TRANSACTION
+OrderService -> DB : INSERT INTO orders.orders
+OrderService -> DB : INSERT INTO orders.order_items
+OrderService -> DB : INSERT INTO orders.outbox_events\n(event_type: "OrderCreated")
+OrderService -> DB : INSERT INTO orders.order_saga_state\n(step: "created")
+OrderService -> DB : COMMIT TRANSACTION
+
+OrderService -> Nginx : 202 Accepted\n{"orderId": "order_123", "status": "PENDING"}
+Nginx -> WebUI : Order accepted
+WebUI -> User : Order confirmation
+
+== 🔄 Event Publishing Phase ==
+
+Outbox -> DB : SELECT unprocessed events\nFROM orders.outbox_events
+DB -> Outbox : Outbox events
+
+loop Every 5 seconds
+    Outbox -> Kafka : Publish OrderCreated event
+    note right : Topic: order-events\nKey: order_123\nPayload: {\n  "orderId": "order_123",\n  "userId": "user_456",\n  "total": 69900,\n  "items": [...],\n  "timestamp": "2024-01-15T10:30:00Z"\n}
+    
+    Kafka -> Outbox : Ack
+    Outbox -> DB : UPDATE outbox_events\nSET processed = true
+end
+
+== 💳 Payment Processing Phase ==
+
+Kafka -> PaymentService : Consume OrderCreated event
+PaymentService -> DB : INSERT INTO payments.payments\n(status: "PENDING")
+PaymentService -> DB : INSERT INTO payments.payment_attempts
+
+PaymentService -> PaymentService : Start async payment processing
+
+alt Successful Payment Flow
+    PaymentService -> PaymentMock : POST /api/v1/payments/process
+    note right : {\n  "orderId": "order_123",\n  "amount": 69900,\n  "paymentMethod": "card"\n}
+    
+    PaymentMock -> PaymentMock : Simulate processing\n(90% success rate)
+    PaymentMock -> PaymentService : 200 OK\n{"transactionId": "txn_succ_789"}
+    
+    PaymentService -> DB : UPDATE payments.payments\nSET status = "COMPLETED"
+    PaymentService -> DB : UPDATE payment_attempts\nSET status = "SUCCESS"
+    
+    PaymentService -> Kafka : Publish PaymentCompleted event
+    note right : Topic: payment-events\nKey: order_123\nPayload: {\n  "orderId": "order_123",\n  "paymentId": "payment_456",\n  "amount": 69900,\n  "status": "COMPLETED",\n  "transactionId": "txn_succ_789"\n}
+
+else Failed Payment Flow (Circuit Breaker)
+    PaymentService -> PaymentMock : POST /api/v1/payments/process
+    PaymentMock -> PaymentMock : Simulate failure\n(10% failure rate)
+    PaymentMock -> PaymentService : 400 Bad Request\n{"failureReason": "Insufficient funds"}
+    
+    PaymentService -> PaymentService : Circuit Breaker:\nRecord failure
+    PaymentService -> PaymentService : Retry with exponential backoff
+    
+    alt Max retries exhausted
+        PaymentService -> DB : UPDATE payments.payments\nSET status = "FAILED"
+        PaymentService -> Kafka : Publish PaymentFailed event
+        note right : Topic: payment-events\nKey: order_123\nPayload: {\n  "orderId": "order_123",\n  "paymentId": "payment_456",\n  "status": "FAILED",\n  "failureReason": "Insufficient funds"\n}
+    end
+end
+
+== 📧 Notification Phase ==
+
+Kafka -> NotificationService : Consume OrderCreated event
+NotificationService -> DB : SELECT notification template\nFOR "OrderCreated"
+DB -> NotificationService : Template data
+NotificationService -> NotificationService : Render notification message
+NotificationService -> DB : INSERT INTO notifications.notifications
+NotificationService -> NotificationService : Send email/SMS (async)
+
+alt Payment Success
+    Kafka -> OrderService : Consume PaymentCompleted event
+    OrderService -> DB : UPDATE orders.orders\nSET status = "PAID"
+    OrderService -> DB : UPDATE order_saga_state\nSET current_step = "payment_processed"
+    
+    Kafka -> NotificationService : Consume PaymentCompleted event
+    NotificationService -> NotificationService : Send "Payment Successful" notification
+    
+else Payment Failed
+    Kafka -> OrderService : Consume PaymentFailed event
+    OrderService -> DB : UPDATE orders.orders\nSET status = "FAILED"
+    OrderService -> DB : UPDATE order_saga_state\nSET current_step = "failed"
+    
+    Kafka -> NotificationService : Consume PaymentFailed event
+    NotificationService -> NotificationService : Send "Payment Failed" notification
+end
+
+== 📊 Monitoring & Observability ==
+
+note over PaymentService, NotificationService : All services expose metrics on /metrics endpoint
+
+PaymentService -> PaymentService : Record metrics:\n- payment_attempts_total\n- payment_success_rate\n- circuit_breaker_state
+OrderService -> OrderService : Record metrics:\n- orders_created_total\n- saga_completion_rate
+NotificationService -> NotificationService : Record metrics:\n- notifications_sent_total\n- delivery_success_rate
+
+== 🔍 Status Inquiry ==
+
+User -> WebUI : Check order status
+WebUI -> Nginx : GET /api/v1/orders/{orderId}
+Nginx -> OrderService : GET /api/v1/orders/{orderId}
+OrderService -> DB : SELECT order + items + saga_state
+DB -> OrderService : Complete order data
+OrderService -> Nginx : Order details
+Nginx -> WebUI : Order status
+WebUI -> User : Current order status
+
+note over User, DB : **Key Architecture Patterns Demonstrated:**\n\n🔄 **Event-Driven Saga (Choreography)**\n- Decentralized coordination through events\n- Each service knows its role in business process\n\n📦 **Outbox Pattern**\n- Transactional event publishing\n- Guaranteed message delivery\n\n🔁 **Retry Pattern + Circuit Breaker**\n- Automatic retries with exponential backoff\n- Fault tolerance for external dependencies\n\n📧 **Multi-Channel Notifications**\n- Template-based messaging system\n- Reliable delivery tracking\n\n📊 **Comprehensive Monitoring**\n- Business metrics and technical metrics\n- Distributed tracing capabilities
+
+@enduml 
