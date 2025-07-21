@@ -32,6 +32,9 @@ RUN apt-get update && \
 # Копируем requirements.txt из родительской папки
 COPY requirements.txt requirements.txt
 
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
 # Копируем shared из родительской папки
 COPY shared/ shared/
 
