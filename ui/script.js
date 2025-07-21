@@ -811,8 +811,10 @@ async function startLoadTest() {
         button.disabled = true;
         button.classList.add('running');
         buttonText.textContent = 'Запуск нагрузочного теста';
-        addEventLog('LOAD_TEST', `Запуск нагрузочного тестирования 1000 RPS, % ошибок: ${failRate}`);
+        addEventLog('LOAD_TEST', `Нагрузочное тестирование запущено: k6 started with 1000 RPS, ${failRate}% fail, duration 1m`);
         showToast('🚀 Запуск нагрузочного тестирования...', '🚀');
+        
+        // Добавляем failRate в параметры запроса
         const response = await apiRequest('/api/v1/load-test/start', {
             method: 'POST',
             body: JSON.stringify({
@@ -822,9 +824,9 @@ async function startLoadTest() {
                 failRate: failRate
             })
         });
+        
         if (response.success) {
             buttonText.textContent = 'Тестирование выполняется';
-            addEventLog('LOAD_TEST', `Нагрузочное тестирование запущено: ${response.message}`);
             showToast('✅ Нагрузочное тестирование запущено!', '✅');
             monitorLoadTest(response.test_id || 'k6-test');
         } else {
@@ -835,7 +837,13 @@ async function startLoadTest() {
         addEventLog('ERROR', `Ошибка нагрузочного тестирования: ${error.message}`);
         try {
             addEventLog('LOAD_TEST', 'Попытка запуска k6 теста напрямую...');
-            const fallbackResponse = await fetch('/api/v1/k6/start', { method: 'POST' });
+            const fallbackResponse = await fetch('/api/v1/k6/start', { 
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ failRate: failRate }) // Добавляем failRate в fallback запрос
+            });
             if (fallbackResponse.ok) {
                 buttonText.textContent = 'Тестирование выполняется';
                 addEventLog('LOAD_TEST', 'k6 тест запущен успешно');
@@ -894,11 +902,14 @@ async function getLoadTestResults(testId) {
         
         if (response.success && response.results) {
             const results = response.results;
-            addEventLog('LOAD_TEST', `Результаты теста: ${results.total_requests} запросов, ${results.success_rate}% успешных`);
+            const expectedSuccessRate = 100 - testSettings.failRate;
+            const actualSuccessRate = results.success_rate;
+            
+            addEventLog('LOAD_TEST', `Результаты теста: ${results.total_requests} запросов, ${actualSuccessRate}% успешных (ожидалось ${expectedSuccessRate}%)`);
             
             // Show detailed results in toast
             showToast(
-                `📊 Результаты: ${results.total_requests} запросов, ${results.success_rate}% успешных`,
+                `📊 Результаты: ${results.total_requests} запросов, ${actualSuccessRate}% успешных`,
                 '📊',
                 5000
             );

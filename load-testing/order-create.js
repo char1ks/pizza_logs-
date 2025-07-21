@@ -18,9 +18,9 @@ export const options = {
       maxVUs: 500, // Maximum number of virtual users
     },
   },
-  // Thresholds for success/failure
+  // Thresholds for success/failure - removing this as we want to allow higher failure rates
   thresholds: {
-    'http_req_failed': ['rate<0.01'], // less than 1% failed requests
+    'http_req_failed': [], // Remove threshold to allow configured failure rate
     'http_req_duration': ['p(95)<500'], // 95% of requests should be below 500ms
   },
 };
@@ -51,13 +51,14 @@ const pizzas = [
 // =================================================================================
 
 // Получаем процент неуспешных заказов из env или опций
-const failRate = __ENV.FAIL_RATE ? parseInt(__ENV.FAIL_RATE, 10) : (typeof __ITERATION_FAIL_RATE !== 'undefined' ? __ITERATION_FAIL_RATE : 0);
+const failRate = __ENV.FAIL_RATE ? parseFloat(__ENV.FAIL_RATE) : 0;
+console.log(`Running test with ${failRate}% failure rate`);
 
 export default function () {
   group('Create Pizza Order', function () {
     const selectedPizza = pizzas[Math.floor(Math.random() * pizzas.length)];
     // Определяем, будет ли заказ fail
-    const shouldFail = Math.random() < (failRate / 100);
+    const shouldFail = Math.random() * 100 < failRate;
     const payload = JSON.stringify({
       items: [{ pizzaId: selectedPizza.id, quantity: 1 }],
       deliveryAddress: `Test Street, User ${__VU}`,
