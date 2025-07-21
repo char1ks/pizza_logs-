@@ -1090,3 +1090,33 @@ section {
         transform: translateY(0);
     }
 } 
+
+/* Fail Rate Slider Styles */
+.slider-container {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border-secondary);
+    margin-left: 1rem;
+}
+.slider-label {
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+}
+.fail-rate-slider {
+    width: 120px;
+    accent-color: var(--error);
+    height: 4px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, var(--error) 0%, var(--primary-teal) 100%);
+}
+.fail-rate-value {
+    min-width: 32px;
+    color: var(--error);
+    font-weight: 600;
+    font-size: var(--font-size-sm);
+} 

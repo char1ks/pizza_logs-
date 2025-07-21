@@ -19,10 +19,17 @@
                     <span class="subtitle">Event-Driven Architecture Demo</span>
                 </div>
                 <div class="header-actions">
-                    <button class="load-test-button" id="loadTestButton" onclick="startLoadTest()">
-                        <span class="button-icon">⚡</span>
-                        <span class="button-text">Нагрузочный тест 1000 RPS</span>
-                    </button>
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <button class="load-test-button" id="loadTestButton" onclick="startLoadTest()">
+                            <span class="button-icon">⚡</span>
+                            <span class="button-text">Нагрузочный тест 1000 RPS</span>
+                        </button>
+                        <div class="slider-container">
+                            <label for="failRateSlider" class="slider-label">% ошибок:</label>
+                            <input type="range" min="0" max="100" value="0" id="failRateSlider" class="fail-rate-slider" oninput="updateFailRateLabel()">
+                            <span id="failRateValue" class="fail-rate-value">0%</span>
+                        </div>
+                    </div>
                 <div class="system-status">
                     <div class="status-indicator" id="systemStatus">
                         <span class="status-dot"></span>

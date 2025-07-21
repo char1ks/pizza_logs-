@@ -773,52 +773,51 @@ if (window.location.hostname === 'localhost') {
 // ========================================
 
 /**
+ * Update fail rate label
+ */
+function updateFailRateLabel() {
+    const slider = document.getElementById('failRateSlider');
+    const value = document.getElementById('failRateValue');
+    value.textContent = slider.value + '%';
+}
+
+/**
  * Start load testing with 1000 RPS for 1 minute
  */
 async function startLoadTest() {
     const button = document.getElementById('loadTestButton');
     const buttonText = button.querySelector('.button-text');
     const originalText = buttonText.textContent;
-    
+    const failRate = parseInt(document.getElementById('failRateSlider').value, 10) || 0;
     try {
-        // Disable button and show running state
         button.disabled = true;
         button.classList.add('running');
         buttonText.textContent = 'Запуск нагрузочного теста';
-        
-        addEventLog('LOAD_TEST', 'Запуск нагрузочного тестирования 1000 RPS на 1 минуту...');
+        addEventLog('LOAD_TEST', `Запуск нагрузочного тестирования 1000 RPS, % ошибок: ${failRate}`);
         showToast('🚀 Запуск нагрузочного тестирования...', '🚀');
-        
-        // Start k6 load test via Docker
         const response = await apiRequest('/api/v1/load-test/start', {
             method: 'POST',
             body: JSON.stringify({
                 rps: 1000,
                 duration: '1m',
-                test_type: 'order_creation'
+                test_type: 'order_creation',
+                failRate: failRate
             })
         });
-        
         if (response.success) {
             buttonText.textContent = 'Тестирование выполняется';
             addEventLog('LOAD_TEST', `Нагрузочное тестирование запущено: ${response.message}`);
             showToast('✅ Нагрузочное тестирование запущено!', '✅');
-            
-            // Monitor test progress
             monitorLoadTest(response.test_id || 'k6-test');
         } else {
             throw new Error(response.error || 'Не удалось запустить тест');
         }
-        
     } catch (error) {
         console.error('Load test failed:', error);
         addEventLog('ERROR', `Ошибка нагрузочного тестирования: ${error.message}`);
-        
-        // Fallback: start k6 test directly
         try {
             addEventLog('LOAD_TEST', 'Попытка запуска k6 теста напрямую...');
             const fallbackResponse = await fetch('/api/v1/k6/start', { method: 'POST' });
-            
             if (fallbackResponse.ok) {
                 buttonText.textContent = 'Тестирование выполняется';
                 addEventLog('LOAD_TEST', 'k6 тест запущен успешно');
@@ -829,8 +828,6 @@ async function startLoadTest() {
             }
         } catch (fallbackError) {
             showToast('❌ Ошибка запуска тестирования', '❌');
-            
-            // Reset button state
             button.disabled = false;
             button.classList.remove('running');
             buttonText.textContent = originalText;

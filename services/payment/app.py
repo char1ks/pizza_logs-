@@ -472,26 +472,28 @@ class PaymentService(BaseService):
             raise
     
     def call_payment_provider(self, payment: Dict) -> bool:
-        """Call the external payment provider (mock)."""
         payment_id = payment.get('id', 'unknown')
         order_id = payment.get('order_id')
-        # Получаем адрес доставки
+        # Получаем forceFail из заказа
         order = self.db.execute_query(
-            "SELECT delivery_address FROM orders.orders WHERE id = %s",
+            "SELECT delivery_address, event_data FROM orders.orders o JOIN orders.outbox_events e ON o.id = e.aggregate_id WHERE o.id = %s ORDER BY e.created_at DESC LIMIT 1",
             (order_id,),
             fetch='one'
         )
-        if order:
-            delivery_address = str(order.get('delivery_address', '')).strip()
-            self.logger.info("📍 Found delivery address", payment_id=payment_id, order_id=order_id, delivery_address=delivery_address)
-            if delivery_address == '123':
-                self.logger.warning("🧪 CRASH TEST - Address is exactly '123', forcing payment failure", payment_id=payment_id)
-                return False
-            else:
-                self.logger.info("✅ Address is not exactly '123', payment will be successful", payment_id=payment_id)
-                return True
-        # Если не удалось получить адрес, считаем платёж успешным
-        self.logger.info("✅ No delivery address found, payment will be successful by default", payment_id=payment_id)
+        force_fail = False
+        if order and order.get('event_data'):
+            try:
+                import json
+                event_data = order['event_data']
+                if isinstance(event_data, str):
+                    event_data = json.loads(event_data)
+                force_fail = event_data.get('forceFail', False)
+            except Exception:
+                force_fail = False
+        if force_fail:
+            self.logger.warning("🧪 FORCE FAIL - Заказ помечен как неуспешный", payment_id=payment_id, order_id=order_id)
+            return False
+        self.logger.info("✅ Заказ не помечен как неуспешный, платёж будет успешным", payment_id=payment_id, order_id=order_id)
         return True
     
     def record_payment_attempt(self, payment_id: str) -> int:

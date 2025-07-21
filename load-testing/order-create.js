@@ -50,34 +50,31 @@ const pizzas = [
 // Test Logic
 // =================================================================================
 
+// Получаем процент неуспешных заказов из env или опций
+const failRate = __ENV.FAIL_RATE ? parseInt(__ENV.FAIL_RATE, 10) : (typeof __ITERATION_FAIL_RATE !== 'undefined' ? __ITERATION_FAIL_RATE : 0);
+
 export default function () {
   group('Create Pizza Order', function () {
-    // Select a random pizza
     const selectedPizza = pizzas[Math.floor(Math.random() * pizzas.length)];
-
-    // Construct order payload
+    // Определяем, будет ли заказ fail
+    const shouldFail = Math.random() < (failRate / 100);
     const payload = JSON.stringify({
       items: [{ pizzaId: selectedPizza.id, quantity: 1 }],
-      deliveryAddress: `123 Test Street, User ${__VU}`, // Unique address per virtual user
+      deliveryAddress: `Test Street, User ${__VU}`,
       paymentMethod: 'credit_card',
       userId: `user-${__VU}`,
+      forceFail: shouldFail
     });
-
     const params = {
       headers: {
         'Content-Type': 'application/json',
       },
     };
-
-    // Send POST request to create an order
     const res = http.post(`${API_BASE_URL}/orders`, payload, params);
-
-    // Check response and record metrics
     const success = check(res, {
       'is status 202': (r) => r.status === 202,
       'response body contains orderId': (r) => r.json('orderId') !== '',
     });
-
     if (success) {
       orderSuccessCount.add(1);
       orderSuccessRate.add(1);
@@ -85,10 +82,7 @@ export default function () {
       orderFailureCount.add(1);
       orderSuccessRate.add(0);
     }
-    
     orderCreationTime.add(res.timings.duration);
   });
-
-  // Small sleep to avoid overwhelming the system between iterations within a VU
   sleep(1);
 } 
