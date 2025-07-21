@@ -11,6 +11,7 @@ import time
 from typing import Dict, List, Any
 from flask import request, jsonify
 from flask_cors import CORS
+import subprocess
 
 # Add shared module to path
 sys.path.insert(0, '/app/shared')
@@ -420,102 +421,23 @@ class FrontendService(BaseService):
         def start_load_test():
             """Start load testing simulation"""
             try:
-                import threading
-                import requests
-                import random
-                
                 data = request.get_json() or {}
                 rps = data.get('rps', 1000)
                 duration = data.get('duration', '1m')
-                test_type = data.get('test_type', 'order_creation')
-                
-                # Parse duration (1m = 60s)
-                duration_seconds = 60
-                if duration.endswith('s'):
-                    duration_seconds = int(duration[:-1])
-                elif duration.endswith('m'):
-                    duration_seconds = int(duration[:-1]) * 60
-                
-                self.logger.info("Starting load test simulation", rps=rps, duration=duration, test_type=test_type)
-                
-                test_id = f"load-test-{int(time.time())}"
-                
-                # Start load test simulation in background thread
-                def run_load_test():
-                    try:
-                        import time
-                        start_time = time.time()
-                        total_requests = 0
-                        successful_requests = 0
-                        failed_requests = 0
-                        
-                        # Calculate delay between requests
-                        delay = 1.0 / rps if rps > 0 else 0.001
-                        
-                        pizzas = ['margherita', 'pepperoni', 'quattro-formaggi']
-                        
-                        while time.time() - start_time < duration_seconds:
-                            try:
-                                # Create test order
-                                order_data = {
-                                    'customer_name': f'LoadTest User {random.randint(1, 1000)}',
-                                    'customer_phone': f'+1{random.randint(1000000000, 9999999999)}',
-                                    'delivery_address': f'{random.randint(1, 999)} Test St, Load Test City',
-                                    'payment_method': random.choice(['card', 'cash']),
-                                    'items': [{
-                                        'pizza_type': random.choice(pizzas),
-                                        'quantity': random.randint(1, 3),
-                                        'price': random.uniform(10.0, 25.0)
-                                    }]
-                                }
-                                
-                                # Make request to order service
-                                response = requests.post(
-                                    'http://order-service:5001/api/v1/orders',
-                                    json=order_data,
-                                    timeout=5
-                                )
-                                
-                                total_requests += 1
-                                if response.status_code == 201:
-                                    successful_requests += 1
-                                else:
-                                    failed_requests += 1
-                                    
-                            except Exception as req_error:
-                                total_requests += 1
-                                failed_requests += 1
-                                self.logger.debug("Load test request failed", error=str(req_error))
-                            
-                            time.sleep(delay)
-                        
-                        # Log final results
-                        success_rate = (successful_requests / total_requests * 100) if total_requests > 0 else 0
-                        self.logger.info("Load test completed", 
-                                       test_id=test_id,
-                                       total_requests=total_requests,
-                                       successful_requests=successful_requests,
-                                       failed_requests=failed_requests,
-                                       success_rate=success_rate)
-                        
-                    except Exception as e:
-                        self.logger.error("Load test simulation failed", test_id=test_id, error=str(e))
-                
-                # Start in background thread
-                thread = threading.Thread(target=run_load_test, daemon=True)
-                thread.start()
-                
-                self.logger.info("Load test simulation started", test_id=test_id)
-                self.metrics.record_business_event('load_test_started', 'success')
-                
+                fail_rate = data.get('failRate', 0)
+                # Формируем команду запуска k6
+                cmd = [
+                    'k6', 'run',
+                    '--env', f'FAIL_RATE={fail_rate}',
+                    '--vus', str(rps),
+                    '--duration', duration,
+                    'load-testing/order-create.js'
+                ]
+                # Запускаем k6 в фоне
+                subprocess.Popen(cmd)
                 return jsonify({
                     'success': True,
-                    'test_id': test_id,
-                    'message': f'Load test simulation started with {rps} RPS for {duration}',
-                    'rps': rps,
-                    'duration': duration,
-                    'type': 'simulation',
-                    'timestamp': self.get_timestamp()
+                    'message': f'k6 started with {rps} RPS, {fail_rate}% fail, duration {duration}'
                 })
                 
             except Exception as e:
