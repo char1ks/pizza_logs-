@@ -21,6 +21,14 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
+# Установка k6 для нагрузочного тестирования
+RUN apt-get update && \
+    apt-get install -y gnupg ca-certificates curl && \
+    curl -s https://dl.k6.io/key.gpg | apt-key add - && \
+    echo "deb https://dl.k6.io/deb stable main" | tee /etc/apt/sources.list.d/k6.list && \
+    apt-get update && \
+    apt-get install -y k6
+
 # Copy requirements and install Python dependencies
 COPY requirements.txt requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
