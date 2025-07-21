@@ -475,99 +475,24 @@ class PaymentService(BaseService):
         """Call the external payment provider (mock)."""
         payment_id = payment.get('id', 'unknown')
         order_id = payment.get('order_id')
-        
-        # Check if delivery address is "123" - force failure for testing (but don't affect circuit breaker)
-        is_crash_test = False
-        try:
-            # Get order details to check delivery address
-            self.logger.info("🔍 Checking delivery address for order", payment_id=payment_id, order_id=order_id)
-            
-            order = self.db.execute_query(
-                "SELECT delivery_address FROM orders.orders WHERE id = %s",
-                (order_id,),
-                fetch='one'
-            )
-            
-            if order:
-                delivery_address = order.get('delivery_address', '')
-                # Strip whitespace and convert to string for comparison
-                delivery_address_clean = str(delivery_address).strip()
-                
-                self.logger.info("📍 Found delivery address", 
-                               payment_id=payment_id, 
-                               order_id=order_id, 
-                               delivery_address=delivery_address,
-                               delivery_address_clean=delivery_address_clean,
-                               address_length=len(delivery_address_clean))
-                
-                # Check for EXACT match with "123" only
-                if delivery_address_clean == '123':
-                    self.logger.warning("🧪 CRASH TEST - Address is exactly '123', forcing payment failure", 
-                                      payment_id=payment_id, order_id=order_id)
-                    is_crash_test = True
-                else:
-                    self.logger.info("✅ Address is not exactly '123', proceeding with payment", 
-                                   payment_id=payment_id, 
-                                   delivery_address_clean=delivery_address_clean)
-            else:
-                self.logger.warning("⚠️ Order not found in database", payment_id=payment_id, order_id=order_id)
-                
-        except Exception as e:
-            self.logger.error("Failed to check delivery address", payment_id=payment_id, order_id=order_id, error=str(e))
-        
-        # If it's a crash test, return failure immediately without affecting circuit breaker
-        if is_crash_test:
-            return False
-        
-        # Circuit breaker check (only for real payments, not crash tests)
-        if not self.circuit_breaker.can_execute():
-            self.logger.warning("⚡ Circuit breaker is open. Skipping payment provider call.", payment_id=payment_id)
-            return False
-
-        try:
-            # The URL for the mock service endpoint
-            mock_url = f"{os.getenv('PAYMENT_MOCK_URL', 'http://payment-mock:5003')}/api/v1/payments/process"
-            self.logger.info(f"🌐 Making HTTP request to payment mock", payment_id=payment_id, url=mock_url)
-            
-            payload = {
-                'order_id': payment['order_id'],
-                'amount': payment['amount'],
-                'card_details': '...sensitive data...'
-            }
-            self.logger.info(f"📦 Request payload prepared", payment_id=payment_id, payload=payload)
-            
-            response = requests.post(
-                mock_url,
-                json=payload,
-                timeout=self.payment_timeout
-            )
-            
-            self.logger.info(f"📨 HTTP response received", 
-                           payment_id=payment_id, 
-                           status_code=response.status_code, 
-                           response_text=response.text[:200])
-            
-            if response.status_code == 200:
-                self.logger.info("✅ Payment provider responded with success", payment_id=payment_id)
-                self.circuit_breaker.record_success()
-                return True
-            else:
-                self.logger.warning(
-                    "❌ Payment provider returned error",
-                    payment_id=payment_id,
-                    status_code=response.status_code,
-                    response=response.text
-                )
-                self.circuit_breaker.record_failure()
+        # Получаем адрес доставки
+        order = self.db.execute_query(
+            "SELECT delivery_address FROM orders.orders WHERE id = %s",
+            (order_id,),
+            fetch='one'
+        )
+        if order:
+            delivery_address = str(order.get('delivery_address', '')).strip()
+            self.logger.info("📍 Found delivery address", payment_id=payment_id, order_id=order_id, delivery_address=delivery_address)
+            if delivery_address == '123':
+                self.logger.warning("🧪 CRASH TEST - Address is exactly '123', forcing payment failure", payment_id=payment_id)
                 return False
-        except requests.exceptions.RequestException as e:
-            self.logger.error("🚨 Payment provider request failed", payment_id=payment_id, error=str(e), exc_info=True)
-            self.circuit_breaker.record_failure()
-            return False
-        except Exception as e:
-            self.logger.error("🚨 Unexpected error in payment provider call", payment_id=payment_id, error=str(e), exc_info=True)
-            self.circuit_breaker.record_failure()
-            return False
+            else:
+                self.logger.info("✅ Address is not exactly '123', payment will be successful", payment_id=payment_id)
+                return True
+        # Если не удалось получить адрес, считаем платёж успешным
+        self.logger.info("✅ No delivery address found, payment will be successful by default", payment_id=payment_id)
+        return True
     
     def record_payment_attempt(self, payment_id: str) -> int:
         """Record a new payment attempt and return its ID."""
