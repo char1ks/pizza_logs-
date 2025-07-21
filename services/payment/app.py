@@ -738,22 +738,18 @@ class PaymentService(BaseService):
     
     def handle_order_event(self, topic: str, event_data: Dict, key: str):
         """Handle events from order service"""
-        
         try:
             self.logger.info(
                 "Событие из Kafka принято к обработке",
                 raw_event=json.dumps(event_data)
             )
-            event_type = event_data.get('eventType')
+            event_type = event_data.get('event_type')
             order_id = event_data.get('orderId')
-            
             self.logger.info("Received order event", event_type=event_type, order_id=order_id)
-            
-            if event_type == 'ORDER_CREATED':
+            if event_type == 'OrderCreated':
                 self.handle_order_created(event_data, order_id)
             else:
                 self.logger.warning("Unknown event type", event_type=event_type)
-        
         except Exception as e:
             self.logger.error("Failed to handle order event", error=str(e))
     
