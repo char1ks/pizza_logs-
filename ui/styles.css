@@ -1156,7 +1156,7 @@ section {
     border-radius: var(--radius-xl);
     padding: 2rem 2.5rem;
     box-shadow: var(--shadow-lg);
-    min-width: 320px;
+    min-width: 480px;  /* Увеличиваем минимальную ширину */
     max-width: 95vw;
     color: var(--text-primary);
     border: 1px solid var(--primary-teal);
@@ -1172,12 +1172,13 @@ section {
     margin-bottom: 1.5rem;
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 1.5rem;  /* Увеличиваем отступ между элементами */
 }
 .modal-section label {
-    min-width: 180px;
+    min-width: 220px;  /* Увеличиваем ширину для текста */
     color: var(--text-secondary);
     font-weight: 500;
+    font-size: var(--font-size-base);  /* Нормальный размер шрифта */
 }
 .modal-section select, .modal-section input[type=range] {
     flex: 1;
