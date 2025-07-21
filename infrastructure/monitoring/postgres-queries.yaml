@@ -150,15 +150,10 @@ pg_database_performance:
 # Slow Queries Detection
 pg_slow_queries:
   query: |
-    SELECT
-      query,
-      calls,
-      total_time,
-      mean_time,
-      rows
+    SELECT query, calls, total_exec_time AS total_time, mean_exec_time AS mean_time, rows
     FROM pg_stat_statements
-    WHERE mean_time > 100
-    ORDER BY mean_time DESC
+    WHERE mean_exec_time > 100
+    ORDER BY mean_exec_time DESC
     LIMIT 10
   metrics:
     - query:
