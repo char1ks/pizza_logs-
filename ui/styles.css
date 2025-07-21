@@ -1218,7 +1218,7 @@ section {
 .switch {
   position: relative;
   display: inline-block;
-  width: 48px;
+  width: 60px;  /* Увеличиваем ширину переключателя */
   height: 28px;
 }
 .switch input {
@@ -1232,7 +1232,7 @@ section {
   top: 0; left: 0; right: 0; bottom: 0;
   background: var(--error);
   border-radius: 28px;
-  transition: background 0.3s;
+  transition: all 0.3s ease;  /* Плавная анимация для всех свойств */
 }
 .slider-switch:before {
   position: absolute;
@@ -1243,20 +1243,24 @@ section {
   bottom: 3px;
   background: white;
   border-radius: 50%;
-  transition: transform 0.3s;
+  transition: transform 0.3s ease;  /* Плавная анимация */
 }
 .switch input:checked + .slider-switch {
   background: var(--success);
 }
 .switch input:checked + .slider-switch:before {
-  transform: translateX(20px);
+  transform: translateX(32px);  /* Увеличиваем смещение */
 }
 .switch-label {
   min-width: 32px;
   font-weight: 600;
-  color: var(--success);
   margin-left: 0.5rem;
   font-size: var(--font-size-base);
+  transition: color 0.3s ease;  /* Плавная анимация цвета */
+}
+/* Стили для состояний переключателя */
+.switch input:checked ~ .switch-label {
+  color: var(--success);
 }
 .switch input:not(:checked) ~ .switch-label {
   color: var(--error);
