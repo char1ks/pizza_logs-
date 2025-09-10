@@ -214,10 +214,10 @@ class OutboxProcessor:
     def get_topic_for_event_type(self, event_type: str) -> str:
         """Determine Kafka topic based on event type"""
         topic_mapping = {
-            'OrderCreated': 'order-events',
-            'OrderStatusChanged': 'order-events',
-            'OrderCompleted': 'order-events',
-            'OrderCancelled': 'order-events'
+            'OrderCreated': 'order.events',
+            'OrderStatusChanged': 'order.events',
+            'OrderCompleted': 'order.events',
+            'OrderCancelled': 'order.events'
         }
         
         return topic_mapping.get(event_type, 'order-events')
