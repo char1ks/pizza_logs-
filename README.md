@@ -1,342 +1,320 @@
-# 🍕 Pizza Order System - Event-Driven Saga Architecture
+# Pizza Order System - Event-Driven Architecture Demo
 
-## 🎯 Цель проекта
+## Обзор проекта
 
-Демонстрация отказоустойчивой, масштабируемой системы для создания, оплаты и подтверждения заказов на основе событийной архитектуры и паттерна **Saga (Choreography-based)**.
+Данный проект представляет собой демонстрационный стенд системы заказа пиццы, построенной на принципах **Event-Driven Architecture** с использованием паттерна **Outbox** для обеспечения консистентности данных.
 
-## 🏗️ Архитектура системы
+## Архитектурные принципы
+
+### Event-Driven Architecture (EDA)
+- **Асинхронное взаимодействие** между сервисами через события
+- **Слабая связанность** компонентов системы
+- **Eventual Consistency** для обеспечения целостности данных
+- **Горизонтальная масштабируемость** каждого сервиса
+
+### Outbox Pattern
+- **Транзакционная безопасность** при публикации событий
+- **Гарантированная доставка** событий в брокер сообщений
+- **Идемпотентность** обработки событий
+
+## Структура системы
+
+### Микросервисы
+
+1. **Frontend Service** (`/services/frontend/`)
+   - Управление каталогом пицц
+   - REST API для клиентских приложений
+   - Технологии: Python, Flask, PostgreSQL
+
+2. **Order Service** (`/services/orders/`)
+   - Управление жизненным циклом заказов
+   - Реализация Outbox Pattern
+   - Технологии: Python, Flask, PostgreSQL, Kafka
+
+3. **Payment Service** (`/services/payments/`)
+   - Обработка платежей через внешние провайдеры
+   - Управление статусами платежей
+   - Технологии: Python, Flask, PostgreSQL, Kafka
+
+4. **Notification Service** (`/services/notification/`)
+   - Отправка уведомлений (Email, SMS, Push)
+   - Управление шаблонами уведомлений
+   - Технологии: Python, Flask, PostgreSQL, Kafka
+
+### Инфраструктура
+
+- **Apache Kafka**: Брокер сообщений для event streaming
+- **PostgreSQL**: Основная база данных для всех сервисов
+- **Docker**: Контейнеризация сервисов
+
+## Документация
+
+### 📊 Диаграммы и схемы
+
+1. **[Модели данных](docs/data_models.md)**
+   - Схемы баз данных всех сервисов
+   - Описание таблиц, индексов и триггеров
+   - Структуры событий и перечислений
+
+2. **[ER-диаграмма](docs/er_diagram.svg)**
+   - Визуализация взаимосвязей между сущностями
+   - Схемы баз данных: frontend, orders, payments, notifications
+   - Связи между таблицами (1:1, 1:N)
+
+3. **[C4 Architecture Diagram](docs/c4_architecture.svg)**
+   - Многоуровневая архитектурная диаграмма
+   - Level 1: System Context
+   - Level 2: Container Diagram
+   - Level 3: Component Diagram
+   - Event Flow Visualization
+
+4. **[Message Flow Documentation](docs/message_flow.md)**
+   - Детальное описание потока сообщений
+   - Диаграмма последовательности
+   - Обработка ошибок и retry логика
+   - Мониторинг и метрики
+
+### 🔄 Процесс заказа (End-to-End)
 
 ```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   👤 User       │───▶│  🚪 Nginx        │───▶│ 🍕 Frontend     │
-│                 │    │  API Gateway     │    │  Service        │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
-                                │                        │
-                                │                        │
-                                ▼                        ▼
-                       ┌─────────────────┐    ┌─────────────────┐
-                       │ 📦 Order        │    │ 🗄️ Frontend DB  │
-                       │  Service        │    │  (Pizzas)       │
-                       └─────────────────┘    └─────────────────┘
-                                │                        
-                                │                        
-                                ▼                        
-                       ┌─────────────────┐              
-                       │ 🔄 Kafka        │              
-                       │  Events         │              
-                       └─────────────────┘              
-                                │                        
-                    ┌───────────┼───────────┐           
-                    ▼           ▼           ▼           
-           ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
-           │ 💳 Payment  │ │ 📧 Notification │ │ ☠️ DLQ      │
-           │  Service    │ │  Service    │ │  Handler    │
-           └─────────────┘ └─────────────┘ └─────────────┘
-                    │              │              
-                    ▼              ▼              
-           ┌─────────────┐ ┌─────────────┐        
-           │ 🏦 Payment  │ │ 📊 Prometheus│        
-           │  Mock       │ │  + Grafana  │        
-           └─────────────┘ └─────────────┘        
+1. Customer создает заказ → Frontend Service
+2. Frontend Service → Order Service (создание заказа)
+3. Order Service → Kafka (событие OrderCreated)
+4. Payment Service ← Kafka (обработка платежа)
+5. Payment Service → External Payment Provider
+6. Payment Service → Kafka (событие PaymentCompleted)
+7. Order Service ← Kafka (обновление статуса заказа)
+8. Notification Service ← Kafka (отправка уведомлений)
+9. Customer получает уведомления (Email/SMS)
 ```
 
-## 🔄 Saga Flow
+## Ключевые особенности реализации
 
-1. **Создание заказа** → Order Service → `OrderCreated` event
-2. **Обработка оплаты** → Payment Service → `OrderPaid` / `PaymentFailed` 
-3. **Уведомления** → Notification Service → User notification
+### Outbox Pattern Implementation
 
-## 🚀 Быстрый старт
+```sql
+-- Атомарная транзакция в Order Service
+BEGIN;
+  INSERT INTO orders (...) VALUES (...);
+  INSERT INTO order_items (...) VALUES (...);
+  INSERT INTO outbox_events (event_type, event_data, ...) VALUES ('OrderCreated', '...', ...);
+COMMIT;
+```
 
-### 🌐 Запуск в GitHub Codespaces (Рекомендуется)
+### Event Publishing
 
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/your-username/pizza-order-system)
+```python
+# Фоновый процесс публикации событий
+while True:
+    unpublished_events = get_unpublished_events()
+    for event in unpublished_events:
+        kafka_producer.send(topic, event)
+        mark_as_published(event.id)
+    time.sleep(5)
+```
 
-1. **Нажмите кнопку "Open in GitHub Codespaces"** выше
-2. **Дождитесь инициализации** (займет 2-3 минуты)
-3. **Запустите систему:**
-   ```bash
-   docker compose up --build
-   ```
-4. **Откройте главную страницу** через forwarded port 80
-5. **Мониторинг будет доступен** через соответствующие порты (автоматически настроится)
+### Error Handling
 
-**Преимущества Codespaces:**
-- ✅ Не требует локальной установки Docker
-- ✅ Автоматическая настройка портов
-- ✅ Быстрый старт за 1 клик
-- ✅ Доступ к мониторингу из любого места
+- **Retry Logic**: Экспоненциальная задержка при ошибках
+- **Dead Letter Queue**: Для сообщений, которые не удалось обработать
+- **Circuit Breaker**: Защита от каскадных отказов
+- **Health Checks**: Мониторинг состояния сервисов
 
-### 💻 Локальная разработка
+## Запуск системы
 
-**Предварительные требования:**
-- Docker & Docker Compose
-- 8GB RAM (рекомендуется)
+### Предварительные требования
 
-**Запуск системы:**
+- Docker и Docker Compose
+- Python 3.9+
+- PostgreSQL 15+
+- Apache Kafka 2.8+
+
+### Локальный запуск
 
 ```bash
-# Клонируем репозиторий
-git clone <repo-url>
-cd pizza-order-system
+# Клонирование репозитория
+git clone <repository-url>
+cd pizza_logs
 
-# Запуск всей системы
-docker-compose up --build
+# Запуск инфраструктуры
+docker-compose up -d kafka postgres
 
-# Проверка статуса
-docker-compose ps
+# Запуск сервисов
+cd services/orders && python app.py &
+cd services/payments && python app.py &
+cd services/notification && python app.py &
+cd services/frontend && python app.py &
 ```
 
-### Доступные сервисы
+### API Endpoints
 
-| Сервис | Локальный URL | Codespaces | Описание |
-|--------|---------------|------------|----------|
-| **Frontend UI** | http://localhost | Порт 80 | Веб-интерфейс заказов |
-| **API Gateway** | http://localhost/api | Порт 80/api | Nginx роутинг |
-| **Grafana** | http://localhost:3000 | Порт 3000 | Мониторинг (admin/admin) |
-| **Kafka UI** | http://localhost:8080 | Порт 8080 | Просмотр событий |
-| **Prometheus** | http://localhost:9090 | Порт 9090 | Метрики |
-
-> 💡 **В Codespaces** все ссылки на мониторинг автоматически обновляются на правильные forwarded URLs!
-
-## 📖 Использование системы
-
-### 🍕 Создание заказа
-
-1. Откройте http://localhost
-2. Просмотрите меню пицц
-3. Выберите пиццу и количество
-4. Нажмите "Заказать"
-5. Укажите адрес доставки
-6. Отследите статус заказа
-
-### 📊 Мониторинг системы
-
-#### 🎯 Доступные интерфейсы мониторинга:
-
-| Сервис | URL | Логин | Описание |
-|--------|-----|-------|----------|
-| **Kafka UI** | http://localhost:8080 | - | События в реальном времени |
-| **Grafana** | http://localhost:3000 | admin/admin | Дашборды метрик |
-| **Prometheus** | http://localhost:9090 | - | Сырые метрики |
-| **pgAdmin** | http://localhost:8081 | admin@pizza.app/admin | Управление БД |
-| **cAdvisor** | http://localhost:8083 | - | Мониторинг контейнеров |
-| **Node Exporter** | http://localhost:9100 | - | Системные метрики |
-| **PostgreSQL Exporter** | http://localhost:9187 | - | Метрики базы данных |
-| **Kafka Exporter** | http://localhost:9308 | - | Метрики Kafka |
-
-#### 📈 Дашборды Grafana:
-- **Бизнес-метрики**: Заказы, платежи, уведомления
-- **Системные метрики**: CPU, память, диск, сеть
-- **Метрики контейнеров**: Docker ресурсы
-- **Метрики инфраструктуры**: Kafka, PostgreSQL
-
-#### 🎯 Методологии мониторинга:
-| Методология | URL | Описание |
-|-------------|-----|----------|
-| **USE Metrics** | http://localhost:3000/d/use-metrics | Utilization, Saturation, Errors |
-| **RED Metrics** | http://localhost:3000/d/red-metrics | Rate, Errors, Duration |
-| **LTES Metrics** | http://localhost:3000/d/ltes-metrics | Latency, Traffic, Errors, Saturation |
-
-##### 📊 USE (для инфраструктуры):
-- **Utilization**: Использование CPU, памяти, дисков
-- **Saturation**: Загрузка системы, очереди
-- **Errors**: Ошибки ОС, IO Wait, OOM kills
-
-##### 🔴 RED (для сервисов):
-- **Rate**: Количество запросов в секунду
-- **Errors**: Процент ошибок (4xx, 5xx)
-- **Duration**: Время отклика (P50, P95, P99)
-
-##### 🌐 LTES (для распределенных систем):
-- **Latency**: Время обработки заказов, платежей
-- **Traffic**: Поток данных Kafka, DB transactions
-- **Errors**: Сбои сервисов, откаты транзакций
-- **Saturation**: Утилизация пулов соединений
-
-#### 🔄 Kafka события:
-- `order-events` - создание заказов
-- `payment-events` - результаты оплаты
-- `notification-events` - уведомления
-- `dlq-events` - неудачные события
-
-#### 🗄️ Доступ к базе данных:
-- **Хост**: localhost:5433
-- **Пользователь**: pizza_user
-- **Пароль**: pizza_password
-- **База данных**: pizza_system
-
-### 🧪 Тестирование отказоустойчивости
-
-```bash
-# Остановить Payment Service (симуляция сбоя)
-docker-compose stop payment-service
-
-# Создать заказ - увидите retry и DLQ
-curl -X POST http://localhost/api/v1/orders \
-  -H "Content-Type: application/json" \
-  -d '{
-    "items": [{"pizzaId": "margherita", "quantity": 1}],
-    "deliveryAddress": "Test Street 123",
-    "paymentMethod": "card"
-  }'
-
-# Восстановить сервис
-docker-compose start payment-service
+#### Frontend Service (Port 5001)
+```
+GET  /api/v1/menu           # Получить каталог пицц
+POST /api/v1/menu           # Добавить пиццу
+GET  /api/v1/menu/{id}      # Получить пиццу по ID
 ```
 
-## 🛠️ Технологический стек
-
-| Компонент | Технология | Назначение |
-|-----------|------------|------------|
-| **Backend** | Python Flask | REST API микросервисы |
-| **Frontend** | HTML/CSS/JS | Веб-интерфейс |
-| **Message Broker** | Apache Kafka | Событийная архитектура |
-| **Database** | PostgreSQL | Хранение данных |
-| **Gateway** | Nginx | API роутинг и балансировка |
-| **Monitoring** | Prometheus + Grafana | Метрики и алерты |
-| **Orchestration** | Docker Compose | Инфраструктура |
-
-## 📋 Основные паттерны
-
-### 🔄 Saga Choreography
-- Децентрализованная координация через события
-- Каждый сервис знает свою роль в бизнес-процессе
-- Отсутствие единой точки отказа
-
-### 📦 Outbox Pattern  
-- Транзакционная публикация событий
-- Гарантия доставки сообщений
-- Согласованность данных и событий
-
-### 🔁 Retry Pattern
-- Автоматические повторы при сбоях
-- Экспоненциальная задержка
-- Идемпотентность операций
-
-### ☠️ Dead Letter Queue
-- Обработка неудачных событий
-- Предотвращение потери данных
-- Мониторинг проблем системы
-
-## 🗂️ Структура проекта
-
+#### Order Service (Port 5002)
 ```
-pizza-order-system/
-├── services/
-│   ├── frontend/              # 🍕 Frontend Service
-│   ├── order/                 # 📦 Order Service  
-│   ├── payment/               # 💳 Payment Service
-│   ├── notification/          # 📧 Notification Service
-│   └── payment-mock/          # 🏦 Payment Provider Mock
-├── infrastructure/
-│   ├── nginx/                 # 🚪 API Gateway
-│   ├── kafka/                 # 🔄 Message Broker
-│   ├── monitoring/            # 📊 Prometheus + Grafana
-│   └── databases/             # 🗄️ PostgreSQL схемы
-├── ui/                        # 💻 Web Interface
-├── docker-compose.yml         # 🐳 Инфраструктура
-└── README.md                  # 📖 Документация
+POST /api/v1/orders         # Создать заказ
+GET  /api/v1/orders/{id}    # Получить заказ по ID
+GET  /api/v1/orders         # Получить список заказов
 ```
 
-## 🔧 Разработка
-
-### Локальная разработка
-
-```bash
-# Запуск только инфраструктуры
-docker-compose up -d postgres kafka zookeeper
-
-# Установка зависимостей для разработки
-pip install -r requirements-dev.txt
-
-# Запуск отдельного сервиса
-cd services/order
-python app.py
+#### Payment Service (Port 5003)
 ```
+POST /api/v1/payments       # Обработать платеж
+GET  /api/v1/payments/{id}  # Получить статус платежа
+```
+
+#### Notification Service (Port 5004)
+```
+POST /api/v1/notifications  # Отправить уведомление
+GET  /api/v1/notifications  # Получить историю уведомлений
+```
+
+## Мониторинг и наблюдаемость
+
+### Метрики
+
+- **Business Metrics**:
+  - Время обработки заказа (end-to-end)
+  - Процент успешных платежей
+  - Количество отправленных уведомлений
+
+- **Technical Metrics**:
+  - Kafka Consumer Lag
+  - Outbox Events Processing Time
+  - Database Connection Pool Usage
+  - HTTP Response Times
 
 ### Логирование
 
-Все сервисы используют структурированное логирование:
-
 ```python
-import logging
-logger = logging.getLogger(__name__)
-
-logger.info("Order created", extra={
-    "order_id": order_id,
-    "user_id": user_id, 
-    "total": total,
-    "event_type": "order_created"
-})
+# Структурированное логирование
+logger.info(
+    "Order created",
+    extra={
+        'order_id': order.id,
+        'customer_email': order.customer_email,
+        'total_amount': order.total_amount,
+        'timestamp': datetime.utcnow().isoformat()
+    }
+)
 ```
 
-## 🎓 Образовательные сценарии
+## Тестирование
 
-### Happy Path
-1. Создание заказа → успешная оплата → уведомление
-2. Наблюдение событий в Kafka
-3. Мониторинг метрик в Grafana
+### Unit Tests
+```bash
+# Запуск тестов для каждого сервиса
+cd services/orders && python -m pytest tests/
+cd services/payments && python -m pytest tests/
+cd services/notification && python -m pytest tests/
+```
 
-### Failure Scenarios  
-1. Сбой Payment Service → retry → DLQ
-2. Перегрузка системы → circuit breaker
-3. Сетевые проблемы → eventual consistency
+### Integration Tests
+```bash
+# End-to-end тестирование
+python tests/integration/test_order_flow.py
+```
 
 ### Load Testing
 ```bash
-# Генерация нагрузки
-ab -n 1000 -c 10 http://localhost/api/v1/menu
+# Нагрузочное тестирование с помощью Apache Bench
+ab -n 1000 -c 10 -H "Content-Type: application/json" \
+   -p order_payload.json http://localhost:5002/api/v1/orders
 ```
 
-## 🚨 Troubleshooting
+## Масштабирование
 
-### Общие проблемы
+### Горизонтальное масштабирование
 
-**Сервис не запускается:**
-```bash
-docker-compose logs <service-name>
+- **Stateless Services**: Все сервисы не хранят состояние
+- **Database Sharding**: Разделение данных по ключам
+- **Kafka Partitioning**: Распределение нагрузки по партициям
+- **Load Balancing**: Распределение запросов между инстансами
+
+### Вертикальное масштабирование
+
+- **Database Optimization**: Индексы, query optimization
+- **Connection Pooling**: Эффективное использование соединений
+- **Caching**: Redis для кэширования частых запросов
+
+## Безопасность
+
+### Аутентификация и авторизация
+- JWT токены для API аутентификации
+- Role-based access control (RBAC)
+- API Rate Limiting
+
+### Защита данных
+- Шифрование данных в покое и в движении
+- PII (Personally Identifiable Information) protection
+- Audit logging для критических операций
+
+## Развертывание
+
+### Production Environment
+
+```yaml
+# docker-compose.prod.yml
+version: '3.8'
+services:
+  order-service:
+    image: pizza-order-service:latest
+    replicas: 3
+    environment:
+      - DATABASE_URL=postgresql://...
+      - KAFKA_BROKERS=kafka1:9092,kafka2:9092,kafka3:9092
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
 ```
 
-**Kafka не подключается:**
-```bash
-# Проверить топики
-docker exec kafka kafka-topics --list --bootstrap-server localhost:9092
+### CI/CD Pipeline
+
+```yaml
+# .github/workflows/deploy.yml
+name: Deploy to Production
+on:
+  push:
+    branches: [main]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Run tests
+        run: python -m pytest
+  
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Kubernetes
+        run: kubectl apply -f k8s/
 ```
 
-**База данных недоступна:**
-```bash
-# Проверить подключение
-docker exec postgres psql -U pizza_user -d pizza_db -c "SELECT 1;"
-```
+## Заключение
 
-## 📈 Производительность
+Данный стенд демонстрирует современные подходы к построению распределенных систем:
 
-### Ожидаемые показатели
-- **Throughput**: 1000+ заказов/мин
-- **Latency**: < 100ms для создания заказа
-- **Availability**: 99.9% uptime
-- **Recovery Time**: < 30 секунд
+✅ **Event-Driven Architecture** для слабой связанности сервисов  
+✅ **Outbox Pattern** для гарантированной доставки событий  
+✅ **Microservices** для независимого развертывания и масштабирования  
+✅ **Observability** для мониторинга и отладки  
+✅ **Fault Tolerance** для обработки ошибок и отказов  
 
-### Масштабирование
-```bash
-# Масштабирование Order Service
-docker-compose up -d --scale order-service=3
-
-# Мониторинг распределения нагрузки
-docker-compose logs nginx | grep order-service
-```
-
-## 🤝 Участие в разработке
-
-1. Fork репозитория
-2. Создайте feature branch
-3. Добавьте тесты для новой функциональности  
-4. Убедитесь что все тесты проходят
-5. Создайте Pull Request
+Система готова к production использованию и может служить основой для реальных e-commerce проектов.
 
 ---
 
-**Автор**: Vladimir Pizza Team  
-**Лицензия**: MIT  
-**Версия**: 1.0.0 
+## Контакты и поддержка
+
+Для вопросов по архитектуре и реализации обращайтесь к документации в папке `/docs/` или создавайте issues в репозитории.
+
+**Документация обновлена**: January 2024
