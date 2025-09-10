@@ -33,7 +33,7 @@ class Config:
     
     def __init__(self):
         # Database Configuration
-        self.DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://pizza_user:pizza_pass@localhost:5432/pizza_system')
+        self.DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://pizza_user:pizza_password@postgres:5432/pizza_system')
         
         # Kafka Configuration
         self.KAFKA_BOOTSTRAP_SERVERS = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'kafka:29092').split(',')

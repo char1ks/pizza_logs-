@@ -211,7 +211,7 @@ services:
     ports:
       - "9187:9187"
     environment:
-      DATA_SOURCE_NAME: "postgresql://pizza_user:pizza_pass@postgres:5432/pizza_system?sslmode=disable"
+      DATA_SOURCE_NAME: "postgresql://pizza_user:pizza_password@postgres:5432/pizza_system?sslmode=disable"
       PG_EXPORTER_EXTEND_QUERY_PATH: /etc/postgres_exporter/queries.yaml
     volumes:
       - ./infrastructure/monitoring/postgres-queries.yaml:/etc/postgres_exporter/queries.yaml
@@ -301,6 +301,7 @@ services:
       - pizza-network
     volumes:
       - ./services/frontend/logs:/app/logs
+      - ./load-testing:/app/load-testing
     restart: unless-stopped
 
   # Order Service (Order Management + Outbox)
