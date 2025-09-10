@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🍕 Pizza Order System - Event-Driven Saga</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">
+                    <h1>🍕 Pizza Saga</h1>
+                    <span class="subtitle">Event-Driven Architecture Demo</span>
+                </div>
+                <div class="header-actions">
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <button class="load-test-button" id="loadTestButton" onclick="startLoadTest()">
+                            <span class="button-icon">⚡</span>
+                            <span class="button-text">Нагрузочный тест 1000 RPS</span>
+                        </button>
+                        <button class="edit-settings-btn" id="editSettingsBtn" title="Настроить тестирование" onclick="openSettingsDialog()">✏️</button>
+                    </div>
+                <div class="system-status">
+                    <div class="status-indicator" id="systemStatus">
+                        <span class="status-dot"></span>
+                        <span class="status-text">Система работает</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Модальное окно настроек -->
+    <div id="settingsModal" class="modal-overlay" style="display:none;">
+      <div class="modal-content">
+        <h2>Настройки тестирования</h2>
+        <div class="modal-section">
+          <label for="failRateSliderModal">% ошибок (нагрузочный тест):</label>
+          <input type="range" min="0" max="100" value="0" id="failRateSliderModal" class="fail-rate-slider" oninput="updateFailRateLabelModal()">
+          <span id="failRateValueModal" class="fail-rate-value">0%</span>
+        </div>
+        <div class="modal-section">
+          <label for="manualOrderSwitch">Ручные заказы всегда успешны?</label>
+          <label class="switch">
+            <input type="checkbox" id="manualOrderSwitch" checked>
+            <span class="slider-switch"></span>
+          </label>
+          <span id="manualOrderSwitchLabel" class="switch-label">Да</span>
+        </div>
+        <div class="modal-actions">
+          <button onclick="saveSettings()" class="modal-save-btn">Сохранить</button>
+          <button onclick="closeSettingsDialog()" class="modal-cancel-btn">Отмена</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="main">
+        <div class="container">
+            <!-- Architecture Info -->
+            <section class="architecture-info">
+                <h2>📋 Event-Driven Saga Architecture</h2>
+                <div class="saga-flow">
+                    <div class="flow-step">
+                        <div class="step-icon">📦</div>
+                        <div class="step-content">
+                            <h3>1. Создание заказа</h3>
+                            <p>Order Service → OrderCreated event</p>
+                        </div>
+                    </div>
+                    <div class="flow-arrow">→</div>
+                    <div class="flow-step">
+                        <div class="step-icon">💳</div>
+                        <div class="step-content">
+                            <h3>2. Обработка оплаты</h3>
+                            <p>Payment Service + Retry Pattern</p>
+                        </div>
+                    </div>
+                    <div class="flow-arrow">→</div>
+                    <div class="flow-step">
+                        <div class="step-icon">📧</div>
+                        <div class="step-content">
+                            <h3>3. Уведомления</h3>
+                            <p>Notification Service</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Pizza Menu -->
+            <section class="menu-section">
+                <h2>🍕 Меню пиццерии</h2>
+                <div class="loading" id="menuLoading">
+                    <div class="loading-spinner"></div>
+                    <p>Загружаем меню...</p>
+                </div>
+                <div class="menu-grid" id="menuGrid" style="display: none;">
+                    <!-- Pizza items will be loaded here -->
+                </div>
+                <div class="error-message" id="menuError" style="display: none;">
+                    <p>❌ Ошибка загрузки меню. Проверьте работу сервисов.</p>
+                    <button onclick="loadMenu()">Повторить</button>
+                </div>
+            </section>
+
+            <!-- Order Cart -->
+            <section class="cart-section" id="cartSection" style="display: none;">
+                <h2>🛒 Ваш заказ</h2>
+                <div class="cart-content">
+                    <div class="cart-items" id="cartItems">
+                        <!-- Cart items will be added here -->
+                    </div>
+                    <div class="cart-total">
+                        <div class="total-line">
+                            <span>Итого:</span>
+                            <span id="cartTotal">0 ₽</span>
+                        </div>
+                    </div>
+                    <div class="order-form">
+                        <h3>📍 Информация о доставке</h3>
+                        <div class="form-group">
+                            <label for="deliveryAddress">Адрес доставки:</label>
+                            <input type="text" id="deliveryAddress" placeholder="ул. Примерная, 42" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="paymentMethod">Способ оплаты:</label>
+                            <select id="paymentMethod" required>
+                                <option value="card">Банковская карта</option>
+                                <option value="cash">Наличные при доставке</option>
+                            </select>
+                        </div>
+                        <button class="order-button" id="orderButton" onclick="createOrder()">
+                            📦 Оформить заказ
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Order Status -->
+            <section class="order-status-section" id="orderStatusSection" style="display: none;">
+                <h2>📊 Статус заказа</h2>
+                <div class="order-status-card" id="orderStatusCard">
+                    <!-- Order status will be shown here -->
+                </div>
+            </section>
+
+            <!-- System Monitoring -->
+            <section class="monitoring-section">
+                <h2>📊 Мониторинг системы</h2>
+                <div class="monitoring-grid">
+                    <div class="monitoring-card">
+                        <h3>🔄 Kafka Events</h3>
+                        <p>Просмотр событий в реальном времени</p>
+                        <a href="#" target="_blank" class="monitor-link" data-port="8080" id="kafka-ui-link">
+                            Открыть Kafka UI
+                        </a>
+                    </div>
+                    <div class="monitoring-card">
+                        <h3>📈 Grafana Dashboard</h3>
+                        <p>Метрики производительности и системы</p>
+                        <a href="#" target="_blank" class="monitor-link" data-port="3000" id="grafana-link">
+                            Открыть Grafana
+                        </a>
+                    </div>
+                    <div class="monitoring-card">
+                        <h3>🎯 Prometheus Metrics</h3>
+                        <p>Сырые метрики системы</p>
+                        <a href="#" target="_blank" class="monitor-link" data-port="9090" id="prometheus-link">
+                            Открыть Prometheus
+                        </a>
+                    </div>
+                    <div class="monitoring-card">
+                        <h3>🗄️ База данных</h3>
+                        <p>Управление PostgreSQL</p>
+                        <a href="#" target="_blank" class="monitor-link" data-port="8081" id="pgadmin-link">
+                            Открыть pgAdmin
+                        </a>
+                    </div>
+                    <div class="monitoring-card">
+                        <h3>🐳 Контейнеры</h3>
+                        <p>Мониторинг Docker контейнеров</p>
+                        <a href="#" target="_blank" class="monitor-link" data-port="8083" id="cadvisor-link">
+                            Открыть cAdvisor
+                        </a>
+                    </div>
+                    <div class="monitoring-card">
+                        <h3>🖥️ Система</h3>
+                        <p>Метрики железа и сети</p>
+                        <a href="#" target="_blank" class="monitor-link" data-port="9100" id="node-exporter-link">
+                            Node Exporter
+                        </a>
+                    </div>
+                    <div class="monitoring-card">
+                        <h3>⚖️ USE Metrics</h3>
+                        <p>Utilization, Saturation, Errors</p>
+                        <a href="#" target="_blank" class="monitor-link" data-dashboard="use-metrics" id="use-dashboard-link">
+                            Дашборд USE
+                        </a>
+                    </div>
+                    <div class="monitoring-card">
+                        <h3>🔴 RED Metrics</h3>
+                        <p>Rate, Errors, Duration</p>
+                        <a href="#" target="_blank" class="monitor-link" data-dashboard="red-metrics" id="red-dashboard-link">
+                            Дашборд RED
+                        </a>
+                    </div>
+                    <div class="monitoring-card">
+                        <h3>🌐 LTES Metrics</h3>
+                        <p>Latency, Traffic, Errors, Saturation</p>
+                        <a href="#" target="_blank" class="monitor-link" data-dashboard="ltes-metrics" id="ltes-dashboard-link">
+                            Дашборд LTES
+                        </a>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Event Log -->
+            <section class="event-log-section">
+                <h2>📋 Лог событий</h2>
+                <div class="event-log" id="eventLog">
+                    <div class="log-entry">
+                        <span class="timestamp">2024-01-01 10:00:00</span>
+                        <span class="event-type">SYSTEM</span>
+                        <span class="message">Система запущена и готова к работе</span>
+                    </div>
+                </div>
+            </section>
+
+            <h3>События системы</h3>
+            <div id="eventLog" class="event-log-container">
+                <!-- Log entries will be inserted here -->
+            </div>
+
+
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-info">
+                    <h3>🍕 Pizza Order System</h3>
+                    <p>Демонстрация Event-Driven Saga Architecture</p>
+                    <p>Технологии: Python Flask, Kafka, PostgreSQL, Docker</p>
+                </div>
+                <div class="footer-links">
+                    <h4>📚 Полезные ссылки</h4>
+                    <ul>
+                        <li><a href="https://microservices.io/patterns/data/saga.html" target="_blank">Saga Pattern</a></li>
+                        <li><a href="https://microservices.io/patterns/data/transactional-outbox.html" target="_blank">Outbox Pattern</a></li>
+                        <li><a href="https://kafka.apache.org/" target="_blank">Apache Kafka</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Notification Toast -->
+    <div class="toast" id="toast">
+        <div class="toast-content">
+            <span class="toast-icon"></span>
+            <span class="toast-message"></span>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="script.js"></script>
+</body>
+</html> 

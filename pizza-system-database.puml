@@ -1,0 +1,224 @@
+@startuml Pizza Order System - Database Schema
+
+!theme blueprint
+skinparam backgroundColor #F8F9FA
+skinparam defaultFontName Arial
+
+title **🗄️ Pizza Order System - Database Schema & Relationships**
+
+package "🍕 Frontend Schema" as frontend_schema {
+    entity "pizzas" as pizzas {
+        * id : VARCHAR(50) <<PK>>
+        --
+        * name : VARCHAR(100)
+        description : TEXT
+        * price : INTEGER (cents)
+        image_url : VARCHAR(255)
+        ingredients : TEXT[]
+        available : BOOLEAN = true
+        created_at : TIMESTAMP
+        updated_at : TIMESTAMP
+    }
+    
+    entity "service_logs" as frontend_logs {
+        * id : SERIAL <<PK>>
+        --
+        * level : VARCHAR(20)
+        * message : TEXT
+        extra_data : JSONB
+        created_at : TIMESTAMP
+    }
+}
+
+package "📦 Orders Schema" as orders_schema {
+    entity "orders" as orders {
+        * id : VARCHAR(50) <<PK>>
+        --
+        * user_id : VARCHAR(50)
+        * status : VARCHAR(20) = 'PENDING'
+        * total : INTEGER (cents)
+        * delivery_address : TEXT
+        * payment_method : VARCHAR(20) = 'card'
+        created_at : TIMESTAMP
+        updated_at : TIMESTAMP
+    }
+    
+    entity "order_items" as order_items {
+        * id : SERIAL <<PK>>
+        --
+        * order_id : VARCHAR(50) <<FK>>
+        * pizza_id : VARCHAR(50)
+        * pizza_name : VARCHAR(100)
+        * pizza_price : INTEGER
+        * quantity : INTEGER = 1
+        * subtotal : INTEGER
+        created_at : TIMESTAMP
+    }
+    
+    entity "outbox_events" as outbox_events {
+        * id : SERIAL <<PK>>
+        --
+        * aggregate_id : VARCHAR(50)
+        * event_type : VARCHAR(50)
+        * event_data : JSONB
+        processed : BOOLEAN = false
+        created_at : TIMESTAMP
+        processed_at : TIMESTAMP
+    }
+    
+    entity "order_saga_state" as order_saga_state {
+        * order_id : VARCHAR(50) <<PK, FK>>
+        --
+        * current_step : VARCHAR(50)
+        steps_completed : TEXT[]
+        compensation_needed : BOOLEAN = false
+        created_at : TIMESTAMP
+        updated_at : TIMESTAMP
+    }
+    
+    entity "service_logs" as order_logs {
+        * id : SERIAL <<PK>>
+        --
+        order_id : VARCHAR(50)
+        * level : VARCHAR(20)
+        * message : TEXT
+        extra_data : JSONB
+        created_at : TIMESTAMP
+    }
+}
+
+package "💳 Payments Schema" as payments_schema {
+    entity "payments" as payments {
+        * id : VARCHAR(50) <<PK>>
+        --
+        * order_id : VARCHAR(50) <<UK>>
+        * amount : INTEGER (cents)
+        * status : VARCHAR(20) = 'PENDING'
+        * payment_method : VARCHAR(20)
+        * idempotency_key : VARCHAR(100) <<UK>>
+        external_payment_id : VARCHAR(100)
+        failure_reason : TEXT
+        created_at : TIMESTAMP
+        updated_at : TIMESTAMP
+    }
+    
+    entity "payment_attempts" as payment_attempts {
+        * id : SERIAL <<PK>>
+        --
+        * payment_id : VARCHAR(50) <<FK>>
+        * attempt_number : INTEGER
+        * status : VARCHAR(20)
+        request_data : JSONB
+        response_data : JSONB
+        error_message : TEXT
+        attempt_at : TIMESTAMP
+        completed_at : TIMESTAMP
+    }
+    
+    entity "service_logs" as payment_logs {
+        * id : SERIAL <<PK>>
+        --
+        payment_id : VARCHAR(50)
+        order_id : VARCHAR(50)
+        * level : VARCHAR(20)
+        * message : TEXT
+        extra_data : JSONB
+        created_at : TIMESTAMP
+    }
+}
+
+package "📧 Notifications Schema" as notifications_schema {
+    entity "notifications" as notifications {
+        * id : VARCHAR(50) <<PK>>
+        --
+        * user_id : VARCHAR(50)
+        order_id : VARCHAR(50)
+        template_type : VARCHAR(50)
+        * subject : VARCHAR(255)
+        * message : TEXT
+        * channels : TEXT[]
+        priority : VARCHAR(20) = 'normal'
+        status : VARCHAR(20) = 'PENDING'
+        created_at : TIMESTAMP
+        updated_at : TIMESTAMP
+    }
+    
+    entity "delivery_attempts" as delivery_attempts {
+        * id : SERIAL <<PK>>
+        --
+        * notification_id : VARCHAR(50) <<FK>>
+        * channel : VARCHAR(20)
+        * status : VARCHAR(20)
+        attempt_at : TIMESTAMP
+        error_message : TEXT
+    }
+    
+    entity "notification_templates" as notification_templates {
+        * id : SERIAL <<PK>>
+        --
+        * type : VARCHAR(50) <<UK>>
+        * title_template : VARCHAR(200)
+        * message_template : TEXT
+        created_at : TIMESTAMP
+    }
+    
+    entity "service_logs" as notification_logs {
+        * id : SERIAL <<PK>>
+        --
+        notification_id : VARCHAR(50)
+        user_id : VARCHAR(50)
+        * level : VARCHAR(20)
+        * message : TEXT
+        extra_data : JSONB
+        created_at : TIMESTAMP
+    }
+}
+
+' Relationships
+orders ||--o{ order_items : "contains"
+orders ||--|| order_saga_state : "tracks state"
+payments ||--o{ payment_attempts : "retry attempts"
+notifications ||--o{ delivery_attempts : "delivery tracking"
+
+' Cross-schema logical relationships (not enforced by FK)
+orders }o--|| payments : "order_id (logical)"
+orders }o--o{ notifications : "order_id (logical)"
+
+' Indexes visualization
+note top of orders : **Indexes:**\n- idx_orders_user_id\n- idx_orders_status\n- idx_orders_created_at
+note top of outbox_events : **Indexes:**\n- idx_outbox_events_processed\n- idx_outbox_events_created_at
+note top of payments : **Indexes:**\n- idx_payments_order_id\n- idx_payments_status\n- idx_payments_idempotency_key
+note top of payment_attempts : **Indexes:**\n- idx_payment_attempts_payment_id
+note top of notifications : **Indexes:**\n- idx_notifications_user_id\n- idx_notifications_order_id\n- idx_notifications_template_type\n- idx_notifications_created_at
+
+' Event Types Enumeration
+note right of outbox_events : **Event Types:**\n- OrderCreated\n- OrderStatusChanged\n- OrderCompleted\n- OrderCancelled
+
+note right of notifications : **Notification Channels:**\n- EMAIL\n- SMS\n- PUSH\n- WEBHOOK\n\n**Status Values:**\n- PENDING\n- SENT\n- FAILED\n- DELIVERED
+
+note right of payments : **Payment Status:**\n- PENDING\n- PROCESSING\n- COMPLETED\n- FAILED\n- CANCELLED
+
+note right of orders : **Order Status:**\n- PENDING\n- PROCESSING\n- PAID\n- FAILED\n- COMPLETED\n- CANCELLED
+
+note right of order_saga_state : **Saga Steps:**\n- created\n- payment_pending\n- payment_processed\n- notification_sent\n- completed\n- failed
+
+' Triggers and Functions
+note bottom of orders : **Triggers:**\n- update_orders_updated_at\n- update_order_saga_state_updated_at\n- update_payments_updated_at
+
+legend bottom
+    |**Schema Separation Benefits**|
+    |🔒 **Data Isolation**: Each service owns its schema|
+    |🚀 **Independent Scaling**: Separate connection pools|
+    |🛡️ **Security**: Fine-grained access control|
+    |📊 **Monitoring**: Service-specific metrics|
+    |🔄 **Migration**: Independent schema evolution|
+    
+    |**Key Design Patterns**|
+    |📦 **Outbox Pattern**: Transactional event publishing|
+    |🔑 **Idempotency**: Prevents duplicate payments|
+    |📝 **Audit Trail**: Complete operation history|
+    |🔄 **Saga State**: Distributed transaction coordination|
+    |📧 **Template System**: Flexible notification content|
+end legend
+
+@enduml 
