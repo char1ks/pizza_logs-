@@ -255,6 +255,20 @@ services:
     networks:
       - pizza-network
 
+  # Nginx Prometheus Exporter - Nginx Metrics
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:latest
+    container_name: nginx-exporter
+    ports:
+      - "9113:9113"
+    command:
+      - '-nginx.scrape-uri=http://nginx:8082/metrics'
+      - '-web.listen-address=:9113'
+    depends_on:
+      - nginx
+    networks:
+      - pizza-network
+
   # k6 Load Tester
   k6:
     image: grafana/k6:latest

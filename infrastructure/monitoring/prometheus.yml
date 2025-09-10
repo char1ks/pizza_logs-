@@ -36,13 +36,23 @@ scrape_configs:
         target_label: service_type
         replacement: 'infrastructure'
 
-  # Nginx API Gateway
+  # Nginx API Gateway (via nginx-prometheus-exporter)
   - job_name: 'nginx'
     static_configs:
-      - targets: ['nginx:8082']
+      - targets: ['nginx-exporter:9113']
     metrics_path: /metrics
     scrape_interval: 15s
     scrape_timeout: 10s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'nginx-gateway'
+      - source_labels: []
+        target_label: service_name
+        replacement: 'nginx'
+      - source_labels: []
+        target_label: service_type
+        replacement: 'infrastructure'
 
   # Frontend Service
   - job_name: 'frontend-service'
@@ -181,4 +191,4 @@ scrape_configs:
 
 # Global recording rules for common metrics aggregation
 # rule_files:
-#   - "recording_rules.yml"  # Enable for performance optimization 
+#   - "recording_rules.yml"  # Enable for performance optimization
