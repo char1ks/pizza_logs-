@@ -705,8 +705,8 @@ section {
     margin-top: var(--spacing-lg);
 }
 
-/* Center the last card (LTES Metrics) when it's alone in the last row */
-.monitoring-grid .monitoring-card:nth-child(9) {
+/* Center the last card (CPU Dashboard) when it's alone in the last row */
+.monitoring-grid .monitoring-card:nth-child(10) {
     grid-column: 1 / -1;
     max-width: 250px;
     margin: 0 auto;
@@ -1265,4 +1265,4 @@ section {
 }
 .switch input:not(:checked) ~ .switch-label {
   color: var(--error);
-} 
+}
