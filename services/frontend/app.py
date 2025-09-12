@@ -323,18 +323,19 @@ class FrontendService(BaseService):
         def delete_pizza(pizza_id: str):
             """Delete a pizza from the menu (admin function)"""
             try:
-                with self.db.get_cursor(commit=True) as cursor:
-                    cursor.execute("SET search_path TO frontend, public")
-                    cursor.execute(
-                        "DELETE FROM frontend.pizzas WHERE id = %s",
-                        (pizza_id,)
-                    )
-                    
-                    if cursor.rowcount == 0:
-                        return jsonify({
-                            'success': False,
-                            'error': 'Pizza not found'
-                        }), 404
+                with self.db.transaction():
+                    with self.db.get_cursor() as cursor:
+                        cursor.execute("SET search_path TO frontend, public")
+                        cursor.execute(
+                            "DELETE FROM frontend.pizzas WHERE id = %s",
+                            (pizza_id,)
+                        )
+                        
+                        if cursor.rowcount == 0:
+                            return jsonify({
+                                'success': False,
+                                'error': 'Pizza not found'
+                            }), 404
                 
                 self.logger.info("Pizza deleted", pizza_id=pizza_id)
                 self.metrics.record_business_event('pizza_deleted', 'success')
@@ -550,4 +551,4 @@ if __name__ == '__main__':
         print("\n🛑 Frontend Service stopped by user")
     except Exception as e:
         print(f"❌ Frontend Service failed to start: {e}")
-        sys.exit(1) 
+        sys.exit(1)

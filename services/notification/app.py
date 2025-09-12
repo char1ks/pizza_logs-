@@ -15,6 +15,9 @@ from flask import request, jsonify
 from flask_cors import CORS
 from datetime import datetime, timezone
 from enum import Enum
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 # Add shared module to path
 sys.path.insert(0, '/app/shared')
@@ -47,6 +50,9 @@ class NotificationService(BaseService):
         # Enable CORS for web UI
         CORS(self.app, origins=['*'])
         
+        # Initialize HTTP session with connection pooling
+        self.http_session = self._create_http_session()
+        
         # Configuration
         self.email_enabled = os.getenv('EMAIL_ENABLED', 'true').lower() == 'true'
         self.sms_enabled = os.getenv('SMS_ENABLED', 'true').lower() == 'true'
@@ -67,6 +73,29 @@ class NotificationService(BaseService):
         
         # Start event consumer in background thread
         self.start_event_consumer()
+    
+    def _create_http_session(self):
+        """Create HTTP session with connection pooling and retry strategy"""
+        session = requests.Session()
+        
+        # Configure retry strategy
+        retry_strategy = Retry(
+            total=3,
+            backoff_factor=1,
+            status_forcelist=[429, 500, 502, 503, 504],
+        )
+        
+        # Configure adapter with connection pooling
+        adapter = HTTPAdapter(
+            pool_connections=10,
+            pool_maxsize=20,
+            max_retries=retry_strategy
+        )
+        
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+        
+        return session
         
         self.logger.info(
             "Notification Service initialized",
@@ -85,16 +114,17 @@ class NotificationService(BaseService):
         ]
         
         try:
-            with self.db.get_cursor(commit=True) as cursor:
-                for t in templates:
-                    cursor.execute(
-                        """
-                        INSERT INTO notifications.notification_templates (type, title_template, message_template)
-                        VALUES (%s, %s, %s)
-                        ON CONFLICT (type) DO NOTHING
-                        """,
-                        (t['type'], t['title_template'], t['message_template'])
-                    )
+            with self.db.transaction():
+                with self.db.get_cursor() as cursor:
+                    for t in templates:
+                        cursor.execute(
+                            """
+                            INSERT INTO notifications.notification_templates (type, title_template, message_template)
+                            VALUES (%s, %s, %s)
+                            ON CONFLICT (type) DO NOTHING
+                            """,
+                            (t['type'], t['title_template'], t['message_template'])
+                        )
             self.logger.info("Default notification templates checked/created.")
         except Exception as e:
             self.logger.error("Failed to create default notification templates", error=str(e))
@@ -388,7 +418,8 @@ class NotificationService(BaseService):
                 'timestamp': self.get_timestamp()
             }
             
-            response = requests.post(webhook_url, json=payload, timeout=10)
+            # Use pooled session for better performance
+            response = self.http_session.post(webhook_url, json=payload, timeout=10)
             
             if response.status_code == 200:
                 self.logger.info(
@@ -660,4 +691,4 @@ if __name__ == '__main__':
         print("\n🛑 Notification Service stopped by user")
     except Exception as e:
         print(f"❌ Notification Service failed to start: {e}")
-        sys.exit(1) 
+        sys.exit(1)

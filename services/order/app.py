@@ -14,6 +14,9 @@ from typing import Dict, List, Any, Optional
 from flask import request, jsonify
 from flask_cors import CORS
 from datetime import datetime, timezone
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 # Add shared module to path
 sys.path.insert(0, '/app/shared')
@@ -30,6 +33,9 @@ class OrderService(BaseService):
         # Enable CORS for web UI
         CORS(self.app, origins=['*'])
         
+        # Initialize HTTP session with connection pooling
+        self.http_session = self._create_http_session()
+        
         # Setup routes
         self.setup_routes()
         
@@ -40,6 +46,29 @@ class OrderService(BaseService):
         self.start_event_consumer()
         
         self.logger.info("Order Service initialized")
+    
+    def _create_http_session(self):
+        """Create HTTP session with connection pooling and retry strategy"""
+        session = requests.Session()
+        
+        # Configure retry strategy
+        retry_strategy = Retry(
+            total=3,
+            backoff_factor=1,
+            status_forcelist=[429, 500, 502, 503, 504],
+        )
+        
+        # Configure adapter with connection pooling
+        adapter = HTTPAdapter(
+            pool_connections=10,
+            pool_maxsize=20,
+            max_retries=retry_strategy
+        )
+        
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+        
+        return session
     
 
     
@@ -248,6 +277,7 @@ class OrderService(BaseService):
             frontend_url = os.getenv('FRONTEND_SERVICE_URL', 'http://frontend-service:5000')
             pizza_details = []
             
+            # Use pooled session for better performance
             for item in items:
                 pizza_id = item.get('pizzaId')
                 quantity = item.get('quantity', 1)
@@ -256,7 +286,7 @@ class OrderService(BaseService):
                     raise ValidationError("Pizza ID is required for each item")
                 
                 # Get pizza from Frontend Service
-                response = requests.get(f"{frontend_url}/api/v1/menu/{pizza_id}", timeout=10)
+                response = self.http_session.get(f"{frontend_url}/api/v1/menu/{pizza_id}", timeout=10)
                 
                 if response.status_code == 404:
                     raise ValidationError(f"Pizza not found: {pizza_id}")
@@ -554,4 +584,4 @@ if __name__ == '__main__':
         print("\n🛑 Order Service stopped by user")
     except Exception as e:
         print(f"❌ Order Service failed to start: {e}")
-        sys.exit(1) 
+        sys.exit(1)

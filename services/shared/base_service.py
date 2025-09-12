@@ -161,6 +161,13 @@ class ServiceMetrics:
             'Total business events',
             ['service', 'event_type', 'status']
         )
+        
+        # System metrics
+        self.open_file_descriptors = Gauge(
+            'open_file_descriptors',
+            'Number of open file descriptors',
+            ['service']
+        )
     
     def record_request(self, method: str, endpoint: str, status: int, duration: float):
         """Record HTTP request metrics"""
@@ -540,6 +547,22 @@ class BaseService:
             # Это примерная реализация - можно расширить
             active_connections = 1 if hasattr(self.db, '_connection') and self.db._connection else 0
             self.metrics.db_connections.labels(service=self.config.SERVICE_NAME).set(active_connections)
+            
+            # Мониторинг открытых файловых дескрипторов
+            try:
+                import os
+                import glob
+                # Подсчитываем открытые файловые дескрипторы для текущего процесса
+                fd_count = len(glob.glob(f'/proc/{os.getpid()}/fd/*'))
+                self.metrics.open_file_descriptors.labels(service=self.config.SERVICE_NAME).set(fd_count)
+            except Exception:
+                # Fallback для систем без /proc (например, macOS)
+                try:
+                    import resource
+                    fd_count = resource.getrlimit(resource.RLIMIT_NOFILE)[0]  # Лимит как приблизительное значение
+                    self.metrics.open_file_descriptors.labels(service=self.config.SERVICE_NAME).set(fd_count)
+                except Exception:
+                    pass  # Игнорируем если не можем получить информацию
             
         except Exception as e:
             self.logger.debug("Failed to update runtime metrics", error=str(e))
