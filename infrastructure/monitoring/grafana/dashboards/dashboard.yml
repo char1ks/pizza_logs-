@@ -39,4 +39,14 @@ providers:
     disableDeletion: false
     updateIntervalSeconds: 30
     options:
-      path: /etc/grafana/provisioning/dashboards 
+      path: /etc/grafana/provisioning/dashboards
+
+  # Service Performance Dashboard (CPU by Service)
+  - name: 'Service Performance'
+    orgId: 1
+    folder: 'Service Monitoring'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    options:
+      path: /etc/grafana/provisioning/dashboards

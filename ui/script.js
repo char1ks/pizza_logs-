@@ -228,10 +228,19 @@ async function loadMenu() {
         menuGrid.style.display = 'none';
         menuError.style.display = 'none';
         
-        addEventLog('API', 'Загружаем меню пиццерии...');
+        addEventLog('API', 'Начинаем загрузку меню с сервера...');
         
         const data = await apiRequest(API_ENDPOINTS.menu);
+        addEventLog('API', 'Получен ответ от сервера меню');
+        
         AppState.menu = data.pizzas || [];
+        
+        // Логируем детали загруженного меню
+        if (AppState.menu.length > 0) {
+            AppState.menu.forEach(pizza => {
+                addEventLog('API', `Позиция: ${pizza.name} - ${formatPrice(pizza.price)}`);
+            });
+        }
         
         // Hide loading and show menu
         menuLoading.style.display = 'none';
@@ -239,6 +248,7 @@ async function loadMenu() {
         
         renderMenu();
         addEventLog('SUCCESS', `Меню загружено: ${AppState.menu.length} позиций`);
+        addEventLog('SUCCESS', 'Меню отображено на странице');
         
     } catch (error) {
         // Show error state
@@ -246,6 +256,7 @@ async function loadMenu() {
         menuError.style.display = 'block';
         
         addEventLog('ERROR', `Ошибка загрузки меню: ${error.message}`);
+        addEventLog('ERROR', 'Не удалось загрузить меню с сервера');
         showToast('Ошибка загрузки меню', '❌');
     }
 }
@@ -255,22 +266,36 @@ async function loadMenu() {
  */
 async function createOrder() {
     if (AppState.cart.length === 0) {
+        addEventLog('ERROR', 'Попытка создания заказа с пустой корзиной');
         showToast('Корзина пуста', '🛒');
         return;
     }
     const deliveryAddress = document.getElementById('deliveryAddress').value;
     const paymentMethod = document.getElementById('paymentMethod').value;
     if (!deliveryAddress) {
+        addEventLog('ERROR', 'Попытка создания заказа без адреса доставки');
         showToast('Укажите адрес доставки', '📍');
         return;
     }
     const orderButton = document.getElementById('orderButton');
     const originalText = orderButton.textContent;
+    
+    // Детальное логирование начала процесса заказа
+    const cartSummary = AppState.cart.map(item => `${item.pizza.name} x${item.quantity}`).join(', ');
+    const totalAmount = AppState.cart.reduce((sum, item) => sum + (item.pizza.price * item.quantity), 0);
+    
+    addEventLog('ORDER', `Начало создания заказа: ${cartSummary}`);
+    addEventLog('ORDER', `Адрес доставки: ${deliveryAddress}`);
+    addEventLog('ORDER', `Способ оплаты: ${paymentMethod}`);
+    addEventLog('ORDER', `Общая сумма: ${formatPrice(totalAmount)}`);
+    
     try {
         orderButton.disabled = true;
         orderButton.textContent = '⏳ Обрабатываем заказ...';
         // forceFail для ручного заказа: если выключатель Нет — всегда fail, если Да — всегда success
         let forceFail = !testSettings.manualOrderAlwaysSuccess;
+        addEventLog('ORDER', `Настройки тестирования: forceFail=${forceFail}`);
+        
         const orderData = {
             items: AppState.cart.map(item => ({
                 pizzaId: item.pizza.id,
@@ -280,30 +305,38 @@ async function createOrder() {
             paymentMethod,
             forceFail
         };
-        addEventLog('ORDER', 'Создаем заказ...');
+        addEventLog('ORDER', 'Отправка запроса на создание заказа...');
         const response = await apiRequest(API_ENDPOINTS.orders, {
             method: 'POST',
             body: JSON.stringify(orderData)
         });
         addEventLog('SUCCESS', `Заказ создан: ${response.orderId}`);
         showToast('Заказ успешно создан!', '🎉');
+        
+        addEventLog('ORDER', 'Получение деталей созданного заказа...');
         const fullOrderResponse = await getOrderStatus(response.orderId);
         if (!fullOrderResponse || !fullOrderResponse.order) {
             throw new Error('Не удалось получить детали созданного заказа.');
         }
         const orderObject = fullOrderResponse.order;
+        addEventLog('SUCCESS', `Детали заказа получены, статус: ${orderObject.status}`);
+        
         AppState.currentOrder = orderObject;
         AppState.cart = [];
         document.getElementById('deliveryAddress').value = '';
         updateCartDisplay();
+        addEventLog('ORDER', 'Корзина очищена, форма сброшена');
+        
         showOrderStatus(orderObject);
         startOrderStatusPolling(orderObject.id);
     } catch (error) {
         addEventLog('ERROR', `Ошибка создания заказа: ${error.message}`);
+        addEventLog('ERROR', `Детали ошибки: ${error.stack || 'Стек недоступен'}`);
         showToast('Ошибка создания заказа', '❌');
     } finally {
         orderButton.disabled = false;
         orderButton.textContent = originalText;
+        addEventLog('ORDER', 'Процесс создания заказа завершен');
     }
 }
 
@@ -326,32 +359,46 @@ async function getOrderStatus(orderId) {
  */
 function startOrderStatusPolling(orderId) {
     addEventLog('POLL', `Начинаем опрос статуса заказа #${orderId}`);
+    addEventLog('POLL', `Интервал опроса: каждые 5 секунд`);
     console.log(`Starting status polling for order: ${orderId}`);
 
     let pollingInterval;
+    let pollCount = 0;
 
     const poll = async () => {
+        pollCount++;
+        addEventLog('POLL', `Опрос статуса #${pollCount} для заказа #${orderId}`);
         console.log(`Polling status for order: ${orderId}`);
-        const orderResponse = await getOrderStatus(orderId);
         
-        console.log('Order response received:', orderResponse);
-        
-        if (orderResponse && orderResponse.order) {
-            console.log('Order data:', orderResponse.order);
-            updateOrderStatus(orderResponse.order);
-            // Stop polling if status is final
-            if (['COMPLETED', 'PAID', 'FAILED', 'CANCELLED'].includes(orderResponse.order.status)) {
-                clearInterval(pollingInterval);
-                addEventLog('POLL', `Завершаем опрос статуса: ${orderResponse.order.status}`);
-                console.log(`Polling stopped for order ${orderId}, final status: ${orderResponse.order.status}`);
+        try {
+            const orderResponse = await getOrderStatus(orderId);
+            
+            console.log('Order response received:', orderResponse);
+            
+            if (orderResponse && orderResponse.order) {
+                console.log('Order data:', orderResponse.order);
+                addEventLog('POLL', `Получен статус: ${orderResponse.order.status}`);
+                updateOrderStatus(orderResponse.order);
+                
+                // Stop polling if status is final
+                if (['COMPLETED', 'PAID', 'FAILED', 'CANCELLED'].includes(orderResponse.order.status)) {
+                    clearInterval(pollingInterval);
+                    addEventLog('POLL', `Завершаем опрос статуса: ${orderResponse.order.status} (финальный статус)`);
+                    addEventLog('POLL', `Всего выполнено опросов: ${pollCount}`);
+                    console.log(`Polling stopped for order ${orderId}, final status: ${orderResponse.order.status}`);
+                }
+            } else {
+                console.error('Invalid order response:', orderResponse);
+                addEventLog('ERROR', `Не удалось получить статус заказа #${orderId} (опрос #${pollCount})`);
             }
-        } else {
-            console.error('Invalid order response:', orderResponse);
-            addEventLog('ERROR', `Не удалось получить статус заказа #${orderId}`);
+        } catch (error) {
+            addEventLog('ERROR', `Ошибка при опросе статуса заказа #${orderId}: ${error.message}`);
+            console.error('Polling error:', error);
         }
     };
 
     // Initial check after a short delay
+    addEventLog('POLL', 'Первый опрос через 1 секунду...');
     setTimeout(poll, 1000);
 
     // Set interval for subsequent checks
@@ -525,21 +572,29 @@ function getStatusText(status) {
  */
 function addToCart(pizzaId) {
     const pizza = AppState.menu.find(p => p.id === pizzaId);
-    if (!pizza) return;
+    if (!pizza) {
+        addEventLog('ERROR', `Попытка добавить несуществующую пиццу (ID: ${pizzaId})`);
+        return;
+    }
     
     const existingItem = AppState.cart.find(item => item.pizza.id === pizzaId);
     
     if (existingItem) {
+        const oldQuantity = existingItem.quantity;
         existingItem.quantity += 1;
+        addEventLog('CART', `Увеличено количество: ${pizza.name} (${oldQuantity} → ${existingItem.quantity})`);
     } else {
         AppState.cart.push({
             pizza: pizza,
             quantity: 1
         });
+        addEventLog('CART', `Добавлено в корзину: ${pizza.name} (${formatPrice(pizza.price)})`);
     }
     
+    const cartTotal = AppState.cart.reduce((sum, item) => sum + (item.pizza.price * item.quantity), 0);
+    addEventLog('CART', `Общая сумма корзины: ${formatPrice(cartTotal)}`);
+    
     updateCartDisplay();
-    addEventLog('CART', `Добавлено в корзину: ${pizza.name}`);
     showToast(`${pizza.name} добавлена в корзину`, '🛒');
 }
 
@@ -548,17 +603,26 @@ function addToCart(pizzaId) {
  */
 function updateQuantity(pizzaId, change) {
     const item = AppState.cart.find(item => item.pizza.id === pizzaId);
-    if (!item) return;
+    if (!item) {
+        addEventLog('ERROR', `Попытка изменить количество несуществующего товара (ID: ${pizzaId})`);
+        return;
+    }
     
+    const oldQuantity = item.quantity;
     item.quantity += change;
     
     if (item.quantity <= 0) {
+        addEventLog('CART', `Количество ${item.pizza.name} стало ${item.quantity}, удаляем из корзины`);
         removeFromCart(pizzaId);
         return;
     }
     
+    addEventLog('CART', `Изменено количество: ${item.pizza.name} (${oldQuantity} → ${item.quantity})`);
+    
+    const cartTotal = AppState.cart.reduce((sum, item) => sum + (item.pizza.price * item.quantity), 0);
+    addEventLog('CART', `Общая сумма корзины: ${formatPrice(cartTotal)}`);
+    
     updateCartDisplay();
-    addEventLog('CART', `Изменено количество: ${item.pizza.name} (${item.quantity})`);
 }
 
 /**
@@ -566,13 +630,20 @@ function updateQuantity(pizzaId, change) {
  */
 function removeFromCart(pizzaId) {
     const itemIndex = AppState.cart.findIndex(item => item.pizza.id === pizzaId);
-    if (itemIndex === -1) return;
+    if (itemIndex === -1) {
+        addEventLog('ERROR', `Попытка удалить несуществующий товар из корзины (ID: ${pizzaId})`);
+        return;
+    }
     
     const item = AppState.cart[itemIndex];
     AppState.cart.splice(itemIndex, 1);
     
+    addEventLog('CART', `Удалено из корзины: ${item.pizza.name} (количество: ${item.quantity})`);
+    
+    const cartTotal = AppState.cart.reduce((sum, item) => sum + (item.pizza.price * item.quantity), 0);
+    addEventLog('CART', `Общая сумма корзины: ${formatPrice(cartTotal)}`);
+    
     updateCartDisplay();
-    addEventLog('CART', `Удалено из корзины: ${item.pizza.name}`);
     showToast(`${item.pizza.name} удалена из корзины`, '🗑️');
 }
 
@@ -588,15 +659,23 @@ async function checkSystemHealth() {
     const statusDot = statusIndicator.querySelector('.status-dot');
     const statusText = statusIndicator.querySelector('.status-text');
     
+    addEventLog('HEALTH', 'Проверяем состояние системы...');
+    
     try {
         // Check frontend service health
-        await apiRequest('/api/v1/health/frontend');
+        const healthResponse = await apiRequest('/api/v1/health/frontend');
+        
+        addEventLog('HEALTH', 'Получен ответ от health endpoint');
+        addEventLog('HEALTH', `Статус системы: OK`);
         
         // Update status to healthy
         statusDot.style.background = 'var(--success)';
         statusText.textContent = 'Система работает';
         
     } catch (error) {
+        addEventLog('HEALTH', `Ошибка проверки состояния: ${error.message}`);
+        addEventLog('HEALTH', 'Система недоступна или работает некорректно');
+        
         // Update status to unhealthy
         statusDot.style.background = 'var(--error)';
         statusText.textContent = 'Проблемы с системой';
@@ -657,7 +736,8 @@ function setupMonitoringUrls() {
             { id: 'node-exporter-link', port: '9100' },
             { id: 'use-dashboard-link', port: '3000', dashboard: 'use-metrics' },
             { id: 'red-dashboard-link', port: '3000', dashboard: 'red-metrics' },
-            { id: 'ltes-dashboard-link', port: '3000', dashboard: 'ltes-metrics' }
+            { id: 'ltes-dashboard-link', port: '3000', dashboard: 'ltes-metrics' },
+            { id: 'cpu-dashboard-link', port: '3000', dashboard: 'cpu-by-service' }
         ];
         
         monitoringLinks.forEach(({ id, port, dashboard, path }) => {
@@ -688,7 +768,8 @@ function setupMonitoringUrls() {
             { id: 'node-exporter-link', url: 'http://localhost:9100' },
             { id: 'use-dashboard-link', url: 'http://localhost:3000/d/use-metrics' },
             { id: 'red-dashboard-link', url: 'http://localhost:3000/d/red-metrics' },
-            { id: 'ltes-dashboard-link', url: 'http://localhost:3000/d/ltes-metrics' }
+            { id: 'ltes-dashboard-link', url: 'http://localhost:3000/d/ltes-metrics' },
+            { id: 'cpu-dashboard-link', url: 'http://localhost:3000/d/cpu-by-service' }
         ];
         
         localLinks.forEach(({ id, url }) => {
