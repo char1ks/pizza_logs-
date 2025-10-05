@@ -349,7 +349,6 @@ class PaymentService(BaseService):
             self.logger.error("Failed to create payment record", error=str(e))
             raise
     
-<<<<<<< HEAD
     def process_payment_async(self, payment_id: str, correlation_id: str = None):
         """Process payment asynchronously with retry pattern"""
         try:
@@ -386,19 +385,6 @@ class PaymentService(BaseService):
                 stage="payment_retry_start",
                 service="payment-service"
             )
-=======
-    def process_payment_async(self, payment_id: str):
-        """Process payment asynchronously with retry pattern"""
-        try:
-            self.logger.info("🔄 Starting async payment processing", payment_id=payment_id)
-            
-            # Update status to PROCESSING
-            self.logger.info("📝 Updating payment status to PROCESSING", payment_id=payment_id)
-            self.update_payment_status(payment_id, PaymentStatus.PROCESSING.value)
-            
-            # Process with retry pattern
-            self.logger.info("🔁 Starting retry pattern for payment", payment_id=payment_id)
->>>>>>> acba01a2346c87fbbb207c0fea202644f8e4b0ea
             success = retry_with_backoff(
                 lambda: self.attempt_payment_processing(payment_id),
                 max_attempts=self.max_retry_attempts,
@@ -406,7 +392,6 @@ class PaymentService(BaseService):
                 max_delay=30.0
             )
             
-<<<<<<< HEAD
             self.logger.info(
                 "🍕 ЗАКАЗ ПИЦЦЫ: Retry pattern завершен",
                 order_id=order_id,
@@ -435,7 +420,7 @@ class PaymentService(BaseService):
                     stage="payment_success_event_publishing",
                     service="payment-service"
                 )
-                self.publish_payment_success_event(payment_id)
+                self.publish_payment_success_event(payment_id, correlation_id)
                 
                 self.logger.info(
                     "🍕 ЗАКАЗ ПИЦЦЫ: Обработка платежа успешно завершена",
@@ -444,25 +429,10 @@ class PaymentService(BaseService):
                     stage="payment_processing_success",
                     service="payment-service"
                 )
-=======
-            self.logger.info(f"🎯 Retry pattern completed, success={success}", payment_id=payment_id)
-            
-            if success:
-                # Update status to COMPLETED
-                self.logger.info("✅ Payment succeeded, updating status to COMPLETED", payment_id=payment_id)
-                self.update_payment_status(payment_id, PaymentStatus.COMPLETED.value)
-                
-                # Publish success event
-                self.logger.info("📤 Publishing payment success event", payment_id=payment_id)
-                self.publish_payment_success_event(payment_id)
-                
-                self.logger.info("🎉 Payment processing completed successfully", payment_id=payment_id)
->>>>>>> acba01a2346c87fbbb207c0fea202644f8e4b0ea
                 self.metrics.record_business_event('payment_completed', 'success')
                 
             else:
                 # Update status to FAILED
-<<<<<<< HEAD
                 self.logger.error(
                     "🍕 ЗАКАЗ ПИЦЦЫ: Платеж неуспешен, обновляем статус на FAILED",
                     order_id=order_id,
@@ -480,7 +450,7 @@ class PaymentService(BaseService):
                     stage="payment_failure_event_publishing",
                     service="payment-service"
                 )
-                self.publish_payment_failure_event(payment_id)
+                self.publish_payment_failure_event(payment_id, correlation_id)
                 
                 self.logger.error(
                     "🍕 ЗАКАЗ ПИЦЦЫ: Обработка платежа завершена с ошибкой",
@@ -500,20 +470,6 @@ class PaymentService(BaseService):
                 error=str(e),
                 service="payment-service"
             )
-=======
-                self.logger.error("❌ Payment failed, updating status to FAILED", payment_id=payment_id)
-                self.update_payment_status(payment_id, PaymentStatus.FAILED.value, "Payment failed after retries")
-                
-                # Publish failure event
-                self.logger.info("📤 Publishing payment failure event", payment_id=payment_id)
-                self.publish_payment_failure_event(payment_id)
-                
-                self.logger.error("💥 Payment processing failed after retries", payment_id=payment_id)
-                self.metrics.record_business_event('payment_completed', 'failed')
-                
-        except Exception as e:
-            self.logger.error("🚨 Payment async processing error", payment_id=payment_id, error=str(e), exc_info=True)
->>>>>>> acba01a2346c87fbbb207c0fea202644f8e4b0ea
             
             # Update status to FAILED
             self.update_payment_status(payment_id, PaymentStatus.FAILED.value, str(e))
@@ -713,7 +669,7 @@ class PaymentService(BaseService):
             self.logger.error("Failed to update payment status", payment_id=payment_id, error=str(e))
             raise
     
-    def publish_payment_success_event(self, payment_id: str):
+    def publish_payment_success_event(self, payment_id: str, correlation_id: Optional[str] = None):
         """Publish payment success event"""
         try:
             payment = self.get_payment_by_id(payment_id)
@@ -726,20 +682,21 @@ class PaymentService(BaseService):
                 'order_id': payment['order_id'],
                 'amount': payment['amount'],
                 'payment_method': payment['payment_method'],
-                'timestamp': self.get_timestamp()
+                'timestamp': self.get_timestamp(),
+                'correlationId': correlation_id
             }
             
             success = self.events.publish_event('payment-events', event_data, payment['order_id'])
             
             if success:
-                self.logger.info("Payment success event published", payment_id=payment_id)
+                self.logger.info("Payment success event published", payment_id=payment_id, order_id=payment['order_id'], correlation_id=correlation_id)
             else:
-                self.logger.error("Failed to publish payment success event", payment_id=payment_id)
+                self.logger.error("Failed to publish payment success event", payment_id=payment_id, order_id=payment['order_id'], correlation_id=correlation_id)
                 
         except Exception as e:
             self.logger.error("Failed to publish payment success event", payment_id=payment_id, error=str(e))
     
-    def publish_payment_failure_event(self, payment_id: str):
+    def publish_payment_failure_event(self, payment_id: str, correlation_id: Optional[str] = None):
         """Publish payment failure event"""
         try:
             payment = self.get_payment_by_id(payment_id)
@@ -753,15 +710,16 @@ class PaymentService(BaseService):
                 'amount': payment['amount'],
                 'payment_method': payment['payment_method'],
                 'failure_reason': payment.get('failure_reason', 'Unknown error'),
-                'timestamp': self.get_timestamp()
+                'timestamp': self.get_timestamp(),
+                'correlationId': correlation_id
             }
             
             success = self.events.publish_event('payment-events', event_data, payment['order_id'])
             
             if success:
-                self.logger.info("Payment failure event published", payment_id=payment_id)
+                self.logger.info("Payment failure event published", payment_id=payment_id, order_id=payment['order_id'], correlation_id=correlation_id)
             else:
-                self.logger.error("Failed to publish payment failure event", payment_id=payment_id)
+                self.logger.error("Failed to publish payment failure event", payment_id=payment_id, order_id=payment['order_id'], correlation_id=correlation_id)
                 
         except Exception as e:
             self.logger.error("Failed to publish payment failure event", payment_id=payment_id, error=str(e))
@@ -807,7 +765,6 @@ class PaymentService(BaseService):
     
     def handle_order_created(self, event_data: Dict, order_id: str):
         """Handle OrderCreated event to initiate payment."""
-<<<<<<< HEAD
         
         # Extract correlation ID from event data
         correlation_id = event_data.get('correlationId')
@@ -829,16 +786,11 @@ class PaymentService(BaseService):
                 error="Missing required payment fields",
                 service="payment-service"
             )
-=======
-        if not all(k in event_data for k in ['totalAmount', 'paymentMethod', 'userId']):
-            self.logger.warning("Incomplete order data for payment", event_data=event_data)
->>>>>>> acba01a2346c87fbbb207c0fea202644f8e4b0ea
             return
         
         amount = event_data['totalAmount']
         payment_method = event_data['paymentMethod']
         
-<<<<<<< HEAD
         self.logger.info(
             "🍕 ЗАКАЗ ПИЦЦЫ: Валидация данных платежа пройдена",
             order_id=order_id,
@@ -858,24 +810,12 @@ class PaymentService(BaseService):
                 stage="payment_already_exists",
                 service="payment-service"
             )
-=======
-        # Log delivery address for debugging
-        delivery_address = event_data.get('deliveryAddress', {})
-        self.logger.info("📍 Order delivery address", 
-                order_id=order_id,
-                        delivery_address=delivery_address)
-
-        # Check for existing payment (idempotency)
-        if self.get_payment_by_order_id(order_id):
-            self.logger.info("Payment already initiated for order", order_id=order_id)
->>>>>>> acba01a2346c87fbbb207c0fea202644f8e4b0ea
             return
         
         # Create payment record
         payment_id = generate_id('pay_')
         idempotency_key = self.generate_idempotency_key(order_id, amount, payment_method)
         
-<<<<<<< HEAD
         self.logger.info(
             "🍕 ЗАКАЗ ПИЦЦЫ: Создаем запись платежа в базе данных",
             order_id=order_id,
@@ -885,8 +825,6 @@ class PaymentService(BaseService):
             service="payment-service"
         )
         
-=======
->>>>>>> acba01a2346c87fbbb207c0fea202644f8e4b0ea
         payment_record = self.create_payment_record(
             payment_id=payment_id,
             order_id=order_id,
@@ -895,7 +833,6 @@ class PaymentService(BaseService):
             idempotency_key=idempotency_key
         )
         
-<<<<<<< HEAD
         self.logger.info(
             "🍕 ЗАКАЗ ПИЦЦЫ: Запись платежа создана, запускаем асинхронную обработку",
             order_id=order_id,
@@ -909,29 +846,16 @@ class PaymentService(BaseService):
         threading.Thread(
             target=self.process_payment_async,
             args=(payment_id, correlation_id),
-=======
-        # Start async payment processing (for ALL orders, not just crash tests)
-        threading.Thread(
-            target=self.process_payment_async,
-            args=(payment_id,),
->>>>>>> acba01a2346c87fbbb207c0fea202644f8e4b0ea
             daemon=True
         ).start()
         
         self.logger.info(
-<<<<<<< HEAD
             "🍕 ЗАКАЗ ПИЦЦЫ: Асинхронная обработка платежа запущена",
             payment_id=payment_id,
             order_id=order_id,
             correlation_id=correlation_id,
             stage="payment_async_started",
             service="payment-service"
-=======
-            "💳 Payment processing initiated from order event",
-            payment_id=payment_id,
-            order_id=order_id,
-            message="Started async payment processing thread"
->>>>>>> acba01a2346c87fbbb207c0fea202644f8e4b0ea
         )
         self.metrics.record_business_event('payment_initiated_from_event', 'success')
     
@@ -958,8 +882,5 @@ if __name__ == '__main__':
         print("\n🛑 Payment Service stopped by user")
     except Exception as e:
         print(f"❌ Payment Service failed to start: {e}")
-<<<<<<< HEAD
         sys.exit(1)
-=======
-        sys.exit(1) 
->>>>>>> acba01a2346c87fbbb207c0fea202644f8e4b0ea
+        sys.exit(1)

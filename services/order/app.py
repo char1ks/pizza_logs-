@@ -81,13 +81,11 @@ class OrderService(BaseService):
             try:
                 data = request.get_json()
                 
-<<<<<<< HEAD
                 # Generate order ID early for tracing
                 order_id = generate_id('order_')
                 user_id = data.get('userId', 'anonymous')
                 
                 # Generate correlation ID for tracing
-            
                 correlation_id = generate_id('corr_')
                 
                 self.logger.info(
@@ -99,14 +97,11 @@ class OrderService(BaseService):
                     service="order-service"
                 )
                 
-=======
->>>>>>> acba01a2346c87fbbb207c0fea202644f8e4b0ea
                 # Validate required fields
                 required_fields = ['items', 'deliveryAddress', 'paymentMethod']
                 missing_fields = validate_required_fields(data, required_fields)
                 
                 if missing_fields:
-<<<<<<< HEAD
                     self.logger.error(
                         "🍕 ЗАКАЗ ПИЦЦЫ: Ошибка валидации",
                         order_id=order_id,
@@ -115,13 +110,10 @@ class OrderService(BaseService):
                         error=f"Missing fields: {', '.join(missing_fields)}",
                         service="order-service"
                     )
-=======
->>>>>>> acba01a2346c87fbbb207c0fea202644f8e4b0ea
                     raise ValidationError(f"Missing required fields: {', '.join(missing_fields)}")
                 
                 # Validate items
                 if not data['items'] or len(data['items']) == 0:
-<<<<<<< HEAD
                     self.logger.error(
                         "🍕 ЗАКАЗ ПИЦЦЫ: Пустой заказ",
                         order_id=order_id,
@@ -170,20 +162,6 @@ class OrderService(BaseService):
                     stage="creating_order_db",
                     service="order-service"
                 )
-                
-=======
-                    raise ValidationError("Order must contain at least one item")
-                
-                # Generate order ID
-                order_id = generate_id('order_')
-                user_id = data.get('userId', 'anonymous')
-                
-                # Get pizza details from Frontend Service
-                pizza_details = self.get_pizza_details(data['items'])
-                total_amount = self.calculate_total(pizza_details)
-                
-                # Create order using transaction with Outbox Pattern
->>>>>>> acba01a2346c87fbbb207c0fea202644f8e4b0ea
                 order_data = self.create_order_with_outbox(
                     order_id=order_id,
                     user_id=user_id,
@@ -192,7 +170,6 @@ class OrderService(BaseService):
                     total_amount=total_amount,
                     delivery_address=data['deliveryAddress'],
                     payment_method=data['paymentMethod'],
-<<<<<<< HEAD
                     force_fail=data.get('forceFail', False), # Pass forceFail from request
                     correlation_id=correlation_id
                 )
@@ -206,17 +183,6 @@ class OrderService(BaseService):
                     items_count=len(data['items']),
                     stage="order_created_success",
                     service="order-service"
-=======
-                    force_fail=data.get('forceFail', False) # Pass forceFail from request
-                )
-                
-                self.logger.info(
-                    "Order created",
-                    order_id=order_id,
-                    user_id=user_id,
-                    total_amount=total_amount,
-                    items_count=len(data['items'])
->>>>>>> acba01a2346c87fbbb207c0fea202644f8e4b0ea
                 )
                 
                 self.metrics.record_business_event('order_created', 'success')
@@ -419,11 +385,7 @@ class OrderService(BaseService):
     
     def create_order_with_outbox(self, order_id: str, user_id: str, items: List[Dict], 
                                 pizza_details: List[Dict], total_amount: int,
-<<<<<<< HEAD
                                 delivery_address: str, payment_method: str, force_fail: bool = False, correlation_id: str = None) -> Dict:
-=======
-                                delivery_address: str, payment_method: str, force_fail: bool = False) -> Dict:
->>>>>>> acba01a2346c87fbbb207c0fea202644f8e4b0ea
         """Create order and outbox event in a single transaction"""
         with self.db.transaction():
             with self.db.get_cursor() as cursor:
@@ -469,13 +431,10 @@ class OrderService(BaseService):
                     for item in items
                 ]
                 
-<<<<<<< HEAD
                 # Use provided correlation ID or generate new one
                 if not correlation_id:
                     correlation_id = generate_id('corr_')
                 
-=======
->>>>>>> acba01a2346c87fbbb207c0fea202644f8e4b0ea
                 event_data = {
                     'event_type': 'OrderCreated',
                     'orderId': order_id,
@@ -486,12 +445,8 @@ class OrderService(BaseService):
                     'paymentMethod': payment_method,
                     'deliveryAddress': delivery_address,
                     'timestamp': self.get_timestamp(),
-<<<<<<< HEAD
                     'forceFail': force_fail,
                     'correlationId': correlation_id
-=======
-                    'forceFail': force_fail
->>>>>>> acba01a2346c87fbbb207c0fea202644f8e4b0ea
                 }
 
                 cursor.execute("""
@@ -503,14 +458,11 @@ class OrderService(BaseService):
                     "📤 Event added to outbox",
                     event_type='OrderCreated',
                     order_id=order_id,
+                    correlation_id=correlation_id,
                     outbox_event="OrderCreated event queued for publishing"
                 )
 
-<<<<<<< HEAD
         return {'id': order_id, 'status': 'PENDING', 'total': total_amount, 'correlationId': correlation_id}
-=======
-        return {'id': order_id, 'status': 'PENDING', 'total': total_amount}
->>>>>>> acba01a2346c87fbbb207c0fea202644f8e4b0ea
     
     def get_order_by_id(self, order_id: str) -> Optional[Dict]:
         """Get order by ID from database"""
@@ -547,7 +499,7 @@ class OrderService(BaseService):
         
         return self.db.execute_query(query, tuple(params), fetch='all')
 
-    def update_order_status_internal(self, order_id: str, new_status: str, reason: str = '') -> bool:
+    def update_order_status_internal(self, order_id: str, new_status: str, reason: str = '', correlation_id: Optional[str] = None) -> bool:
         """Update order status and create outbox event"""
         with self.db.transaction():
             with self.db.get_cursor() as cursor:
@@ -566,7 +518,8 @@ class OrderService(BaseService):
                     'orderId': order_id,
                     'newStatus': new_status,
                     'reason': reason,
-                    'timestamp': self.get_timestamp()
+                    'timestamp': self.get_timestamp(),
+                    'correlationId': correlation_id
                 }
 
                 cursor.execute("""
@@ -577,6 +530,7 @@ class OrderService(BaseService):
                 self.logger.info(
                     "📤 OrderStatusChanged event added to outbox",
                     order_id=order_id,
+                    correlation_id=correlation_id,
                     new_status=new_status,
                     reason=reason,
                     outbox_event="Status change event queued for publishing"
@@ -613,6 +567,8 @@ class OrderService(BaseService):
             event_type = event_data.get('event_type')
             order_id = event_data.get('order_id')
             
+            correlation_id = event_data.get('correlationId')
+
             if not order_id:
                 self.logger.warning("Payment event missing order_id", event_data=event_data)
                 return
@@ -621,6 +577,7 @@ class OrderService(BaseService):
                 "📥 Received new payment event from Kafka",
                 event_type=event_type,
                 order_id=order_id,
+                correlation_id=correlation_id,
                 message="Processing payment event from payment-events topic"
             )
             
@@ -640,7 +597,8 @@ class OrderService(BaseService):
     def handle_order_paid(self, order_id: str, event_data: Dict):
         """Handle successful payment"""
         try:
-            self.update_order_status_internal(order_id, 'PAID', 'Payment successful')
+            correlation_id = event_data.get('correlationId')
+            self.update_order_status_internal(order_id, 'PAID', 'Payment successful', correlation_id=correlation_id)
             
             # Update saga state
             with self.db.transaction():
@@ -653,7 +611,7 @@ class OrderService(BaseService):
                         WHERE order_id = %s
                     """, (order_id,))
             
-            self.logger.info("Order marked as PAID", order_id=order_id)
+            self.logger.info("Order marked as PAID", order_id=order_id, correlation_id=correlation_id)
             
         except Exception as e:
             self.logger.error("Failed to handle order paid", order_id=order_id, error=str(e))
@@ -662,7 +620,8 @@ class OrderService(BaseService):
         """Handle failed payment"""
         try:
             failure_reason = event_data.get('failure_reason', 'Payment processing failed')
-            self.update_order_status_internal(order_id, 'FAILED', failure_reason)
+            correlation_id = event_data.get('correlationId')
+            self.update_order_status_internal(order_id, 'FAILED', failure_reason, correlation_id=correlation_id)
             
             # Update saga state for failure
             with self.db.transaction():
@@ -675,7 +634,7 @@ class OrderService(BaseService):
                         WHERE order_id = %s
                     """, (order_id,))
             
-            self.logger.info("Order marked as FAILED", order_id=order_id, reason=failure_reason)
+            self.logger.info("Order marked as FAILED", order_id=order_id, correlation_id=correlation_id, reason=failure_reason)
             
         except Exception as e:
             self.logger.error("Failed to handle payment failed", order_id=order_id, error=str(e))

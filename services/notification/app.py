@@ -562,7 +562,6 @@ class NotificationService(BaseService):
         """Handle OrderCreated event."""
         user_id = event_data.get('userId', 'anonymous')
         order_id = event_data.get('orderId')
-<<<<<<< HEAD
         correlation_id = event_data.get('correlationId')
         
         self.logger.info(
@@ -625,22 +624,6 @@ class NotificationService(BaseService):
         )
 
         notification_id = self.save_notification(
-=======
-        
-        # Ensure order_id is present
-        if not order_id:
-            self.logger.warning("OrderCreated event missing orderId", event_data=event_data)
-            return
-
-        template = self.get_template('OrderCreated')
-        if not template:
-            return
-
-        message = template['message_template'].format(**event_data)
-        subject = template['title_template'].format(**event_data)
-
-        self.save_notification(
->>>>>>> acba01a2346c87fbbb207c0fea202644f8e4b0ea
                 user_id=user_id,
                 order_id=order_id,
             template_type='OrderCreated',
@@ -648,7 +631,6 @@ class NotificationService(BaseService):
             message=message,
             metadata=event_data
         )
-<<<<<<< HEAD
         
         if notification_id:
             self.logger.info(
@@ -667,14 +649,11 @@ class NotificationService(BaseService):
                 stage="notification_order_created_failed",
                 service="notification-service"
             )
-=======
->>>>>>> acba01a2346c87fbbb207c0fea202644f8e4b0ea
     
     def handle_order_paid(self, event_data: Dict):
         """Handle OrderPaid event (successful payment)."""
         user_id = event_data.get('user_id', 'anonymous')
         order_id = event_data.get('order_id')
-<<<<<<< HEAD
         correlation_id = event_data.get('correlationId')
         
         self.logger.info(
@@ -736,21 +715,6 @@ class NotificationService(BaseService):
         )
             
         notification_id = self.save_notification(
-=======
-        
-        if not order_id:
-            self.logger.warning("OrderPaid event missing order_id", event_data=event_data)
-            return
-
-        template = self.get_template('OrderPaid')
-        if not template:
-            return
-
-        message = template['message_template'].format(**event_data)
-        subject = template['title_template'].format(**event_data)
-            
-        self.save_notification(
->>>>>>> acba01a2346c87fbbb207c0fea202644f8e4b0ea
                 user_id=user_id,
                 order_id=order_id,
             template_type='OrderPaid',
@@ -758,7 +722,6 @@ class NotificationService(BaseService):
             message=message,
             metadata=event_data
         )
-<<<<<<< HEAD
         
         if notification_id:
             self.logger.info(
@@ -777,14 +740,11 @@ class NotificationService(BaseService):
                 stage="notification_order_paid_failed",
                 service="notification-service"
             )
-=======
->>>>>>> acba01a2346c87fbbb207c0fea202644f8e4b0ea
 
     def handle_payment_failed(self, event_data: Dict):
         """Handle PaymentFailed event."""
         user_id = event_data.get('user_id', 'anonymous')
         order_id = event_data.get('order_id')
-<<<<<<< HEAD
         correlation_id = event_data.get('correlationId')
         
         self.logger.info(
@@ -846,21 +806,6 @@ class NotificationService(BaseService):
         )
         
         notification_id = self.save_notification(
-=======
-        
-        if not order_id:
-            self.logger.warning("PaymentFailed event missing order_id", event_data=event_data)
-            return
-
-        template = self.get_template('PaymentFailed')
-        if not template:
-            return
-
-        message = template['message_template'].format(**event_data)
-        subject = template['title_template'].format(**event_data)
-        
-        self.save_notification(
->>>>>>> acba01a2346c87fbbb207c0fea202644f8e4b0ea
             user_id=user_id,
             order_id=order_id,
             template_type='PaymentFailed',
@@ -868,7 +813,6 @@ class NotificationService(BaseService):
             message=message,
             metadata=event_data
         )
-<<<<<<< HEAD
         
         if notification_id:
             self.logger.info(
@@ -887,13 +831,8 @@ class NotificationService(BaseService):
                 stage="notification_payment_failed_failed",
                 service="notification-service"
             )
-
+    
     def get_template(self, template_type: str) -> Optional[Dict]:
-=======
-
-    def get_template(self, template_type: str) -> Optional[Dict]:
-        """Get notification template from the database."""
->>>>>>> acba01a2346c87fbbb207c0fea202644f8e4b0ea
         try:
             return self.db.execute_query(
                 "SELECT * FROM notifications.notification_templates WHERE type = %s",

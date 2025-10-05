@@ -168,7 +168,11 @@ function addEventLogFromAPI(logData) {
     const timestamp = logData.timestamp || formatTimestamp();
     const service = logData.service || 'unknown';
     const type = logData.event_type || logData.type || 'INFO';
-    const message = logData.message || logData.msg || 'No message';
+    let message = logData.message || logData.msg || 'No message';
+    const correlationId = logData.correlationId || logData.correlation_id;
+    if (correlationId) {
+        message = `[corr=${correlationId}] ${message}`;
+    }
     
     AppState.eventLog.unshift({ 
         timestamp, 
@@ -648,59 +652,8 @@ function removeFromCart(pizzaId) {
 }
 
 // ========================================
-<<<<<<< HEAD
 // Health monitoring removed - using logs for system status
 // ========================================
-
-=======
-// System Health Monitoring
-// ========================================
-
-/**
- * Check system health
- */
-async function checkSystemHealth() {
-    const statusIndicator = document.getElementById('systemStatus');
-    const statusDot = statusIndicator.querySelector('.status-dot');
-    const statusText = statusIndicator.querySelector('.status-text');
-    
-    addEventLog('HEALTH', 'Проверяем состояние системы...');
-    
-    try {
-        // Check frontend service health
-        const healthResponse = await apiRequest('/api/v1/health/frontend');
-        
-        addEventLog('HEALTH', 'Получен ответ от health endpoint');
-        addEventLog('HEALTH', `Статус системы: OK`);
-        
-        // Update status to healthy
-        statusDot.style.background = 'var(--success)';
-        statusText.textContent = 'Система работает';
-        
-    } catch (error) {
-        addEventLog('HEALTH', `Ошибка проверки состояния: ${error.message}`);
-        addEventLog('HEALTH', 'Система недоступна или работает некорректно');
-        
-        // Update status to unhealthy
-        statusDot.style.background = 'var(--error)';
-        statusText.textContent = 'Проблемы с системой';
-        
-        addEventLog('HEALTH', 'Обнаружены проблемы с системой');
-    }
-}
-
-/**
- * Start health monitoring
- */
-function startHealthMonitoring() {
-    // Check immediately
-    checkSystemHealth();
-    
-    // Check every 30 seconds
-    setInterval(checkSystemHealth, 30000);
-}
-
->>>>>>> acba01a2346c87fbbb207c0fea202644f8e4b0ea
 // ========================================
 // Event Listeners and Initialization
 // ========================================
@@ -789,7 +742,6 @@ function setupMonitoringUrls() {
     }
 }
 
-<<<<<<< HEAD
 // ========================================
 // Logs Fetching and Display
 // ========================================
@@ -800,16 +752,37 @@ function setupMonitoringUrls() {
 async function fetchServiceLogs() {
     try {
         const data = await apiRequest('/api/v1/logs');
-        const entries = Array.isArray(data)
-            ? data
-            : (Array.isArray(data.entries) ? data.entries : []);
-        
-        for (const entry of entries) {
-            addEventLogFromAPI(entry);
+        let count = 0;
+        if (Array.isArray(data)) {
+            for (const entry of data) {
+                addEventLogFromAPI(entry);
+                count++;
+            }
+        } else if (data && Array.isArray(data.logs)) {
+            const service = data.service || 'unknown';
+            for (const line of data.logs) {
+                if (typeof line === 'string') {
+                    addEventLog('LOG', line.trim(), service);
+                } else {
+                    addEventLogFromAPI({ ...line, service });
+                }
+                count++;
+            }
+        } else if (data && typeof data === 'object') {
+            for (const [service, lines] of Object.entries(data)) {
+                if (!Array.isArray(lines)) continue;
+                for (const line of lines) {
+                    if (typeof line === 'string') {
+                        addEventLog('LOG', line.trim(), service);
+                    } else {
+                        addEventLogFromAPI({ ...line, service });
+                    }
+                    count++;
+                }
+            }
         }
-        
-        if (entries.length > 0) {
-            addEventLog('SYSTEM', `Получено ${entries.length} записей логов`, 'frontend-ui');
+        if (count > 0) {
+            addEventLog('SYSTEM', `Получено ${count} записей логов`, 'frontend-ui');
         }
     } catch (error) {
         addEventLog('ERROR', `Не удалось получить логи: ${error.message}`, 'frontend-ui');
@@ -827,8 +800,6 @@ function startLogsPolling() {
     setInterval(fetchServiceLogs, 5000);
 }
 
-=======
->>>>>>> acba01a2346c87fbbb207c0fea202644f8e4b0ea
 /**
  * Initialize application
  */
@@ -841,13 +812,11 @@ function initializeApp() {
     // Load menu
     loadMenu();
     
-<<<<<<< HEAD
     // Start logs polling
     startLogsPolling();
-=======
-    // Start health monitoring
-    startHealthMonitoring();
->>>>>>> acba01a2346c87fbbb207c0fea202644f8e4b0ea
+    
+    // Start logs polling
+    startLogsPolling();
     
     // Add initial welcome message
     setTimeout(() => {

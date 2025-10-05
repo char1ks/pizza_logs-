@@ -142,22 +142,10 @@ class OutboxProcessor:
             
             # Проверяем размер данных события из базы
             raw_event_size = len(str(event.get('event_data', '')).encode('utf-8'))
-<<<<<<< HEAD
-=======
-            self.logger.info(
-                "Processing outbox event",
-                event_id=event_id,
-                event_type=event_type,
-                aggregate_id=aggregate_id,
-                raw_event_size_bytes=raw_event_size,
-                raw_event_size_mb=round(raw_event_size / 1024 / 1024, 2)
-            )
->>>>>>> acba01a2346c87fbbb207c0fea202644f8e4b0ea
             
             # Determine target topic based on event type
             topic = self.get_topic_for_event_type(event_type)
             
-<<<<<<< HEAD
             # Извлекаем order_id и correlation_id из event_data для трейсинга
             order_id = event_data.get('orderId', aggregate_id)
             correlation_id = event_data.get('correlationId')
@@ -184,9 +172,6 @@ class OutboxProcessor:
                 service="order-outbox-processor"
             )
             
-=======
-            # Publish event to Kafka with retry
->>>>>>> acba01a2346c87fbbb207c0fea202644f8e4b0ea
             success = retry_with_backoff(
                 lambda: self.publish_event_with_confirmation(topic, event_data, aggregate_id),
                 max_attempts=self.max_retries,
@@ -200,7 +185,6 @@ class OutboxProcessor:
                     self.mark_event_processed(event_id)
                 except Exception as e:
                     self.logger.error(
-<<<<<<< HEAD
                         "🍕 ЗАКАЗ ПИЦЦЫ: Ошибка при отметке события как обработанного",
                         order_id=order_id,
                         correlation_id=correlation_id,
@@ -209,19 +193,11 @@ class OutboxProcessor:
                         stage="mark_processed_failed",
                         error=str(e),
                         service="order-outbox-processor"
-=======
-                        "Failed to mark event as processed",
-                        event_id=event_id,
-                        event_type=event_type,
-                        error=str(e),
-                        error_type=type(e).__name__
->>>>>>> acba01a2346c87fbbb207c0fea202644f8e4b0ea
                     )
                     self.metrics.record_business_event('outbox_event_processed', 'mark_error')
                     return False
                 
                 self.logger.info(
-<<<<<<< HEAD
                     "🍕 ЗАКАЗ ПИЦЦЫ: Событие успешно отправлено в Kafka и помечено как обработанное",
                     order_id=order_id,
                     correlation_id=correlation_id,
@@ -230,13 +206,6 @@ class OutboxProcessor:
                     stage="kafka_published_success",
                     topic=topic,
                     service="order-outbox-processor"
-=======
-                    "Event published successfully",
-                    event_id=event_id,
-                    event_type=event_type,
-                    aggregate_id=aggregate_id,
-                    topic=topic
->>>>>>> acba01a2346c87fbbb207c0fea202644f8e4b0ea
                 )
                 
                 self.metrics.record_business_event('outbox_event_processed', 'success')
