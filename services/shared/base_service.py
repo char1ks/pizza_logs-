@@ -65,6 +65,17 @@ class Config:
 def setup_logging(service_name: str, log_level: str = 'INFO') -> structlog.BoundLogger:
     """Setup structured logging for the service"""
     
+    # Ensure logs directory exists and attach a file handler per service
+    try:
+        logs_dir = "/app/logs"
+        os.makedirs(logs_dir, exist_ok=True)
+        log_file_path = os.path.join(logs_dir, f"{service_name}.log")
+    except Exception:
+        # Fallback paths for non-container local runs
+        logs_dir = os.path.join(os.getcwd(), "logs")
+        os.makedirs(logs_dir, exist_ok=True)
+        log_file_path = os.path.join(logs_dir, f"{service_name}.log")
+
     # Configure structlog
     structlog.configure(
         processors=[
@@ -89,6 +100,19 @@ def setup_logging(service_name: str, log_level: str = 'INFO') -> structlog.Bound
         level=getattr(logging, log_level.upper()),
         format="%(message)s",
     )
+
+    # Attach file handler to root logger to persist logs to /app/logs/<service>.log
+    try:
+        file_handler = logging.FileHandler(log_file_path)
+        file_handler.setLevel(getattr(logging, log_level.upper()))
+        file_handler.setFormatter(logging.Formatter("%(message)s"))
+        root_logger = logging.getLogger()
+        # Avoid duplicating handlers if already attached
+        if not any(isinstance(h, logging.FileHandler) and getattr(h, 'baseFilename', None) == file_handler.baseFilename for h in root_logger.handlers):
+            root_logger.addHandler(file_handler)
+    except Exception:
+        # If file handler fails, continue with console logging only
+        pass
     
     # Create logger for service with service metadata
     logger = structlog.get_logger(service_name)
