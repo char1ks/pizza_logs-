@@ -405,7 +405,7 @@ class EventManager:
             # Wait for send to complete
             record_metadata = future.get(timeout=10)
             
-            self.logger.info(
+            self.logger.debug(
                 "Event published",
                 topic=topic,
                 event_type=event_data.get('event_type'),
@@ -522,21 +522,8 @@ class BaseService:
                 endpoint = request.endpoint or 'unknown'
                 path = request.path
                 
-                # Skip logging for technical endpoints
-                technical_endpoints = ['/health', '/metrics', '/favicon.ico', '/api/v1/logs']
-                should_skip_logging = any(path.startswith(tech_ep) for tech_ep in technical_endpoints)
-                
-                if not should_skip_logging:
-                    # Log business requests with readable format
-                    if path.startswith('/api/'):
-                        self.logger.info(
-                            f"🌐 API запрос: {request.method} {path}",
-                            method=request.method,
-                            path=path,
-                            status=response.status_code,
-                            duration_ms=round(duration * 1000, 2),
-                            service=self.config.SERVICE_NAME
-                        )
+                # Skip logging of HTTP requests entirely to avoid noise
+                # Metrics are still recorded below
                 
                 # Always record metrics (but not log)
                 self.metrics.record_request(

@@ -455,7 +455,7 @@ class OrderService(BaseService):
                     VALUES (%s, %s, %s::jsonb)
                 """, (order_id, 'OrderCreated', json.dumps(event_data)))
                 
-                self.logger.info(
+                self.logger.debug(
                     "📤 Event added to outbox",
                     event_type='OrderCreated',
                     order_id=order_id,
@@ -528,7 +528,7 @@ class OrderService(BaseService):
                     VALUES (%s, %s, %s::jsonb)
                 """, (order_id, 'OrderStatusChanged', json.dumps(event_data)))
                 
-                self.logger.info(
+                self.logger.debug(
                     "📤 OrderStatusChanged event added to outbox",
                     order_id=order_id,
                     correlation_id=correlation_id,
