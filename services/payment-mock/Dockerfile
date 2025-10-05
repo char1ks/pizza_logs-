@@ -12,7 +12,7 @@ WORKDIR /app
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 ENV FLASK_ENV=production
-ENV SERVICE_NAME=payment-mock-service
+ENV SERVICE_NAME=payment-mock
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \

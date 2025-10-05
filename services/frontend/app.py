@@ -522,7 +522,45 @@ class FrontendService(BaseService):
         try:
             with open(log_file, 'r') as f:
                 lines = f.readlines()
-                return lines[-tail:]
+                # Фильтруем шумные строки: dev-сервер, access-логи, технические события
+                skip_substrings = [
+                    'WARNING: This is a development server',
+                    'Running on http://',
+                    'Running on all addresses',
+                    'Press CTRL+C to quit',
+                    'GET /',
+                    '/health',
+                    '/metrics',
+                    '/api/v1/logs'
+                ]
+                skip_events = {
+                    'Service initialized',
+                    'Database connection established',
+                    'Frontend database initialized',
+                    'Frontend Service initialized',
+                    'Starting Frontend Service',
+                    'Starting service',
+                    'Kafka producer initialized',
+                    'Kafka consumer initialized'
+                }
+
+                def is_noise(line: str) -> bool:
+                    # Простая проверка по подстрокам
+                    if any(s in line for s in skip_substrings):
+                        return True
+                    # Попробуем распарсить JSON и отфильтровать по полю event
+                    try:
+                        obj = json.loads(line)
+                        ev = obj.get('event')
+                        if ev in skip_events:
+                            return True
+                    except Exception:
+                        pass
+                    return False
+
+                filtered = [ln for ln in lines if not is_noise(ln)]
+                # Возвращаем последние tail строк после фильтрации
+                return filtered[-tail:]
         except Exception as e:
             self.logger.error(f"Failed to read log file {log_file}", error=str(e))
             return [f"Error reading log file: {e}"]

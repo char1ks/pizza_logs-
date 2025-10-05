@@ -113,6 +113,17 @@ def setup_logging(service_name: str, log_level: str = 'INFO') -> structlog.Bound
     except Exception:
         # If file handler fails, continue with console logging only
         pass
+
+    # Suppress framework access logs from propagating to root/file
+    try:
+        wz_logger = logging.getLogger('werkzeug')
+        wz_logger.setLevel(logging.ERROR)
+        wz_logger.propagate = False
+        flask_logger = logging.getLogger('flask.app')
+        flask_logger.setLevel(logging.ERROR)
+        flask_logger.propagate = False
+    except Exception:
+        pass
     
     # Create logger for service with service metadata
     logger = structlog.get_logger(service_name)

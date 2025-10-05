@@ -314,7 +314,7 @@ services:
     networks:
       - pizza-network
     volumes:
-      - ./services/frontend/logs:/app/logs
+      - ./services/logs:/app/logs
       - ./load-testing:/app/load-testing
     restart: unless-stopped
 
@@ -341,7 +341,7 @@ services:
     networks:
       - pizza-network
     volumes:
-      - ./services/order/logs:/app/logs
+      - ./services/logs:/app/logs
     restart: unless-stopped
 
   # Payment Service (Payment Processing + Retry Pattern)
@@ -367,7 +367,7 @@ services:
     networks:
       - pizza-network
     volumes:
-      - ./services/payment/logs:/app/logs
+      - ./services/logs:/app/logs
     restart: unless-stopped
 
   # Notification Service (User Notifications)
@@ -392,7 +392,7 @@ services:
     networks:
       - pizza-network
     volumes:
-      - ./services/notification/logs:/app/logs
+      - ./services/logs:/app/logs
     restart: unless-stopped
 
   # Payment Mock (External Payment Provider Simulation)
@@ -418,7 +418,7 @@ services:
     networks:
       - pizza-network
     volumes:
-      - ./services/payment-mock/logs:/app/logs
+      - ./services/logs:/app/logs
     restart: unless-stopped
 
   # ========================
@@ -444,7 +444,7 @@ services:
     networks:
       - pizza-network
     volumes:
-      - ./services/order/logs:/app/logs
+      - ./services/logs:/app/logs
     restart: unless-stopped
 
   # ========================
