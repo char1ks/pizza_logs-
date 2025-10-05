@@ -1,0 +1,186 @@
+<svg width="1200" height="800" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      .table-box { fill: #f8f9fa; stroke: #343a40; stroke-width: 2; }
+      .table-header { fill: #007bff; }
+      .table-title { fill: white; font-family: Arial, sans-serif; font-size: 14px; font-weight: bold; }
+      .field-text { fill: #343a40; font-family: Arial, sans-serif; font-size: 11px; }
+      .pk-field { fill: #dc3545; font-weight: bold; }
+      .fk-field { fill: #28a745; }
+      .relationship-line { stroke: #6c757d; stroke-width: 2; fill: none; }
+      .relationship-label { fill: #495057; font-family: Arial, sans-serif; font-size: 10px; }
+      .schema-label { fill: #6f42c1; font-family: Arial, sans-serif; font-size: 16px; font-weight: bold; }
+    </style>
+  </defs>
+  
+  <!-- Schema Labels -->
+  <text x="50" y="30" class="schema-label">Frontend Schema</text>
+  <text x="350" y="30" class="schema-label">Orders Schema</text>
+  <text x="750" y="30" class="schema-label">Payments Schema</text>
+  <text x="50" y="450" class="schema-label">Notifications Schema</text>
+  
+  <!-- Frontend Schema -->
+  <!-- pizzas table -->
+  <rect x="50" y="50" width="200" height="180" class="table-box"/>
+  <rect x="50" y="50" width="200" height="25" class="table-header"/>
+  <text x="150" y="67" text-anchor="middle" class="table-title">pizzas</text>
+  <text x="60" y="85" class="field-text pk-field">id VARCHAR(50) PK</text>
+  <text x="60" y="100" class="field-text">name VARCHAR(100)</text>
+  <text x="60" y="115" class="field-text">description TEXT</text>
+  <text x="60" y="130" class="field-text">price INTEGER</text>
+  <text x="60" y="145" class="field-text">image_url VARCHAR(255)</text>
+  <text x="60" y="160" class="field-text">ingredients TEXT[]</text>
+  <text x="60" y="175" class="field-text">available BOOLEAN</text>
+  <text x="60" y="190" class="field-text">created_at TIMESTAMP</text>
+  <text x="60" y="205" class="field-text">updated_at TIMESTAMP</text>
+  
+  <!-- Orders Schema -->
+  <!-- orders table -->
+  <rect x="350" y="50" width="200" height="180" class="table-box"/>
+  <rect x="350" y="50" width="200" height="25" class="table-header"/>
+  <text x="450" y="67" text-anchor="middle" class="table-title">orders</text>
+  <text x="360" y="85" class="field-text pk-field">id VARCHAR(50) PK</text>
+  <text x="360" y="100" class="field-text">user_id VARCHAR(50)</text>
+  <text x="360" y="115" class="field-text">status VARCHAR(20)</text>
+  <text x="360" y="130" class="field-text">total_amount INTEGER</text>
+  <text x="360" y="145" class="field-text">delivery_address TEXT</text>
+  <text x="360" y="160" class="field-text">phone VARCHAR(20)</text>
+  <text x="360" y="175" class="field-text">created_at TIMESTAMP</text>
+  <text x="360" y="190" class="field-text">updated_at TIMESTAMP</text>
+  
+  <!-- order_items table -->
+  <rect x="350" y="250" width="200" height="150" class="table-box"/>
+  <rect x="350" y="250" width="200" height="25" class="table-header"/>
+  <text x="450" y="267" text-anchor="middle" class="table-title">order_items</text>
+  <text x="360" y="285" class="field-text pk-field">id SERIAL PK</text>
+  <text x="360" y="300" class="field-text fk-field">order_id VARCHAR(50) FK</text>
+  <text x="360" y="315" class="field-text">pizza_id VARCHAR(50)</text>
+  <text x="360" y="330" class="field-text">pizza_name VARCHAR(100)</text>
+  <text x="360" y="345" class="field-text">quantity INTEGER</text>
+  <text x="360" y="360" class="field-text">unit_price INTEGER</text>
+  <text x="360" y="375" class="field-text">total_price INTEGER</text>
+  <text x="360" y="390" class="field-text">created_at TIMESTAMP</text>
+  
+  <!-- outbox_events table -->
+  <rect x="580" y="50" width="200" height="150" class="table-box"/>
+  <rect x="580" y="50" width="200" height="25" class="table-header"/>
+  <text x="680" y="67" text-anchor="middle" class="table-title">outbox_events</text>
+  <text x="590" y="85" class="field-text pk-field">id SERIAL PK</text>
+  <text x="590" y="100" class="field-text">aggregate_id VARCHAR(50)</text>
+  <text x="590" y="115" class="field-text">event_type VARCHAR(50)</text>
+  <text x="590" y="130" class="field-text">event_data JSONB</text>
+  <text x="590" y="145" class="field-text">created_at TIMESTAMP</text>
+  <text x="590" y="160" class="field-text">processed_at TIMESTAMP</text>
+  <text x="590" y="175" class="field-text">status VARCHAR(20)</text>
+  
+  <!-- Payments Schema -->
+  <!-- payments table -->
+  <rect x="750" y="50" width="200" height="180" class="table-box"/>
+  <rect x="750" y="50" width="200" height="25" class="table-header"/>
+  <text x="850" y="67" text-anchor="middle" class="table-title">payments</text>
+  <text x="760" y="85" class="field-text pk-field">id VARCHAR(50) PK</text>
+  <text x="760" y="100" class="field-text">order_id VARCHAR(50)</text>
+  <text x="760" y="115" class="field-text">amount INTEGER</text>
+  <text x="760" y="130" class="field-text">payment_method VARCHAR(50)</text>
+  <text x="760" y="145" class="field-text">status VARCHAR(20)</text>
+  <text x="760" y="160" class="field-text">idempotency_key VARCHAR(255)</text>
+  <text x="760" y="175" class="field-text">failure_reason TEXT</text>
+  <text x="760" y="190" class="field-text">created_at TIMESTAMP</text>
+  <text x="760" y="205" class="field-text">updated_at TIMESTAMP</text>
+  
+  <!-- payment_attempts table -->
+  <rect x="750" y="250" width="200" height="130" class="table-box"/>
+  <rect x="750" y="250" width="200" height="25" class="table-header"/>
+  <text x="850" y="267" text-anchor="middle" class="table-title">payment_attempts</text>
+  <text x="760" y="285" class="field-text pk-field">id SERIAL PK</text>
+  <text x="760" y="300" class="field-text fk-field">payment_id VARCHAR(50) FK</text>
+  <text x="760" y="315" class="field-text">attempt_number INTEGER</text>
+  <text x="760" y="330" class="field-text">success BOOLEAN</text>
+  <text x="760" y="345" class="field-text">error_message TEXT</text>
+  <text x="760" y="360" class="field-text">created_at TIMESTAMP</text>
+  
+  <!-- Notifications Schema -->
+  <!-- notifications table -->
+  <rect x="50" y="470" width="220" height="200" class="table-box"/>
+  <rect x="50" y="470" width="220" height="25" class="table-header"/>
+  <text x="160" y="487" text-anchor="middle" class="table-title">notifications</text>
+  <text x="60" y="505" class="field-text pk-field">id VARCHAR(50) PK</text>
+  <text x="60" y="520" class="field-text">user_id VARCHAR(50)</text>
+  <text x="60" y="535" class="field-text">order_id VARCHAR(50)</text>
+  <text x="60" y="550" class="field-text">subject VARCHAR(255)</text>
+  <text x="60" y="565" class="field-text">message TEXT</text>
+  <text x="60" y="580" class="field-text">channels TEXT[]</text>
+  <text x="60" y="595" class="field-text">priority VARCHAR(20)</text>
+  <text x="60" y="610" class="field-text">template_type VARCHAR(50)</text>
+  <text x="60" y="625" class="field-text">status VARCHAR(20)</text>
+  <text x="60" y="640" class="field-text">created_at TIMESTAMP</text>
+  <text x="60" y="655" class="field-text">sent_at TIMESTAMP</text>
+  
+  <!-- notification_templates table -->
+  <rect x="300" y="470" width="220" height="130" class="table-box"/>
+  <rect x="300" y="470" width="220" height="25" class="table-header"/>
+  <text x="410" y="487" text-anchor="middle" class="table-title">notification_templates</text>
+  <text x="310" y="505" class="field-text pk-field">id SERIAL PK</text>
+  <text x="310" y="520" class="field-text">type VARCHAR(50) UNIQUE</text>
+  <text x="310" y="535" class="field-text">title_template TEXT</text>
+  <text x="310" y="550" class="field-text">message_template TEXT</text>
+  <text x="310" y="565" class="field-text">created_at TIMESTAMP</text>
+  <text x="310" y="580" class="field-text">updated_at TIMESTAMP</text>
+  
+  <!-- notification_deliveries table -->
+  <rect x="550" y="470" width="220" height="180" class="table-box"/>
+  <rect x="550" y="470" width="220" height="25" class="table-header"/>
+  <text x="660" y="487" text-anchor="middle" class="table-title">notification_deliveries</text>
+  <text x="560" y="505" class="field-text pk-field">id SERIAL PK</text>
+  <text x="560" y="520" class="field-text fk-field">notification_id VARCHAR(50) FK</text>
+  <text x="560" y="535" class="field-text">channel VARCHAR(20)</text>
+  <text x="560" y="550" class="field-text">recipient VARCHAR(255)</text>
+  <text x="560" y="565" class="field-text">status VARCHAR(20)</text>
+  <text x="560" y="580" class="field-text">sent_at TIMESTAMP</text>
+  <text x="560" y="595" class="field-text">delivered_at TIMESTAMP</text>
+  <text x="560" y="610" class="field-text">error_message TEXT</text>
+  <text x="560" y="625" class="field-text">created_at TIMESTAMP</text>
+  
+  <!-- Relationships -->
+  <!-- orders -> order_items -->
+  <path d="M 450 230 L 450 250" class="relationship-line"/>
+  <text x="455" y="245" class="relationship-label">1:N</text>
+  
+  <!-- orders -> outbox_events (conceptual) -->
+  <path d="M 550 140 L 580 140" class="relationship-line"/>
+  <text x="560" y="135" class="relationship-label">1:N</text>
+  
+  <!-- orders -> payments (conceptual) -->
+  <path d="M 550 100 L 750 100" class="relationship-line"/>
+  <text x="640" y="95" class="relationship-label">1:1</text>
+  
+  <!-- payments -> payment_attempts -->
+  <path d="M 850 230 L 850 250" class="relationship-line"/>
+  <text x="855" y="245" class="relationship-label">1:N</text>
+  
+  <!-- orders -> notifications (conceptual) -->
+  <path d="M 350 200 Q 200 350 160 470" class="relationship-line"/>
+  <text x="250" y="350" class="relationship-label">1:N</text>
+  
+  <!-- notifications -> notification_deliveries -->
+  <path d="M 270 570 L 550 570" class="relationship-line"/>
+  <text x="400" y="565" class="relationship-label">1:N</text>
+  
+  <!-- pizzas -> order_items (conceptual via pizza_id) -->
+  <path d="M 250 140 Q 300 200 350 325" class="relationship-line" stroke-dasharray="5,5"/>
+  <text x="280" y="230" class="relationship-label">ref</text>
+  
+  <!-- Legend -->
+  <rect x="800" y="400" width="180" height="120" fill="#f8f9fa" stroke="#343a40" stroke-width="1"/>
+  <text x="810" y="415" class="field-text" font-weight="bold">Легенда:</text>
+  <line x1="810" y1="425" x2="830" y2="425" class="relationship-line"/>
+  <text x="835" y="430" class="relationship-label">Прямая связь (FK)</text>
+  <line x1="810" y1="440" x2="830" y2="440" class="relationship-line" stroke-dasharray="5,5"/>
+  <text x="835" y="445" class="relationship-label">Концептуальная связь</text>
+  <text x="810" y="460" class="pk-field">PK - Primary Key</text>
+  <text x="810" y="475" class="fk-field">FK - Foreign Key</text>
+  <text x="810" y="490" class="relationship-label">1:1 - Один к одному</text>
+  <text x="810" y="505" class="relationship-label">1:N - Один ко многим</text>
+  
+  <text x="600" y="780" text-anchor="middle" class="schema-label">ER Диаграмма - Pizza Order System</text>
+</svg>

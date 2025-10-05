@@ -1,0 +1,52 @@
+apiVersion: 1
+
+providers:
+  # Business Analytics & System Dashboards
+  - name: 'Pizza System Dashboards'
+    orgId: 1
+    folder: 'Pizza Order System'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    options:
+      path: /etc/grafana/provisioning/dashboards
+
+  # USE Methodology Dashboard (Utilization, Saturation, Errors)
+  - name: 'USE Methodology'
+    orgId: 1
+    folder: 'Monitoring Methodologies'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    options:
+      path: /etc/grafana/provisioning/dashboards
+
+  # RED Methodology Dashboard (Rate, Errors, Duration)
+  - name: 'RED Methodology'
+    orgId: 1
+    folder: 'Monitoring Methodologies'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    options:
+      path: /etc/grafana/provisioning/dashboards
+
+  # LTES Methodology Dashboard (Latency, Traffic, Errors, Saturation)
+  - name: 'LTES Methodology'
+    orgId: 1
+    folder: 'Monitoring Methodologies'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    options:
+      path: /etc/grafana/provisioning/dashboards
+
+  # Service Performance Dashboard (CPU by Service)
+  - name: 'Service Performance'
+    orgId: 1
+    folder: 'Service Monitoring'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    options:
+      path: /etc/grafana/provisioning/dashboards

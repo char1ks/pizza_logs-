@@ -1,0 +1,241 @@
+<svg width="1400" height="1000" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      .person { fill: #08427b; stroke: #052e56; stroke-width: 2; }
+      .system { fill: #1168bd; stroke: #0b4884; stroke-width: 2; }
+      .container { fill: #438dd5; stroke: #2e5984; stroke-width: 2; }
+      .database { fill: #85bbf0; stroke: #5a7ba7; stroke-width: 2; }
+      .external { fill: #999999; stroke: #666666; stroke-width: 2; }
+      .title-text { fill: white; font-family: Arial, sans-serif; font-size: 14px; font-weight: bold; text-anchor: middle; }
+      .desc-text { fill: white; font-family: Arial, sans-serif; font-size: 11px; text-anchor: middle; }
+      .tech-text { fill: white; font-family: Arial, sans-serif; font-size: 9px; text-anchor: middle; font-style: italic; }
+      .relationship { stroke: #707070; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+      .relationship-label { fill: #333333; font-family: Arial, sans-serif; font-size: 10px; text-anchor: middle; }
+      .level-title { fill: #1168bd; font-family: Arial, sans-serif; font-size: 18px; font-weight: bold; }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#707070" />
+    </marker>
+  </defs>
+  
+  <!-- Level 1: System Context -->
+  <text x="700" y="30" class="level-title" text-anchor="middle">C4 Model - Level 1: System Context</text>
+  
+  <!-- Customer -->
+  <rect x="50" y="80" width="150" height="100" rx="10" class="person"/>
+  <text x="125" y="110" class="title-text">Customer</text>
+  <text x="125" y="130" class="desc-text">Пользователь системы</text>
+  <text x="125" y="145" class="desc-text">заказа пиццы</text>
+  
+  <!-- Pizza Order System -->
+  <rect x="400" y="80" width="200" height="100" rx="10" class="system"/>
+  <text x="500" y="110" class="title-text">Pizza Order System</text>
+  <text x="500" y="130" class="desc-text">Система заказа пиццы</text>
+  <text x="500" y="145" class="desc-text">с event-driven архитектурой</text>
+  
+  <!-- External Payment Provider -->
+  <rect x="750" y="80" width="150" height="100" rx="10" class="external"/>
+  <text x="825" y="110" class="title-text">Payment Provider</text>
+  <text x="825" y="130" class="desc-text">Внешний платежный</text>
+  <text x="825" y="145" class="desc-text">провайдер</text>
+  
+  <!-- External Notification Services -->
+  <rect x="1050" y="80" width="150" height="100" rx="10" class="external"/>
+  <text x="1125" y="110" class="title-text">Notification Services</text>
+  <text x="1125" y="130" class="desc-text">Email, SMS, Push</text>
+  <text x="1125" y="145" class="desc-text">провайдеры</text>
+  
+  <!-- Level 1 Relationships -->
+  <path d="M 200 130 L 400 130" class="relationship"/>
+  <text x="300" y="125" class="relationship-label">Заказывает пиццу</text>
+  
+  <path d="M 600 130 L 750 130" class="relationship"/>
+  <text x="675" y="125" class="relationship-label">Обрабатывает платежи</text>
+  
+  <path d="M 600 130 L 1050 130" class="relationship"/>
+  <text x="825" y="125" class="relationship-label">Отправляет уведомления</text>
+  
+  <!-- Level 2: Container Diagram -->
+  <text x="700" y="250" class="level-title" text-anchor="middle">C4 Model - Level 2: Container Diagram</text>
+  
+  <!-- Web Browser -->
+  <rect x="50" y="300" width="120" height="80" rx="10" class="external"/>
+  <text x="110" y="325" class="title-text">Web Browser</text>
+  <text x="110" y="345" class="desc-text">Клиентское</text>
+  <text x="110" y="360" class="desc-text">приложение</text>
+  
+  <!-- Frontend Service -->
+  <rect x="220" y="300" width="140" height="80" rx="10" class="container"/>
+  <text x="290" y="325" class="title-text">Frontend Service</text>
+  <text x="290" y="345" class="desc-text">Каталог пицц</text>
+  <text x="290" y="365" class="tech-text">[Python/Flask]</text>
+  
+  <!-- Order Service -->
+  <rect x="400" y="300" width="140" height="80" rx="10" class="container"/>
+  <text x="470" y="325" class="title-text">Order Service</text>
+  <text x="470" y="345" class="desc-text">Управление заказами</text>
+  <text x="470" y="365" class="tech-text">[Python/Flask]</text>
+  
+  <!-- Payment Service -->
+  <rect x="580" y="300" width="140" height="80" rx="10" class="container"/>
+  <text x="650" y="325" class="title-text">Payment Service</text>
+  <text x="650" y="345" class="desc-text">Обработка платежей</text>
+  <text x="650" y="365" class="tech-text">[Python/Flask]</text>
+  
+  <!-- Notification Service -->
+  <rect x="760" y="300" width="140" height="80" rx="10" class="container"/>
+  <text x="830" y="325" class="title-text">Notification Service</text>
+  <text x="830" y="345" class="desc-text">Уведомления</text>
+  <text x="830" y="365" class="tech-text">[Python/Flask]</text>
+  
+  <!-- Message Broker -->
+  <rect x="950" y="300" width="140" height="80" rx="10" class="container"/>
+  <text x="1020" y="325" class="title-text">Apache Kafka</text>
+  <text x="1020" y="345" class="desc-text">Брокер сообщений</text>
+  <text x="1020" y="365" class="tech-text">[Event Streaming]</text>
+  
+  <!-- Database -->
+  <rect x="400" y="420" width="200" height="80" rx="10" class="database"/>
+  <text x="500" y="445" class="title-text">PostgreSQL Database</text>
+  <text x="500" y="465" class="desc-text">Основная база данных</text>
+  <text x="500" y="485" class="tech-text">[PostgreSQL 15]</text>
+  
+  <!-- Level 2 Relationships -->
+  <path d="M 170 340 L 220 340" class="relationship"/>
+  <text x="195" y="335" class="relationship-label">HTTP/REST</text>
+  
+  <path d="M 360 340 L 400 340" class="relationship"/>
+  <text x="380" y="335" class="relationship-label">API</text>
+  
+  <path d="M 540 340 L 580 340" class="relationship"/>
+  <text x="560" y="335" class="relationship-label">Events</text>
+  
+  <path d="M 720 340 L 760 340" class="relationship"/>
+  <text x="740" y="335" class="relationship-label">Events</text>
+  
+  <path d="M 470 380 L 470 420" class="relationship"/>
+  <text x="485" y="405" class="relationship-label">SQL</text>
+  
+  <path d="M 650 380 L 650 420" class="relationship"/>
+  <text x="665" y="405" class="relationship-label">SQL</text>
+  
+  <path d="M 830 380 L 830 420" class="relationship"/>
+  <text x="845" y="405" class="relationship-label">SQL</text>
+  
+  <path d="M 540 320 L 950 320" class="relationship"/>
+  <text x="745" y="315" class="relationship-label">Kafka Events</text>
+  
+  <path d="M 720 320 L 950 320" class="relationship"/>
+  
+  <path d="M 830 300 L 830 280 L 1020 280 L 1020 300" class="relationship"/>
+  
+  <!-- Level 3: Component Diagram (Order Service) -->
+  <text x="700" y="570" class="level-title" text-anchor="middle">C4 Model - Level 3: Component Diagram (Order Service)</text>
+  
+  <!-- Order Controller -->
+  <rect x="200" y="620" width="120" height="60" rx="5" class="container"/>
+  <text x="260" y="640" class="title-text">Order Controller</text>
+  <text x="260" y="655" class="desc-text">REST API</text>
+  <text x="260" y="670" class="tech-text">[Flask Routes]</text>
+  
+  <!-- Order Service Logic -->
+  <rect x="350" y="620" width="120" height="60" rx="5" class="container"/>
+  <text x="410" y="640" class="title-text">Order Service</text>
+  <text x="410" y="655" class="desc-text">Бизнес логика</text>
+  <text x="410" y="670" class="tech-text">[Python Class]</text>
+  
+  <!-- Outbox Processor -->
+  <rect x="500" y="620" width="120" height="60" rx="5" class="container"/>
+  <text x="560" y="640" class="title-text">Outbox Processor</text>
+  <text x="560" y="655" class="desc-text">Event Publisher</text>
+  <text x="560" y="670" class="tech-text">[Background Thread]</text>
+  
+  <!-- Event Consumer -->
+  <rect x="650" y="620" width="120" height="60" rx="5" class="container"/>
+  <text x="710" y="640" class="title-text">Event Consumer</text>
+  <text x="710" y="655" class="desc-text">Kafka Consumer</text>
+  <text x="710" y="670" class="tech-text">[KafkaConsumer]</text>
+  
+  <!-- Database Repository -->
+  <rect x="350" y="720" width="120" height="60" rx="5" class="database"/>
+  <text x="410" y="740" class="title-text">Order Repository</text>
+  <text x="410" y="755" class="desc-text">Data Access</text>
+  <text x="410" y="770" class="tech-text">[PostgreSQL]</text>
+  
+  <!-- Kafka Producer -->
+  <rect x="500" y="720" width="120" height="60" rx="5" class="external"/>
+  <text x="560" y="740" class="title-text">Kafka Producer</text>
+  <text x="560" y="755" class="desc-text">Event Publishing</text>
+  <text x="560" y="770" class="tech-text">[KafkaProducer]</text>
+  
+  <!-- Level 3 Relationships -->
+  <path d="M 320 650 L 350 650" class="relationship"/>
+  <path d="M 470 650 L 500 650" class="relationship"/>
+  <path d="M 620 650 L 650 650" class="relationship"/>
+  
+  <path d="M 410 680 L 410 720" class="relationship"/>
+  <path d="M 560 680 L 560 720" class="relationship"/>
+  
+  <!-- Event Flow Diagram -->
+  <text x="700" y="850" class="level-title" text-anchor="middle">Event Flow - Order Processing</text>
+  
+  <!-- Event Flow Steps -->
+  <rect x="50" y="880" width="100" height="40" rx="5" class="container"/>
+  <text x="100" y="895" class="desc-text">1. Create Order</text>
+  <text x="100" y="910" class="tech-text">[POST /orders]</text>
+  
+  <rect x="200" y="880" width="100" height="40" rx="5" class="container"/>
+  <text x="250" y="895" class="desc-text">2. OrderCreated</text>
+  <text x="250" y="910" class="tech-text">[Event]</text>
+  
+  <rect x="350" y="880" width="100" height="40" rx="5" class="container"/>
+  <text x="400" y="895" class="desc-text">3. Process Payment</text>
+  <text x="400" y="910" class="tech-text">[Payment Service]</text>
+  
+  <rect x="500" y="880" width="100" height="40" rx="5" class="container"/>
+  <text x="550" y="895" class="desc-text">4. PaymentCompleted</text>
+  <text x="550" y="910" class="tech-text">[Event]</text>
+  
+  <rect x="650" y="880" width="100" height="40" rx="5" class="container"/>
+  <text x="700" y="895" class="desc-text">5. Send Notification</text>
+  <text x="700" y="910" class="tech-text">[Notification Service]</text>
+  
+  <rect x="800" y="880" width="100" height="40" rx="5" class="container"/>
+  <text x="850" y="895" class="desc-text">6. Update Status</text>
+  <text x="850" y="910" class="tech-text">[Order Service]</text>
+  
+  <!-- Event Flow Arrows -->
+  <path d="M 150 900 L 200 900" class="relationship"/>
+  <path d="M 300 900 L 350 900" class="relationship"/>
+  <path d="M 450 900 L 500 900" class="relationship"/>
+  <path d="M 600 900 L 650 900" class="relationship"/>
+  <path d="M 750 900 L 800 900" class="relationship"/>
+  
+  <!-- Legend -->
+  <rect x="1100" y="620" width="200" height="200" fill="#f8f9fa" stroke="#343a40" stroke-width="1"/>
+  <text x="1110" y="635" class="relationship-label" font-weight="bold">Легенда C4:</text>
+  
+  <rect x="1110" y="645" width="30" height="15" class="person"/>
+  <text x="1150" y="655" class="relationship-label">Person (Пользователь)</text>
+  
+  <rect x="1110" y="665" width="30" height="15" class="system"/>
+  <text x="1150" y="675" class="relationship-label">Software System</text>
+  
+  <rect x="1110" y="685" width="30" height="15" class="container"/>
+  <text x="1150" y="695" class="relationship-label">Container</text>
+  
+  <rect x="1110" y="705" width="30" height="15" class="database"/>
+  <text x="1150" y="715" class="relationship-label">Database</text>
+  
+  <rect x="1110" y="725" width="30" height="15" class="external"/>
+  <text x="1150" y="735" class="relationship-label">External System</text>
+  
+  <line x1="1110" y1="745" x2="1140" y2="745" class="relationship"/>
+  <text x="1150" y="750" class="relationship-label">Relationship</text>
+  
+  <text x="1110" y="770" class="relationship-label" font-size="9px">Архитектурные уровни:</text>
+  <text x="1110" y="785" class="relationship-label" font-size="9px">Level 1: System Context</text>
+  <text x="1110" y="795" class="relationship-label" font-size="9px">Level 2: Container</text>
+  <text x="1110" y="805" class="relationship-label" font-size="9px">Level 3: Component</text>
+  
+</svg>
