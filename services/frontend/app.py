@@ -542,11 +542,9 @@ class FrontendService(BaseService):
                     'Starting service',
                     'Kafka producer initialized',
                     'Kafka consumer initialized',
-                    # Дополнительные стартовые события других сервисов
                     'Starting Payment Service',
                     'Payment Service initialized',
                     'Payments database initialized',
-                    # Частые технические строки из order-service
                     'Order retrieved'
                 }
 

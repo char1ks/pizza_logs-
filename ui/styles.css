@@ -705,12 +705,8 @@ section {
     margin-top: var(--spacing-lg);
 }
 
-/* Center the last card (CPU Dashboard) when it's alone in the last row */
-.monitoring-grid .monitoring-card:nth-child(10) {
-    grid-column: 1 / -1;
-    max-width: 250px;
-    margin: 0 auto;
-}
+/* Убрана принудительная центровка 10-й карточки, чтобы все блоки
+   располагались равномерно в сетке без переноса отдельной строки */
 
 .monitoring-card {
     background: var(--bg-primary);
