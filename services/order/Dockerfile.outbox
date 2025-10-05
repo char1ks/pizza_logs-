@@ -30,17 +30,20 @@ COPY shared/ shared/
 # Copy order service files (including outbox processor)
 COPY order/ .
 
+# Copy and setup init script
+COPY shared/init_logs.sh /usr/local/bin/init_logs.sh
+RUN chmod +x /usr/local/bin/init_logs.sh
+
 # Create logs directory
 RUN mkdir -p logs
 
 # Create non-root user for security
 RUN groupadd -r pizza && useradd -r -g pizza pizza
 RUN chown -R pizza:pizza /app
-USER pizza
 
 # Health check (outbox processor doesn't expose HTTP, so check process)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD pgrep -f "outbox_processor.py" || exit 1
 
-# Run the outbox processor
-CMD ["python", "outbox_processor.py"] 
+# Run the outbox processor with init script
+CMD ["/usr/local/bin/init_logs.sh", "python", "outbox_processor.py"]

@@ -1,4 +1,4 @@
- # ========================================
+# ========================================
 # Pizza Order System - Notification Service Dockerfile
 # Event-Driven Saga Architecture
 # ========================================
@@ -31,13 +31,16 @@ COPY shared/ shared/
 # Copy notification service files
 COPY notification/ .
 
+# Copy and setup init script
+COPY shared/init_logs.sh /usr/local/bin/init_logs.sh
+RUN chmod +x /usr/local/bin/init_logs.sh
+
 # Create logs directory
 RUN mkdir -p logs
 
 # Create non-root user for security
 RUN groupadd -r pizza && useradd -r -g pizza pizza
 RUN chown -R pizza:pizza /app
-USER pizza
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
@@ -46,5 +49,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 # Expose port
 EXPOSE 5000
 
-# Run the application
-CMD ["python", "app.py"]
+# Run the application with init script
+CMD ["/usr/local/bin/init_logs.sh", "python", "app.py"]
