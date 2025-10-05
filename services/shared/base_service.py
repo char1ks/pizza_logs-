@@ -517,9 +517,31 @@ class BaseService:
         def after_request(response):
             if hasattr(request, 'start_time'):
                 duration = time.time() - request.start_time
+                
+                # Filter out technical endpoints from logging
+                endpoint = request.endpoint or 'unknown'
+                path = request.path
+                
+                # Skip logging for technical endpoints
+                technical_endpoints = ['/health', '/metrics', '/favicon.ico']
+                should_skip_logging = any(path.startswith(tech_ep) for tech_ep in technical_endpoints)
+                
+                if not should_skip_logging:
+                    # Log business requests with readable format
+                    if path.startswith('/api/'):
+                        self.logger.info(
+                            f"🌐 API запрос: {request.method} {path}",
+                            method=request.method,
+                            path=path,
+                            status=response.status_code,
+                            duration_ms=round(duration * 1000, 2),
+                            service=self.config.SERVICE_NAME
+                        )
+                
+                # Always record metrics (but not log)
                 self.metrics.record_request(
                     method=request.method,
-                    endpoint=request.endpoint or 'unknown',
+                    endpoint=endpoint,
                     status=response.status_code,
                     duration=duration
                 )
@@ -675,8 +697,35 @@ def retry_with_backoff(func, max_attempts: int = 3, base_delay: float = 1.0, max
 
 
 def format_currency(cents: int) -> str:
-    """Format currency from cents to rubles"""
-    return f"{cents / 100:.2f} ₽"
+    """Format currency from cents to dollars"""
+    return f"${cents / 100:.2f}"
+
+
+def format_order_status_message(order_id: str, status: str, service: str, **kwargs) -> str:
+    """Format user-friendly order status message"""
+    status_messages = {
+        'PENDING': f"📝 Заказ #{order_id[:8]} принят и ожидает обработки",
+        'PROCESSING': f"⚙️ Заказ #{order_id[:8]} обрабатывается",
+        'PAID': f"💳 Заказ #{order_id[:8]} оплачен успешно",
+        'FAILED': f"❌ Заказ #{order_id[:8]} не удался",
+        'COMPLETED': f"✅ Заказ #{order_id[:8]} выполнен",
+        'CANCELLED': f"🚫 Заказ #{order_id[:8]} отменен"
+    }
+    
+    base_message = status_messages.get(status, f"📋 Заказ #{order_id[:8]} - статус: {status}")
+    
+    # Add additional context based on service and kwargs
+    if service == 'payment-service':
+        if 'amount' in kwargs:
+            amount_str = format_currency(kwargs['amount'])
+            base_message += f" (сумма: {amount_str})"
+        if 'payment_method' in kwargs:
+            base_message += f" (способ оплаты: {kwargs['payment_method']})"
+    
+    if 'reason' in kwargs and kwargs['reason']:
+        base_message += f" - {kwargs['reason']}"
+    
+    return base_message
 
 
 def validate_required_fields(data: Dict[str, Any], required_fields: List[str]) -> List[str]:

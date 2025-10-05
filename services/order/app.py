@@ -21,7 +21,7 @@ from urllib3.util.retry import Retry
 # Add shared module to path
 sys.path.insert(0, '/app/shared')
 
-from base_service import BaseService, generate_id, validate_required_fields, ValidationError, retry_with_backoff
+from base_service import BaseService, generate_id, validate_required_fields, ValidationError, retry_with_backoff, format_order_status_message
 
 
 class OrderService(BaseService):
@@ -174,16 +174,15 @@ class OrderService(BaseService):
                     correlation_id=correlation_id
                 )
                 
-                self.logger.info(
-                    "🍕 ЗАКАЗ ПИЦЦЫ: Заказ успешно создан и добавлен в Outbox",
+                # Log user-friendly message
+                status_message = format_order_status_message(
                     order_id=order_id,
-                    user_id=user_id,
-                    correlation_id=correlation_id,
-                    total_amount=total_amount,
+                    status='PENDING',
+                    service='order-service',
                     items_count=len(data['items']),
-                    stage="order_created_success",
-                    service="order-service"
+                    total_amount=total_amount
                 )
+                self.logger.info(status_message, order_id=order_id, correlation_id=correlation_id)
                 
                 self.metrics.record_business_event('order_created', 'success')
                 
@@ -306,12 +305,14 @@ class OrderService(BaseService):
                         'error': 'Order not found'
                     }), 404
                 
-                self.logger.info(
-                    "Order status updated",
+                # Log user-friendly status change message
+                status_message = format_order_status_message(
                     order_id=order_id,
-                    new_status=new_status,
+                    status=new_status,
+                    service='order-service',
                     reason=reason
                 )
+                self.logger.info(status_message, order_id=order_id)
                 
                 return jsonify({
                     'success': True,
@@ -611,7 +612,13 @@ class OrderService(BaseService):
                         WHERE order_id = %s
                     """, (order_id,))
             
-            self.logger.info("Order marked as PAID", order_id=order_id, correlation_id=correlation_id)
+            # Log user-friendly payment success message
+            status_message = format_order_status_message(
+                order_id=order_id,
+                status='PAID',
+                service='order-service'
+            )
+            self.logger.info(status_message, order_id=order_id, correlation_id=correlation_id)
             
         except Exception as e:
             self.logger.error("Failed to handle order paid", order_id=order_id, error=str(e))
@@ -634,7 +641,14 @@ class OrderService(BaseService):
                         WHERE order_id = %s
                     """, (order_id,))
             
-            self.logger.info("Order marked as FAILED", order_id=order_id, correlation_id=correlation_id, reason=failure_reason)
+            # Log user-friendly payment failure message
+            status_message = format_order_status_message(
+                order_id=order_id,
+                status='FAILED',
+                service='order-service',
+                reason=failure_reason
+            )
+            self.logger.info(status_message, order_id=order_id, correlation_id=correlation_id)
             
         except Exception as e:
             self.logger.error("Failed to handle payment failed", order_id=order_id, error=str(e))

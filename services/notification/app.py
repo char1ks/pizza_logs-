@@ -22,7 +22,7 @@ from urllib3.util.retry import Retry
 # Add shared module to path
 sys.path.insert(0, '/app/shared')
 
-from base_service import BaseService, generate_id, validate_required_fields, ValidationError, retry_with_backoff
+from base_service import BaseService, generate_id, validate_required_fields, ValidationError, retry_with_backoff, format_order_status_message
 
 
 class NotificationType(Enum):
@@ -180,11 +180,13 @@ class NotificationService(BaseService):
                 ).start()
                 
                 self.logger.info(
-                    "Notification queued for sending",
-                    notification_id=notification_id,
-                    user_id=user_id,
-                    channels=channels,
-                    priority=priority
+                    format_order_status_message(
+                        order_id=order_id or "N/A",
+                        status="NOTIFICATION_QUEUED",
+                        service="notification-service",
+                        channels=", ".join(channels),
+                        priority=priority
+                    )
                 )
                 
                 self.metrics.record_business_event('notification_queued', 'success')
@@ -510,7 +512,14 @@ class NotificationService(BaseService):
                     WHERE id = %s
                 """, (status, notification_id))
                 
-                self.logger.info("Notification status updated", notification_id=notification_id, status=status)
+                self.logger.info(
+                    format_order_status_message(
+                        order_id="N/A",
+                        status=f"NOTIFICATION_{status}",
+                        service="notification-service",
+                        notification_id=notification_id
+                    )
+                )
                 
         except Exception as e:
             self.logger.error("Failed to update notification status", notification_id=notification_id, error=str(e))

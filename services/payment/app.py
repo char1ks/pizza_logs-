@@ -21,7 +21,7 @@ import requests
 # Add shared module to path
 sys.path.insert(0, '/app/shared')
 
-from base_service import BaseService, generate_id, validate_required_fields, ValidationError, retry_with_backoff
+from base_service import BaseService, generate_id, validate_required_fields, ValidationError, retry_with_backoff, format_order_status_message
 
 
 class PaymentStatus(Enum):
@@ -356,14 +356,13 @@ class PaymentService(BaseService):
             payment = self.get_payment_by_id(payment_id)
             order_id = payment.get('order_id') if payment else 'unknown'
             
-            self.logger.info(
-                "🍕 ЗАКАЗ ПИЦЦЫ: Начинаем асинхронную обработку платежа",
+            # Log user-friendly payment start message
+            status_message = format_order_status_message(
                 order_id=order_id,
-                correlation_id=correlation_id,
-                payment_id=payment_id,
-                stage="payment_processing_start",
-                service="payment-service"
+                status='PROCESSING',
+                service='payment-service'
             )
+            self.logger.info(status_message, order_id=order_id, correlation_id=correlation_id, payment_id=payment_id)
             
             # Update status to PROCESSING
             self.logger.info(
@@ -403,13 +402,16 @@ class PaymentService(BaseService):
             
             if success:
                 # Update status to COMPLETED
-                self.logger.info(
-                    "🍕 ЗАКАЗ ПИЦЦЫ: Платеж успешен, обновляем статус на COMPLETED",
+                # Log user-friendly payment success message
+                payment_data = self.get_payment_by_id(payment_id)
+                status_message = format_order_status_message(
                     order_id=order_id,
-                    payment_id=payment_id,
-                    stage="payment_status_completed",
-                    service="payment-service"
+                    status='PAID',
+                    service='payment-service',
+                    amount=payment_data.get('amount') if payment_data else None,
+                    payment_method=payment_data.get('payment_method') if payment_data else None
                 )
+                self.logger.info(status_message, order_id=order_id, payment_id=payment_id)
                 self.update_payment_status(payment_id, PaymentStatus.COMPLETED.value)
                 
                 # Publish success event
@@ -433,13 +435,14 @@ class PaymentService(BaseService):
                 
             else:
                 # Update status to FAILED
-                self.logger.error(
-                    "🍕 ЗАКАЗ ПИЦЦЫ: Платеж неуспешен, обновляем статус на FAILED",
+                # Log user-friendly payment failure message
+                status_message = format_order_status_message(
                     order_id=order_id,
-                    payment_id=payment_id,
-                    stage="payment_status_failed",
-                    service="payment-service"
+                    status='FAILED',
+                    service='payment-service',
+                    reason="Платеж не прошел после нескольких попыток"
                 )
+                self.logger.error(status_message, order_id=order_id, payment_id=payment_id)
                 self.update_payment_status(payment_id, PaymentStatus.FAILED.value, "Payment failed after retries")
                 
                 # Publish failure event
@@ -769,12 +772,11 @@ class PaymentService(BaseService):
         # Extract correlation ID from event data
         correlation_id = event_data.get('correlationId')
         
+        # Log user-friendly order received message
         self.logger.info(
-            "🍕 ЗАКАЗ ПИЦЦЫ: Получено событие создания заказа в Payment Service",
+            f"💳 Получен заказ #{order_id[:8]} для обработки платежа",
             order_id=order_id,
-            correlation_id=correlation_id,
-            stage="payment_event_received",
-            service="payment-service"
+            correlation_id=correlation_id
         )
         
         if not all(k in event_data for k in ['totalAmount', 'paymentMethod', 'userId']):
