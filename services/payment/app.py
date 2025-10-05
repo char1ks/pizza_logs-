@@ -336,7 +336,7 @@ class PaymentService(BaseService):
                         VALUES (%s, %s, %s, %s, %s, %s)
                     """, (payment_id, order_id, amount, payment_method, PaymentStatus.PENDING.value, idempotency_key))
                 
-                self.logger.info("Payment record created", payment_id=payment_id, order_id=order_id)
+                self.logger.debug("Payment record created", payment_id=payment_id, order_id=order_id)
                 
                 return {
                     'payment_id': payment_id,
@@ -362,10 +362,10 @@ class PaymentService(BaseService):
                 status='PROCESSING',
                 service='payment-service'
             )
-            self.logger.info(status_message, order_id=order_id, correlation_id=correlation_id, payment_id=payment_id)
+            self.logger.debug(status_message, order_id=order_id, correlation_id=correlation_id, payment_id=payment_id)
             
             # Update status to PROCESSING
-            self.logger.info(
+            self.logger.debug(
                 "🍕 ЗАКАЗ ПИЦЦЫ: Обновляем статус платежа на PROCESSING",
                 order_id=order_id,
                 correlation_id=correlation_id,
@@ -376,7 +376,7 @@ class PaymentService(BaseService):
             self.update_payment_status(payment_id, PaymentStatus.PROCESSING.value)
             
             # Process with retry pattern
-            self.logger.info(
+            self.logger.debug(
                 "🍕 ЗАКАЗ ПИЦЦЫ: Запускаем retry pattern для обработки платежа",
                 order_id=order_id,
                 correlation_id=correlation_id,
@@ -391,7 +391,7 @@ class PaymentService(BaseService):
                 max_delay=30.0
             )
             
-            self.logger.info(
+            self.logger.debug(
                 "🍕 ЗАКАЗ ПИЦЦЫ: Retry pattern завершен",
                 order_id=order_id,
                 payment_id=payment_id,
@@ -446,7 +446,7 @@ class PaymentService(BaseService):
                 self.update_payment_status(payment_id, PaymentStatus.FAILED.value, "Payment failed after retries")
                 
                 # Publish failure event
-                self.logger.info(
+                self.logger.debug(
                     "🍕 ЗАКАЗ ПИЦЦЫ: Отправляем событие неуспешного платежа в Kafka",
                     order_id=order_id,
                     payment_id=payment_id,
@@ -506,7 +506,7 @@ class PaymentService(BaseService):
                     force_fail = False
             # Если ручной заказ и forceFail == False, всегда успех, игнорируем circuit breaker
             if force_fail is False and 'forceFail' in (event_data if 'event_data' in locals() else {}):
-                self.logger.info("✅ Ручной заказ: всегда успех, circuit breaker игнорируется", payment_id=payment_id, order_id=order_id)
+                self.logger.debug("✅ Ручной заказ: всегда успех, circuit breaker игнорируется", payment_id=payment_id, order_id=order_id)
                 self.update_payment_attempt(self.record_payment_attempt(payment_id), success=True)
                 self.update_payment_status(payment_id, PaymentStatus.COMPLETED.value)
                 return True
@@ -514,17 +514,17 @@ class PaymentService(BaseService):
             if not self.circuit_breaker.can_execute():
                 self.logger.warning("⚡ Circuit breaker is OPEN, payment blocked", payment_id=payment_id)
                 raise Exception("Payment provider is unavailable (circuit breaker OPEN)")
-            self.logger.info("✅ Circuit breaker check passed", payment_id=payment_id)
-            self.logger.info("📋 Getting payment details", payment_id=payment_id)
-            self.logger.info("✅ Payment details retrieved", payment_id=payment_id, order_id=order_id)
-            self.logger.info("📝 Recording payment attempt", payment_id=payment_id)
+            self.logger.debug("✅ Circuit breaker check passed", payment_id=payment_id)
+            self.logger.debug("📋 Getting payment details", payment_id=payment_id)
+            self.logger.debug("✅ Payment details retrieved", payment_id=payment_id, order_id=order_id)
+            self.logger.debug("📝 Recording payment attempt", payment_id=payment_id)
             attempt_id = self.record_payment_attempt(payment_id)
-            self.logger.info("✅ Payment attempt recorded", payment_id=payment_id, attempt_id=attempt_id)
-            self.logger.info("🌐 Calling payment provider", payment_id=payment_id)
+            self.logger.debug("✅ Payment attempt recorded", payment_id=payment_id, attempt_id=attempt_id)
+            self.logger.debug("🌐 Calling payment provider", payment_id=payment_id)
             success = self.call_payment_provider(payment)
-            self.logger.info(f"🎯 Payment provider call completed, success={success}", payment_id=payment_id)
+            self.logger.debug(f"🎯 Payment provider call completed, success={success}", payment_id=payment_id)
             if success:
-                self.logger.info("✅ Recording successful attempt", payment_id=payment_id, attempt_id=attempt_id)
+                self.logger.debug("✅ Recording successful attempt", payment_id=payment_id, attempt_id=attempt_id)
                 self.update_payment_attempt(attempt_id, success=True)
                 self.circuit_breaker.record_success()
                 return True
@@ -546,9 +546,9 @@ class PaymentService(BaseService):
                 self.update_payment_attempt(attempt_id, success=False, error="Payment provider rejected")
                 if not is_crash_test:
                     self.circuit_breaker.record_failure()
-                    self.logger.info("⚡ Circuit breaker failure recorded for real payment", payment_id=payment_id)
+                    self.logger.debug("⚡ Circuit breaker failure recorded for real payment", payment_id=payment_id)
                 else:
-                    self.logger.info("🧪 Crash test failure - circuit breaker not affected", payment_id=payment_id)
+                    self.logger.debug("🧪 Crash test failure - circuit breaker not affected", payment_id=payment_id)
                 raise Exception("Payment provider rejected the transaction")
         except Exception as e:
             self.logger.warning("⚠️ Payment attempt failed", payment_id=payment_id, error=str(e), exc_info=True)
@@ -577,7 +577,7 @@ class PaymentService(BaseService):
         if force_fail:
             self.logger.warning("🧪 FORCE FAIL - Заказ помечен как неуспешный", payment_id=payment_id, order_id=order_id)
             return False
-        self.logger.info("✅ Заказ не помечен как неуспешный, платёж будет успешным", payment_id=payment_id, order_id=order_id)
+        self.logger.debug("✅ Заказ не помечен как неуспешный, платёж будет успешным", payment_id=payment_id, order_id=order_id)
         return True
     
     def record_payment_attempt(self, payment_id: str) -> int:
@@ -594,7 +594,7 @@ class PaymentService(BaseService):
                     RETURNING id
             """, (payment_id, payment_id), fetch='one')
                 
-            self.logger.info("Recorded new payment attempt", payment_id=payment_id, attempt_id=result['id'])
+            self.logger.debug("Recorded new payment attempt", payment_id=payment_id, attempt_id=result['id'])
             return result['id']
                 
         except Exception as e:
@@ -612,7 +612,7 @@ class PaymentService(BaseService):
                     WHERE id = %s
             """, (status, error, attempt_id), fetch=None)
                 
-            self.logger.info("Updated payment attempt", attempt_id=attempt_id, status=status)
+            self.logger.debug("Updated payment attempt", attempt_id=attempt_id, status=status)
         except Exception as e:
             self.logger.error("Failed to update payment attempt", error=str(e))
             raise
@@ -666,7 +666,7 @@ class PaymentService(BaseService):
                         WHERE id = %s
                     """, (status, failure_reason, payment_id))
                 
-                self.logger.info("Payment status updated", payment_id=payment_id, status=status)
+                self.logger.debug("Payment status updated", payment_id=payment_id, status=status)
                 
         except Exception as e:
             self.logger.error("Failed to update payment status", payment_id=payment_id, error=str(e))
@@ -692,7 +692,7 @@ class PaymentService(BaseService):
             success = self.events.publish_event('payment-events', event_data, payment['order_id'])
             
             if success:
-                self.logger.info("Payment success event published", payment_id=payment_id, order_id=payment['order_id'], correlation_id=correlation_id)
+                self.logger.debug("Payment success event published", payment_id=payment_id, order_id=payment['order_id'], correlation_id=correlation_id)
             else:
                 self.logger.error("Failed to publish payment success event", payment_id=payment_id, order_id=payment['order_id'], correlation_id=correlation_id)
                 
@@ -720,7 +720,7 @@ class PaymentService(BaseService):
             success = self.events.publish_event('payment-events', event_data, payment['order_id'])
             
             if success:
-                self.logger.info("Payment failure event published", payment_id=payment_id, order_id=payment['order_id'], correlation_id=correlation_id)
+                self.logger.debug("Payment failure event published", payment_id=payment_id, order_id=payment['order_id'], correlation_id=correlation_id)
             else:
                 self.logger.error("Failed to publish payment failure event", payment_id=payment_id, order_id=payment['order_id'], correlation_id=correlation_id)
                 
@@ -730,7 +730,7 @@ class PaymentService(BaseService):
     def start_event_consumer(self):
         """Start Kafka event consumer in background thread"""
         def consume_events():
-            self.logger.info("Starting event consumer for order events")
+            self.logger.debug("Starting event consumer for order events")
             
             while True:
                 try:
@@ -747,22 +747,22 @@ class PaymentService(BaseService):
         
         consumer_thread = threading.Thread(target=consume_events, daemon=True)
         consumer_thread.start()
-        self.logger.info("Event consumer thread started")
+        self.logger.debug("Event consumer thread started")
     
     def handle_order_event(self, topic: str, event_data: Dict, key: str):
         """Handle events from order service"""
         try:
-            self.logger.info(
+            self.logger.debug(
                 "Событие из Kafka принято к обработке",
                 raw_event=json.dumps(event_data)
             )
             event_type = event_data.get('event_type')
             order_id = event_data.get('orderId')
-            self.logger.info("Received order event", event_type=event_type, order_id=order_id)
+            self.logger.debug("Received order event", event_type=event_type, order_id=order_id)
             if event_type == 'OrderCreated':
                 self.handle_order_created(event_data, order_id)
             else:
-                self.logger.warning("Unknown event type", event_type=event_type)
+                self.logger.debug("Unknown event type", event_type=event_type)
         except Exception as e:
             self.logger.error("Failed to handle order event", error=str(e))
     

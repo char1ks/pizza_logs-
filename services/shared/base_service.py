@@ -133,6 +133,20 @@ def setup_logging(service_name: str, log_level: str = 'INFO') -> structlog.Bound
         flask_logger = logging.getLogger('flask.app')
         flask_logger.setLevel(logging.ERROR)
         flask_logger.propagate = False
+        for name in (
+            'kafka',
+            'kafka.client',
+            'kafka.conn',
+            'kafka.cluster',
+            'kafka.metrics',
+            'kafka.producer.kafka',
+            'kafka.consumer.fetcher',
+            'kafka.coordinator.consumer',
+            'kafka.coordinator.assignors',
+        ):
+            kl = logging.getLogger(name)
+            kl.setLevel(logging.ERROR)
+            kl.propagate = False
     except Exception:
         pass
     
@@ -383,7 +397,7 @@ class EventManager:
                 max_request_size=104857600,  # 100MB
                 buffer_memory=33554432  # 32MB
             )
-            self.logger.info("Kafka producer initialized")
+            self.logger.debug("Kafka producer initialized")
         return self._producer
     
     def publish_event(self, topic: str, event_data: Dict[str, Any], key: str = None) -> bool:
@@ -402,7 +416,7 @@ class EventManager:
             event_json = json.dumps(enriched_event)
             event_size = len(event_json.encode('utf-8'))
             
-            self.logger.info(
+            self.logger.debug(
                 "Publishing event", 
                 topic=topic, 
                 event_type=event_data.get('event_type'),
@@ -460,7 +474,7 @@ class EventManager:
                 max_partition_fetch_bytes=52428800,  # 50MB
                 fetch_max_bytes=52428800  # 50MB
             )
-            self.logger.info("Kafka consumer initialized", topics=topics, group_id=group_id)
+            self.logger.debug("Kafka consumer initialized", topics=topics, group_id=group_id)
         
         return self._consumers[consumer_key]
     
