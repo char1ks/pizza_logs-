@@ -3,7 +3,10 @@ const AppState = {
     cart: [],
     currentOrder: null,
     isLoading: false,
-    eventLog: []
+    eventLog: [],
+    // Для дедупликации между опросами
+    seenLogKeys: new Set(),
+    seenLogOrder: []
 };
 const API_BASE = '/api/v1';
 const API_ENDPOINTS = {
@@ -63,6 +66,21 @@ function formatTimestamp(date = new Date()) {
     });
 }
 
+// ===================== Дедупликация логов =====================
+function makeLogKey(service, type, message, correlationId = '') {
+    return `${service}|${type}|${message}|${correlationId || ''}`;
+}
+function rememberLogKey(key) {
+    AppState.seenLogKeys.add(key);
+    AppState.seenLogOrder.push(key);
+    // Ограничиваем размер памяти по ключам, чтобы не расти бесконечно
+    const MAX_KEYS = 1000;
+    if (AppState.seenLogOrder.length > MAX_KEYS) {
+        const oldest = AppState.seenLogOrder.shift();
+        AppState.seenLogKeys.delete(oldest);
+    }
+}
+
 /**
  * Show toast notification
  */
@@ -82,16 +100,23 @@ function showToast(message, icon = '✅', duration = 3000) {
 }
 function addEventLog(type, message, service = null) {
     const timestamp = formatTimestamp();
+    const finalService = service || detectServiceFromMessage(type, message);
+    const key = makeLogKey(finalService, type, message);
+    if (AppState.seenLogKeys.has(key)) {
+        return false; // пропускаем дубль
+    }
     AppState.eventLog.unshift({ 
         timestamp, 
         type, 
         message, 
-        service: service || detectServiceFromMessage(type, message)
+        service: finalService
     });
+    rememberLogKey(key);
     if (AppState.eventLog.length > 50) {
         AppState.eventLog = AppState.eventLog.slice(0, 50);
     }
     updateEventLogDisplay();
+    return true;
 }
 function detectServiceFromMessage(type, message) {
     if (type === 'API' && message.includes('меню')) return 'frontend-service';
@@ -122,6 +147,10 @@ function addEventLogFromAPI(logData) {
     const type = logData.event_type || logData.type || 'INFO';
     let message = logData.message || logData.msg || 'No message';
     const correlationId = logData.correlationId || logData.correlation_id;
+    const key = makeLogKey(service, type, message, correlationId);
+    if (AppState.seenLogKeys.has(key)) {
+        return false; // пропускаем дубль
+    }
     if (correlationId) {
         message = `[corr=${correlationId}] ${message}`;
     }
@@ -132,11 +161,13 @@ function addEventLogFromAPI(logData) {
         type, 
         message 
     });
+    rememberLogKey(key);
     if (AppState.eventLog.length > 50) {
         AppState.eventLog = AppState.eventLog.slice(0, 50);
     }
     
     updateEventLogDisplay();
+    return true;
 }
 async function apiRequest(url, options = {}) {
     try {
@@ -685,37 +716,34 @@ function setupMonitoringUrls() {
 async function fetchServiceLogs() {
     try {
         const data = await apiRequest('/api/v1/logs');
-        let count = 0;
+        let count = 0; // считаем только добавленные (новые) записи
         if (Array.isArray(data)) {
             for (const entry of data) {
-                addEventLogFromAPI(entry);
-                count++;
+                if (addEventLogFromAPI(entry)) count++;
             }
         } else if (data && Array.isArray(data.logs)) {
             const service = data.service || 'unknown';
             for (const line of data.logs) {
                 if (typeof line === 'string') {
-                    addEventLog('LOG', line.trim(), service);
+                    if (addEventLog('LOG', line.trim(), service)) count++;
                 } else {
-                    addEventLogFromAPI({ ...line, service });
+                    if (addEventLogFromAPI({ ...line, service })) count++;
                 }
-                count++;
             }
         } else if (data && typeof data === 'object') {
             for (const [service, lines] of Object.entries(data)) {
                 if (!Array.isArray(lines)) continue;
                 for (const line of lines) {
                     if (typeof line === 'string') {
-                        addEventLog('LOG', line.trim(), service);
+                        if (addEventLog('LOG', line.trim(), service)) count++;
                     } else {
-                        addEventLogFromAPI({ ...line, service });
+                        if (addEventLogFromAPI({ ...line, service })) count++;
                     }
-                    count++;
                 }
             }
         }
         if (count > 0) {
-            addEventLog('SYSTEM', `Получено ${count} записей логов`, 'frontend-ui');
+            addEventLog('SYSTEM', `Получено ${count} новых записей логов`, 'frontend-ui');
         }
     } catch (error) {
         addEventLog('ERROR', `Не удалось получить логи: ${error.message}`, 'frontend-ui');
