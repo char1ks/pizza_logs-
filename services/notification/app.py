@@ -197,7 +197,7 @@ class NotificationService(BaseService):
                     'status': 'PENDING',
                     'channels': channels,
                     'timestamp': self.get_timestamp()
-                }), 202  # Accepted - processing asynchronously
+                }), 202  
                 
             except ValidationError as e:
                 self.logger.warning("Notification validation failed", error=str(e))
@@ -205,7 +205,7 @@ class NotificationService(BaseService):
                     'success': False,
                     'error': 'Validation error',
                     'message': str(e)
-                }), 400
+                }), 400  
                 
             except Exception as e:
                 self.logger.error("Failed to queue notification", error=str(e))

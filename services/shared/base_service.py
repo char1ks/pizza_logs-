@@ -523,7 +523,7 @@ class BaseService:
                 path = request.path
                 
                 # Skip logging for technical endpoints
-                technical_endpoints = ['/health', '/metrics', '/favicon.ico']
+                technical_endpoints = ['/health', '/metrics', '/favicon.ico', '/api/v1/logs']
                 should_skip_logging = any(path.startswith(tech_ep) for tech_ep in technical_endpoints)
                 
                 if not should_skip_logging:

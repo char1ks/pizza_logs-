@@ -14,12 +14,8 @@ echo "Initializing logs for service: $SERVICE_NAME"
 # Create logs directory if it doesn't exist
 mkdir -p "$LOGS_DIR"
 
-# Convert service name to valid filename (replace hyphens with underscores if needed)
-# For payment-mock-service -> payment-mock
-LOG_SERVICE_NAME=$(echo "$SERVICE_NAME" | sed 's/-service$//')
-
-# Create log file for this service if it doesn't exist
-LOG_FILE="$LOGS_DIR/${LOG_SERVICE_NAME}.log"
+# Use service name directly for log file name to ensure consistency across services
+LOG_FILE="$LOGS_DIR/${SERVICE_NAME}.log"
 if [ ! -f "$LOG_FILE" ]; then
     touch "$LOG_FILE"
     echo "Created log file: $LOG_FILE"
