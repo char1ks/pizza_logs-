@@ -415,7 +415,7 @@ class PaymentService(BaseService):
                 self.update_payment_status(payment_id, PaymentStatus.COMPLETED.value)
                 
                 # Publish success event
-                self.logger.info(
+                self.logger.debug(
                     "🍕 ЗАКАЗ ПИЦЦЫ: Отправляем событие успешного платежа в Kafka",
                     order_id=order_id,
                     payment_id=payment_id,

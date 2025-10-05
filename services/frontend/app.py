@@ -541,7 +541,13 @@ class FrontendService(BaseService):
                     'Starting Frontend Service',
                     'Starting service',
                     'Kafka producer initialized',
-                    'Kafka consumer initialized'
+                    'Kafka consumer initialized',
+                    # Дополнительные стартовые события других сервисов
+                    'Starting Payment Service',
+                    'Payment Service initialized',
+                    'Payments database initialized',
+                    # Частые технические строки из order-service
+                    'Order retrieved'
                 }
 
                 def is_noise(line: str) -> bool:
@@ -559,8 +565,19 @@ class FrontendService(BaseService):
                     return False
 
                 filtered = [ln for ln in lines if not is_noise(ln)]
-                # Возвращаем последние tail строк после фильтрации
-                return filtered[-tail:]
+
+                # Дедупликация: убираем повторяющиеся строки, сохраняя порядок последних сообщений
+                seen = set()
+                unique_reversed = []
+                for ln in reversed(filtered):
+                    key = ln.strip()
+                    if key not in seen:
+                        seen.add(key)
+                        unique_reversed.append(ln)
+                unique = list(reversed(unique_reversed))
+
+                # Возвращаем последние tail строк после фильтрации и дедупликации
+                return unique[-tail:]
         except Exception as e:
             self.logger.error(f"Failed to read log file {log_file}", error=str(e))
             return [f"Error reading log file: {e}"]
