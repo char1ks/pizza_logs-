@@ -1,12 +1,3 @@
-/**
- * Pizza Order System - Frontend JavaScript
- * Event-Driven Saga Architecture Demo
- */
-
-// ========================================
-// Global State Management
-// ========================================
-
 const AppState = {
     menu: [],
     cart: [],
@@ -14,8 +5,6 @@ const AppState = {
     isLoading: false,
     eventLog: []
 };
-
-// API Configuration
 const API_BASE = '/api/v1';
 const API_ENDPOINTS = {
     menu: `${API_BASE}/menu`,
@@ -23,11 +12,9 @@ const API_ENDPOINTS = {
     notifications: `${API_BASE}/notifications`,
     base: API_BASE
 };
-
-// Настройки тестирования
 let testSettings = {
     failRate: 0,
-    manualOrderAlwaysSuccess: true // true — всегда успех, false — всегда fail
+    manualOrderAlwaysSuccess: true 
 };
 
 function openSettingsDialog() {
@@ -59,28 +46,12 @@ function saveSettings() {
     closeSettingsDialog();
     showToast('Настройки тестирования сохранены', '⚙️');
 }
-
-// ========================================
-// Utility Functions
-// ========================================
-
-/**
- * Format price from cents to rubles
- */
 function formatPrice(cents) {
     return (cents / 100).toFixed(2).replace('.', ',') + ' ₽';
 }
-
-/**
- * Generate unique ID
- */
 function generateId() {
     return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
-
-/**
- * Format timestamp
- */
 function formatTimestamp(date = new Date()) {
     return date.toLocaleString('ru-RU', {
         year: 'numeric',
@@ -109,10 +80,6 @@ function showToast(message, icon = '✅', duration = 3000) {
         toast.classList.remove('show');
     }, duration);
 }
-
-/**
- * Add event to log with optional service information
- */
 function addEventLog(type, message, service = null) {
     const timestamp = formatTimestamp();
     AppState.eventLog.unshift({ 
@@ -121,18 +88,11 @@ function addEventLog(type, message, service = null) {
         message, 
         service: service || detectServiceFromMessage(type, message)
     });
-    
-    // Keep only last 50 events
     if (AppState.eventLog.length > 50) {
         AppState.eventLog = AppState.eventLog.slice(0, 50);
     }
-    
     updateEventLogDisplay();
 }
-
-/**
- * Detect service from event type and message
- */
 function detectServiceFromMessage(type, message) {
     if (type === 'API' && message.includes('меню')) return 'frontend-service';
     if (type === 'ORDER') return 'order-service';
@@ -143,10 +103,6 @@ function detectServiceFromMessage(type, message) {
     if (type === 'SYSTEM') return 'frontend-ui';
     return 'frontend-ui';
 }
-
-/**
- * Update event log display with service information
- */
 function updateEventLogDisplay() {
     const eventLog = document.getElementById('eventLog');
     eventLog.innerHTML = AppState.eventLog.map(event => {
@@ -160,10 +116,6 @@ function updateEventLogDisplay() {
         </div>
     `}).join('');
 }
-
-/**
- * Add event log from API response (when services send structured logs)
- */
 function addEventLogFromAPI(logData) {
     const timestamp = logData.timestamp || formatTimestamp();
     const service = logData.service || 'unknown';
@@ -180,22 +132,12 @@ function addEventLogFromAPI(logData) {
         type, 
         message 
     });
-    
-    // Keep only last 50 events
     if (AppState.eventLog.length > 50) {
         AppState.eventLog = AppState.eventLog.slice(0, 50);
     }
     
     updateEventLogDisplay();
 }
-
-// ========================================
-// API Functions
-// ========================================
-
-/**
- * Make API request with error handling
- */
 async function apiRequest(url, options = {}) {
     try {
         const response = await fetch(url, {
@@ -296,7 +238,6 @@ async function createOrder() {
     try {
         orderButton.disabled = true;
         orderButton.textContent = '⏳ Обрабатываем заказ...';
-        // forceFail для ручного заказа: если выключатель Нет — всегда fail, если Да — всегда success
         let forceFail = !testSettings.manualOrderAlwaysSuccess;
         addEventLog('ORDER', `Настройки тестирования: forceFail=${forceFail}`);
         
@@ -343,24 +284,16 @@ async function createOrder() {
         addEventLog('ORDER', 'Процесс создания заказа завершен');
     }
 }
-
-/**
- * Get order status from Order Service
- */
 async function getOrderStatus(orderId) {
     try {
-        // This function now only fetches and returns the order data
         const response = await apiRequest(`${API_ENDPOINTS.orders}/${orderId}`);
-        return response; // This contains {success: true, order: {...}}
+        return response;
     } catch (error) {
         console.error('Failed to get order status:', error);
         return null;
     }
 }
 
-/**
- * Poll for order status until it's final
- */
 function startOrderStatusPolling(orderId) {
     addEventLog('POLL', `Начинаем опрос статуса заказа #${orderId}`);
     addEventLog('POLL', `Интервал опроса: каждые 5 секунд`);
@@ -793,11 +726,25 @@ async function fetchServiceLogs() {
 /**
  * Start periodic logs polling
  */
+let logsPollingInterval = null;
+const LOGS_POLL_INTERVAL_MS = 10000; // 10 секунд, чтобы не спамить обновлениями
+
 function startLogsPolling() {
+    // Гарантируем единичный интервал: очищаем предыдущий, если был
+    if (logsPollingInterval) {
+        clearInterval(logsPollingInterval);
+    }
     // Fetch immediately
     fetchServiceLogs();
-    // Poll every 5 seconds
-    setInterval(fetchServiceLogs, 5000);
+    // Poll every LOGS_POLL_INTERVAL_MS
+    logsPollingInterval = setInterval(fetchServiceLogs, LOGS_POLL_INTERVAL_MS);
+}
+
+function stopLogsPolling() {
+    if (logsPollingInterval) {
+        clearInterval(logsPollingInterval);
+        logsPollingInterval = null;
+    }
 }
 
 /**
@@ -814,9 +761,7 @@ function initializeApp() {
     
     // Start logs polling
     startLogsPolling();
-    
-    // Start logs polling
-    startLogsPolling();
+
     
     // Add initial welcome message
     setTimeout(() => {
