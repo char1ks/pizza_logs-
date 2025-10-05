@@ -55,7 +55,8 @@ class Config:
         
         # Logging Configuration
         self.LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
-        self.LOG_FORMAT = os.getenv('LOG_FORMAT', 'json')
+        # По умолчанию используем текстовый формат логов
+        self.LOG_FORMAT = os.getenv('LOG_FORMAT', 'text')
 
 
 # ========================================
@@ -76,6 +77,16 @@ def setup_logging(service_name: str, log_level: str = 'INFO') -> structlog.Bound
         os.makedirs(logs_dir, exist_ok=True)
         log_file_path = os.path.join(logs_dir, f"{service_name}.log")
 
+    # Выбираем формат логов: text или json
+    def _event_text_renderer(logger, name, event_dict):
+        # Пишем только текст события/сообщение без метаданных
+        msg = event_dict.get('event') or event_dict.get('message') or ''
+        # На случай если передали нестроковые данные
+        return str(msg)
+
+    log_format = os.getenv('LOG_FORMAT', 'text').lower()
+    final_renderer = structlog.processors.JSONRenderer() if log_format == 'json' else _event_text_renderer
+
     # Configure structlog
     structlog.configure(
         processors=[
@@ -87,7 +98,7 @@ def setup_logging(service_name: str, log_level: str = 'INFO') -> structlog.Bound
             structlog.processors.StackInfoRenderer(),
             structlog.processors.format_exc_info,
             structlog.processors.UnicodeDecoder(),
-            structlog.processors.JSONRenderer()
+            final_renderer,
         ],
         context_class=dict,
         logger_factory=structlog.stdlib.LoggerFactory(),
