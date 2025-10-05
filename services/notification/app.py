@@ -551,7 +551,7 @@ class NotificationService(BaseService):
         """Handle events from Kafka by generating notifications."""
         event_type = event_data.get('event_type')
         order_id = event_data.get('orderId') or event_data.get('order_id')
-            
+        
         self.logger.info("Processing event for notification", topic=topic, event_type=event_type, order_id=order_id)
         
         try:
