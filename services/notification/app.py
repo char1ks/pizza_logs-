@@ -562,7 +562,13 @@ class NotificationService(BaseService):
             elif event_type == 'PaymentFailed':
                 self.handle_payment_failed(event_data)
             else:
-                self.logger.warning("Unknown event type for notification", event_type=event_type)
+                # Снижаем уровень шума: неизвестные события логируем на debug и добавляем корреляцию
+                self.logger.debug(
+                    "Unknown event type for notification",
+                    event_type=event_type,
+                    correlation_id=event_data.get('correlationId'),
+                    service="notification-service"
+                )
             
         except Exception as e:
             self.logger.error(f"Failed to handle {event_type}", error=str(e), order_id=order_id)

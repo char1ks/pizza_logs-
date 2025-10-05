@@ -1,0 +1,182 @@
+%% 🍕 Pizza Order System - Event-Driven Saga Architecture (Mermaid)
+%% Конверсия из PlantUML в Mermaid с максимальным сохранением структуры и вида
+
+flowchart LR
+  %% Actors and Entry
+  User["👤 User"]
+  subgraph Nginx["🚪 Nginx\\nAPI Gateway"]
+    NgxHTTP((HTTP))
+  end
+
+  subgraph WebUI["💻 Web UI"]
+    index[index.html]
+    script[script.js]
+    styles[styles.css]
+  end
+
+  %% Microservices
+  subgraph FrontendService["🍕 Frontend Service"]
+    FrontendApp[Frontend App]
+    subgraph FrontendDB["Pizzas Catalog"]
+    end
+  end
+
+  subgraph OrderService["📦 Order Service"]
+    OrderApp[Order App]
+    OutboxProcessor[Outbox Processor]
+    subgraph OrderDB["Orders DB"]
+      orders_table[orders.orders]
+      order_items_table[orders.order_items]
+      outbox_events_table[orders.outbox_events]
+      order_saga_state_table[orders.order_saga_state]
+    end
+  end
+
+  subgraph PaymentService["💳 Payment Service"]
+    PaymentApp[Payment App]
+    subgraph PaymentDB["Payments DB"]
+      payments_table[payments.payments]
+      payment_attempts_table[payments.payment_attempts]
+    end
+  end
+
+  subgraph NotificationService["📧 Notification Service"]
+    NotificationApp[Notification App]
+    subgraph NotificationDB["Notifications DB"]
+      notifications_table[notifications.notifications]
+      delivery_attempts_table[notifications.delivery_attempts]
+      notification_templates_table[notifications.notification_templates]
+    end
+  end
+
+  subgraph PaymentMock["🏦 Payment Mock"]
+    MockProvider[Mock Provider]
+  end
+
+  %% Kafka ecosystem
+  subgraph KafkaEco["🔄 Kafka Ecosystem"]
+    Kafka[Kafka Broker]
+    Zookeeper[Zookeeper]
+    KafkaUI[Kafka UI]
+    OrderEvents[[order-events]]
+    PaymentEvents[[payment-events]]
+    NotificationEvents[[notification-events]]
+    DLQEvents[[dlq-events]]
+  end
+
+  %% PostgreSQL cluster (schemas)
+  subgraph PostgreSQL["🗄️ PostgreSQL\\nCluster"]
+    FrontendSchema[folder: frontend]
+    OrdersSchema[folder: orders]
+    PaymentsSchema[folder: payments]
+    NotificationsSchema[folder: notifications]
+  end
+
+  %% Monitoring & Observability
+  subgraph Monitoring["📊 Monitoring & Observability"]
+    Prometheus[Prometheus]
+    Grafana[Grafana]
+    NodeExporter[NodeExporter]
+    PostgresExporter[PostgresExporter]
+    KafkaExporter[KafkaExporter]
+    CAdvisor[cAdvisor]
+    PgAdmin[pgAdmin]
+  end
+
+  %% Infrastructure
+  subgraph Infrastructure["🔧 Infrastructure"]
+    DockerCompose[DockerCompose]
+    Network[Network]
+    Volumes[Volumes]
+  end
+
+  %% Main user flow
+  User --> WebUI
+  User --> Nginx
+  Nginx --> FrontendApp
+  Nginx --> OrderApp
+
+  %% Service interactions
+  FrontendApp --- FrontendDB
+  OrderApp --- OrderDB
+  PaymentApp --- PaymentDB
+  NotificationApp --- NotificationDB
+
+  %% Event-driven flows (Choreography)
+  OrderApp --> OutboxProcessor
+  OutboxProcessor --> OrderEvents
+  OrderEvents --> PaymentApp
+  OrderEvents --> NotificationApp
+
+  PaymentApp --> PaymentEvents
+  PaymentEvents --> OrderApp
+  PaymentEvents --> NotificationApp
+
+  PaymentApp -- External HTTP --> MockProvider
+  MockProvider -- Response --> PaymentApp
+
+  NotificationApp --> NotificationEvents
+
+  %% DB connections to cluster schemas
+  FrontendApp --> PostgreSQL
+  OrderApp --> PostgreSQL
+  PaymentApp --> PostgreSQL
+  NotificationApp --> PostgreSQL
+
+  %% Monitoring connections
+  FrontendApp --> Prometheus
+  OrderApp --> Prometheus
+  PaymentApp --> Prometheus
+  NotificationApp --> Prometheus
+  MockProvider --> Prometheus
+  PostgresExporter --> PostgreSQL
+  KafkaExporter --> Kafka
+  NodeExporter --> Infrastructure
+  CAdvisor --> Infrastructure
+  Prometheus --> Grafana
+  PgAdmin --> PostgreSQL
+  KafkaUI --> Kafka
+
+  %% Notes (represented as labeled nodes)
+  SagaNote["Note: Event-Driven Saga\\n1. OrderCreated -> Payment\\n2. PaymentCompleted -> Order Update\\n3. PaymentFailed -> Compensation\\n4. Status Changes -> Notifications"]
+  SagaNote --- OrderApp
+  SagaNote --- PaymentApp
+  SagaNote --- NotificationApp
+
+  OutboxNote["Outbox Pattern\\nTransactional Event Publishing"]
+  OutboxNote --- OutboxProcessor
+
+  PaymentNote["Retry + Circuit Breaker\\nExponential Backoff"]
+  PaymentNote --- PaymentApp
+
+  NotificationNote["Multi-Channel Delivery"]
+  NotificationNote --- NotificationApp
+
+  MockNote["External System Simulation\\nConfigurable Failure Rates"]
+  MockNote --- MockProvider
+
+  PortsNginx["Ports: Nginx 80/443"]
+  PortsFrontend["FrontendApp :5000"]
+  PortsOrder["OrderApp :5001"]
+  PortsPayment["PaymentApp :5002"]
+  PortsMock["MockProvider :5003"]
+  PortsNotification["NotificationApp :5004"]
+  PortsPostgres["PostgreSQL :5433"]
+  PortsKafka["Kafka :9092, 29092"]
+  PortsKafkaUI["Kafka UI :8080"]
+  PortsProm["Prometheus :9090"]
+  PortsGrafana["Grafana :3000"]
+  PortsPgAdmin["pgAdmin :8081"]
+
+  Nginx --- PortsNginx
+  FrontendApp --- PortsFrontend
+  OrderApp --- PortsOrder
+  PaymentApp --- PortsPayment
+  MockProvider --- PortsMock
+  NotificationApp --- PortsNotification
+  PostgreSQL --- PortsPostgres
+  Kafka --- PortsKafka
+  KafkaUI --- PortsKafkaUI
+  Prometheus --- PortsProm
+  Grafana --- PortsGrafana
+  PgAdmin --- PortsPgAdmin
