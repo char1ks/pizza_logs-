@@ -67,8 +67,8 @@ function formatTimestamp(date = new Date()) {
 }
 
 // ===================== Дедупликация логов =====================
-function makeLogKey(service, type, message, correlationId = '') {
-    return `${service}|${type}|${message}|${correlationId || ''}`;
+function makeLogKey(service, type, message, correlationId = '', timestamp = '') {
+    return `${service}|${type}|${message}|${correlationId}|${timestamp}`;
 }
 function rememberLogKey(key) {
     AppState.seenLogKeys.add(key);
@@ -101,7 +101,7 @@ function showToast(message, icon = '✅', duration = 3000) {
 function addEventLog(type, message, service = null) {
     const timestamp = formatTimestamp();
     const finalService = service || detectServiceFromMessage(type, message);
-    const key = makeLogKey(finalService, type, message);
+    const key = makeLogKey(finalService, type, message, '', timestamp);
     if (AppState.seenLogKeys.has(key)) {
         return false; // пропускаем дубль
     }
@@ -156,7 +156,7 @@ function addEventLogFromAPI(logData) {
     const type = logData.event_type || logData.type || 'LOG';
     let message = logData.message || logData.msg || 'No message';
     const correlationId = logData.correlationId || logData.correlation_id;
-    const key = makeLogKey(service, type, message, correlationId);
+    const key = makeLogKey(service, type, message, correlationId, timestamp);
     if (AppState.seenLogKeys.has(key)) {
         return false; // пропускаем дубль
     }
@@ -770,7 +770,7 @@ async function fetchServiceLogs() {
  * Start periodic logs polling
  */
 let logsPollingInterval = null;
-const LOGS_POLL_INTERVAL_MS = 10000; // 10 секунд, чтобы не спамить обновлениями
+const LOGS_POLL_INTERVAL_MS = 3000; // 3 секунды для более оперативного лога
 
 function startLogsPolling() {
     // Гарантируем единичный интервал: очищаем предыдущий, если был
