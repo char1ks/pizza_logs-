@@ -136,10 +136,11 @@ function detectServiceFromMessage(type, message) {
     return 'frontend-ui';
 }
 function updateEventLogDisplay() {
-    const eventLog = document.getElementById('eventLog');
+    const eventLogNodes = document.querySelectorAll('#eventLog');
+    if (!eventLogNodes || eventLogNodes.length === 0) return;
     // Фильтруем только события, помеченные для отображения
     const displayEvents = AppState.eventLog.filter(event => event.display !== false);
-    eventLog.innerHTML = displayEvents.map(event => {
+    const html = displayEvents.map(event => {
         const serviceClass = `service-${event.service.replace('-', '_')}`;
         return `
         <div class="log-entry animate-slide-in">
@@ -148,7 +149,11 @@ function updateEventLogDisplay() {
             <span class="event-type">${event.type}</span>
             <span class="message">${event.message}</span>
         </div>
-    `}).join('');
+    `;
+    }).join('');
+    eventLogNodes.forEach(node => {
+        node.innerHTML = html;
+    });
 }
 function addEventLogFromAPI(logData) {
     const timestamp = logData.timestamp || formatTimestamp();
