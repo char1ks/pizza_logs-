@@ -70,7 +70,8 @@ function formatTimestamp(date = new Date()) {
 
 // ===================== Дедупликация логов =====================
 function makeLogKey(service, type, message, correlationId = '', extra = '') {
-    return `${service}|${type}|${message}|${correlationId}|${extra}`;
+    // Используем line_no из бэкенда для уникальности, если он есть
+    return `${service}:${type}:${message.trim()}:${correlationId}:${extra}`;
 }
 function rememberLogKey(key) {
     AppState.seenLogKeys.add(key);
@@ -169,7 +170,9 @@ function addEventLogFromAPI(logData) {
     const type = logData.event_type || logData.type || 'LOG';
     let message = logData.message || logData.msg || 'No message';
     const correlationId = logData.correlationId || logData.correlation_id;
-    const key = makeLogKey(service, type, message, correlationId, timestamp || '');
+    const lineNo = logData.line_no || ''; // используем line_no из бэкенда для дедупликации
+    
+    const key = makeLogKey(service, type, message, correlationId, lineNo);
     
     if (AppState.seenLogKeys.has(key)) {
         return false; // пропускаем дубль
@@ -826,8 +829,8 @@ function initializeApp() {
     // Load menu
     loadMenu();
     
-    // Единоразовая загрузка логов без периодического авто-опроса
-    fetchServiceLogs();
+    // Запускаем периодический опрос логов
+    startLogsPolling();
 
     
     // Add initial welcome message
