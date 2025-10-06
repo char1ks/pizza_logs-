@@ -105,17 +105,24 @@ function addEventLog(type, message, service = null) {
     if (AppState.seenLogKeys.has(key)) {
         return false; // пропускаем дубль
     }
+    
+    // Фильтруем только LOG события для отображения на HTML странице
+    const shouldDisplay = type === 'LOG';
+    
     AppState.eventLog.unshift({ 
         timestamp, 
         type, 
         message, 
-        service: finalService
+        service: finalService,
+        display: shouldDisplay
     });
     rememberLogKey(key);
     if (AppState.eventLog.length > 50) {
         AppState.eventLog = AppState.eventLog.slice(0, 50);
     }
-    updateEventLogDisplay();
+    if (shouldDisplay) {
+        updateEventLogDisplay();
+    }
     return true;
 }
 function detectServiceFromMessage(type, message) {
@@ -130,7 +137,9 @@ function detectServiceFromMessage(type, message) {
 }
 function updateEventLogDisplay() {
     const eventLog = document.getElementById('eventLog');
-    eventLog.innerHTML = AppState.eventLog.map(event => {
+    // Фильтруем только события, помеченные для отображения
+    const displayEvents = AppState.eventLog.filter(event => event.display !== false);
+    eventLog.innerHTML = displayEvents.map(event => {
         const serviceClass = `service-${event.service.replace('-', '_')}`;
         return `
         <div class="log-entry animate-slide-in">
@@ -144,7 +153,7 @@ function updateEventLogDisplay() {
 function addEventLogFromAPI(logData) {
     const timestamp = logData.timestamp || formatTimestamp();
     const service = logData.service || 'unknown';
-    const type = logData.event_type || logData.type || 'INFO';
+    const type = logData.event_type || logData.type || 'LOG';
     let message = logData.message || logData.msg || 'No message';
     const correlationId = logData.correlationId || logData.correlation_id;
     const key = makeLogKey(service, type, message, correlationId);
@@ -155,18 +164,24 @@ function addEventLogFromAPI(logData) {
         message = `[corr=${correlationId}] ${message}`;
     }
     
+    // Фильтруем только LOG события для отображения на HTML странице
+    const shouldDisplay = type === 'LOG';
+    
     AppState.eventLog.unshift({ 
         timestamp, 
         service, 
         type, 
-        message 
+        message,
+        display: shouldDisplay
     });
     rememberLogKey(key);
     if (AppState.eventLog.length > 50) {
         AppState.eventLog = AppState.eventLog.slice(0, 50);
     }
     
-    updateEventLogDisplay();
+    if (shouldDisplay) {
+        updateEventLogDisplay();
+    }
     return true;
 }
 async function apiRequest(url, options = {}) {
@@ -742,11 +757,11 @@ async function fetchServiceLogs() {
                 }
             }
         }
+        // Не показываем системные сообщения о получении логов на HTML странице
         if (count > 0) {
-            addEventLog('SYSTEM', `Получено ${count} новых записей логов`, 'frontend-ui');
+            console.log(`Получено ${count} новых записей логов`);
         }
     } catch (error) {
-        addEventLog('ERROR', `Не удалось получить логи: ${error.message}`, 'frontend-ui');
         console.error('Failed to fetch logs', error);
     }
 }
