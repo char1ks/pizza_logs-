@@ -67,8 +67,8 @@ function formatTimestamp(date = new Date()) {
 }
 
 // ===================== Дедупликация логов =====================
-function makeLogKey(service, type, message, correlationId = '', timestamp = '') {
-    return `${service}|${type}|${message}|${correlationId}|${timestamp}`;
+function makeLogKey(service, type, message, correlationId = '', extra = '') {
+    return `${service}|${type}|${message}|${correlationId}|${extra}`;
 }
 function rememberLogKey(key) {
     AppState.seenLogKeys.add(key);
@@ -101,7 +101,7 @@ function showToast(message, icon = '✅', duration = 3000) {
 function addEventLog(type, message, service = null) {
     const timestamp = formatTimestamp();
     const finalService = service || detectServiceFromMessage(type, message);
-    const key = makeLogKey(finalService, type, message, '', timestamp);
+    const key = makeLogKey(finalService, type, message);
     if (AppState.seenLogKeys.has(key)) {
         return false; // пропускаем дубль
     }
