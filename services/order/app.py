@@ -81,7 +81,6 @@ class OrderService(BaseService):
             try:
                 data = request.get_json()
                 
-                # Generate order ID early for tracing
                 order_id = generate_id('order_')
                 user_id = data.get('userId', 'anonymous')
                 
@@ -89,11 +88,10 @@ class OrderService(BaseService):
                 correlation_id = generate_id('corr_')
                 
                 self.logger.info(
-                    "🍕 ЗАКАЗ ПИЦЦЫ: Получен новый заказ",
+                    "order-service принял заказ в обработку",
                     order_id=order_id,
-                    user_id=user_id,
                     correlation_id=correlation_id,
-                    stage="order_received",
+                    stage="order_processing_started",
                     service="order-service"
                 )
                 
@@ -124,44 +122,11 @@ class OrderService(BaseService):
                     )
                     raise ValidationError("Order must contain at least one item")
                 
-                self.logger.info(
-                    "🍕 ЗАКАЗ ПИЦЦЫ: Валидация пройдена",
-                    order_id=order_id,
-                    correlation_id=correlation_id,
-                    stage="validation_passed",
-                    items_count=len(data['items']),
-                    service="order-service"
-                )
-                
                 # Get pizza details from Frontend Service
-                self.logger.info(
-                    "🍕 ЗАКАЗ ПИЦЦЫ: Запрашиваем детали пицц из Frontend Service",
-                    order_id=order_id,
-                    correlation_id=correlation_id,
-                    stage="fetching_pizza_details",
-                    service="order-service"
-                )
-                
                 pizza_details = self.get_pizza_details(data['items'])
                 total_amount = self.calculate_total(pizza_details)
                 
-                self.logger.info(
-                    "🍕 ЗАКАЗ ПИЦЦЫ: Детали пицц получены, сумма рассчитана",
-                    order_id=order_id,
-                    correlation_id=correlation_id,
-                    stage="pizza_details_fetched",
-                    total_amount=total_amount,
-                    service="order-service"
-                )
-                
                 # Create order using transaction with Outbox Pattern
-                self.logger.info(
-                    "🍕 ЗАКАЗ ПИЦЦЫ: Создаем заказ в базе данных",
-                    order_id=order_id,
-                    correlation_id=correlation_id,
-                    stage="creating_order_db",
-                    service="order-service"
-                )
                 order_data = self.create_order_with_outbox(
                     order_id=order_id,
                     user_id=user_id,
@@ -214,9 +179,13 @@ class OrderService(BaseService):
         
         @self.app.route('/api/v1/orders/<order_id>', methods=['GET'])
         def get_order(order_id: str):
-            """Get order details by ID"""
+            """Get order by ID"""
             try:
-                order = self.get_order_by_id(order_id)
+                order = self.db.execute_query(
+                    "SELECT * FROM orders.orders WHERE id = %s",
+                    (order_id,),
+                    fetch='one'
+                )
                 
                 if not order:
                     return jsonify({
@@ -224,11 +193,6 @@ class OrderService(BaseService):
                         'error': 'Order not found'
                     }), 404
                 
-                # Get order items
-                order_items = self.get_order_items(order_id)
-                order['items'] = order_items
-                
-                self.logger.info("Order retrieved", order_id=order_id)
                 self.metrics.record_business_event('order_retrieved', 'success')
                 
                 return jsonify({
@@ -243,7 +207,7 @@ class OrderService(BaseService):
                 
                 return jsonify({
                     'success': False,
-                    'error': 'Failed to retrieve order'
+                    'error': 'Failed to get order'
                 }), 500
         
         @self.app.route('/api/v1/orders', methods=['GET'])
@@ -542,8 +506,6 @@ class OrderService(BaseService):
     def start_event_consumer(self):
         """Start a background thread to consume Kafka events"""
         def consume_events():
-            self.logger.info("🔄 Starting event consumer for payment events")
-            
             while True:
                 try:
                     self.logger.debug("📡 POLLING payment-events topic for new messages...")
@@ -560,7 +522,6 @@ class OrderService(BaseService):
         
         consumer_thread = threading.Thread(target=consume_events, daemon=True)
         consumer_thread.start()
-        self.logger.info("Event consumer thread started")
     
     def handle_payment_event(self, topic: str, event_data: Dict, key: str):
         """Handle payment events (OrderPaid, PaymentFailed)"""
@@ -575,11 +536,11 @@ class OrderService(BaseService):
                 return
             
             self.logger.info(
-                "📥 Received new payment event from Kafka",
-                event_type=event_type,
+                "order-service вычитал сообщение из топика",
                 order_id=order_id,
                 correlation_id=correlation_id,
-                message="Processing payment event from payment-events topic"
+                stage="payment_event_consumed",
+                service="order-service"
             )
             
             if event_type == 'OrderPaid':
@@ -619,6 +580,14 @@ class OrderService(BaseService):
                 service='order-service'
             )
             self.logger.info(status_message, order_id=order_id, correlation_id=correlation_id)
+            
+            self.logger.info(
+                "order-service перевёл заказ в статус PAID",
+                order_id=order_id,
+                correlation_id=correlation_id,
+                stage="order_status_paid",
+                service="order-service"
+            )
             
         except Exception as e:
             self.logger.error("Failed to handle order paid", order_id=order_id, error=str(e))

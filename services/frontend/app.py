@@ -12,6 +12,7 @@ from typing import Dict, List, Any
 from flask import request, jsonify
 from flask_cors import CORS
 import subprocess
+import json
 
 # Add shared module to path
 sys.path.insert(0, '/app/shared')
@@ -78,7 +79,6 @@ class FrontendService(BaseService):
                     # Check if pizzas already exist
                     cursor.execute("SELECT COUNT(*) FROM frontend.pizzas")
                     if cursor.fetchone()[0] > 0:
-                        self.logger.info("Sample pizza data already exists.")
                         return
 
                     for pizza in sample_pizzas:
@@ -95,8 +95,6 @@ class FrontendService(BaseService):
                             pizza['ingredients'],
                             pizza['available']
                         ))
-                
-                self.logger.info("Sample pizza data created")
                 
         except Exception as e:
             self.logger.error("Failed to create sample data", error=str(e))
@@ -124,14 +122,6 @@ class FrontendService(BaseService):
                 
                 # Execute query
                 pizzas = self.db.execute_query(query, tuple(params), fetch='all')
-                
-                # Log the request
-                self.logger.info(
-                    "Menu requested",
-                    pizza_count=len(pizzas),
-                    available_only=available_only,
-                    user_agent=request.headers.get('User-Agent', 'unknown')
-                )
                 
                 # Record business metrics
                 self.metrics.record_business_event('menu_request', 'success')
@@ -169,7 +159,6 @@ class FrontendService(BaseService):
                         'error': 'Pizza not found'
                     }), 404
                 
-                self.logger.info("Pizza requested", pizza_id=pizza_id)
                 self.metrics.record_business_event('pizza_detail_request', 'success')
                 
                 return jsonify({
@@ -232,7 +221,6 @@ class FrontendService(BaseService):
                             data['available']
                         ))
                 
-                self.logger.info("Pizza added to menu", pizza_id=data['id'], pizza_name=data['name'])
                 self.metrics.record_business_event('pizza_added', 'success')
                 
                 return jsonify({
@@ -294,7 +282,6 @@ class FrontendService(BaseService):
                         if cursor.rowcount == 0:
                             raise ValidationError("Pizza not found")
                 
-                self.logger.info("Pizza updated", pizza_id=pizza_id)
                 self.metrics.record_business_event('pizza_updated', 'success')
                 
                 return jsonify({
@@ -337,7 +324,6 @@ class FrontendService(BaseService):
                                 'error': 'Pizza not found'
                             }), 404
                 
-                self.logger.info("Pizza deleted", pizza_id=pizza_id)
                 self.metrics.record_business_event('pizza_deleted', 'success')
                 
                 return jsonify({
@@ -463,7 +449,7 @@ class FrontendService(BaseService):
                 # We expect success_rate to be approximately 100 - failure_rate
                 success_rate = 70.0  # Expected rate for 30% failure rate
                 
-                self.logger.info("Load test results requested", test_id=test_id)
+
                 
                 return jsonify({
                     'success': True,
@@ -492,8 +478,6 @@ class FrontendService(BaseService):
         def start_k6_direct():
             """Direct load test start (fallback)"""
             try:
-                self.logger.info("Starting direct load test")
-                
                 # Use the same simulation as the main load test
                 data = request.get_json() or {}
                 rps = data.get('rps', 1000)
@@ -501,8 +485,6 @@ class FrontendService(BaseService):
                 
                 # Call the main load test function
                 response = start_load_test()
-                
-                self.logger.info("Direct load test started")
                 
                 return response
                 
@@ -552,7 +534,15 @@ class FrontendService(BaseService):
                     'status": "PAID',
                     'переведён в статус PAID',
                     # Order Service: отдача информации в UI
-                    'Order retrieved'
+                    'Order retrieved',
+                    # Custom explicit Russian phrases for required scenario
+                    'order-service принял заказ в обработку',
+                    'order-service вычитал сообщение из топика',
+                    'order-service перевёл заказ в статус PAID',
+                    'payment-service вычитал сообщение из топика',
+                    'payment-service отправил на оплату',
+                    'payment-service принял сообщение об успешной оплате',
+                    'payment-service отослал в кафку',
                 ]
 
                 allowed_stages = {
@@ -566,6 +556,14 @@ class FrontendService(BaseService):
                     'payment_async_started',
                     'payment_processing_success',
                     'payment_success_event_publishing',
+                    # Custom explicit stages
+                    'order_processing_started',
+                    'payment_event_consumed',
+                    'sent_to_gateway',
+                    'payment_confirmed',
+                    'payment_event_sent_kafka',
+                    'order_status_paid',
+                    'kafka_event_consumed',
                 }
 
                 def is_allowed(line: str) -> bool:

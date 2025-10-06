@@ -149,7 +149,6 @@ class PaymentService(BaseService):
                 # Check for existing payment (idempotency)
                 existing_payment = self.get_payment_by_order_id(order_id)
                 if existing_payment:
-                    self.logger.info("Payment already exists for order", order_id=order_id)
                     return jsonify({
                         'success': True,
                         'paymentId': existing_payment['id'],
@@ -227,8 +226,6 @@ class PaymentService(BaseService):
                 attempts = self.get_payment_attempts(payment_id)
                 payment['attempts'] = attempts
                 
-                self.logger.info("Payment retrieved", payment_id=payment_id)
-                
                 return jsonify({
                     'success': True,
                     'payment': payment,
@@ -301,8 +298,6 @@ class PaymentService(BaseService):
                 self.circuit_breaker.success_count = 0
                 self.circuit_breaker.last_failure_time = None
                 
-                self.logger.info("Circuit breaker reset to CLOSED state")
-                
                 return jsonify({
                     'success': True,
                     'message': 'Circuit breaker reset successfully',
@@ -336,7 +331,7 @@ class PaymentService(BaseService):
                         VALUES (%s, %s, %s, %s, %s, %s)
                     """, (payment_id, order_id, amount, payment_method, PaymentStatus.PENDING.value, idempotency_key))
                 
-                self.logger.debug("Payment record created", payment_id=payment_id, order_id=order_id)
+
                 
                 return {
                     'payment_id': payment_id,
@@ -365,39 +360,24 @@ class PaymentService(BaseService):
             self.logger.debug(status_message, order_id=order_id, correlation_id=correlation_id, payment_id=payment_id)
             
             # Update status to PROCESSING
-            self.logger.debug(
-                "🍕 ЗАКАЗ ПИЦЦЫ: Обновляем статус платежа на PROCESSING",
-                order_id=order_id,
-                correlation_id=correlation_id,
-                payment_id=payment_id,
-                stage="payment_status_processing",
-                service="payment-service"
-            )
             self.update_payment_status(payment_id, PaymentStatus.PROCESSING.value)
             
-            # Process with retry pattern
-            self.logger.debug(
-                "🍕 ЗАКАЗ ПИЦЦЫ: Запускаем retry pattern для обработки платежа",
+            # После установки статуса PROCESSING считаем, что отправили на оплату
+            self.logger.info(
+                "payment-service отправил на оплату",
                 order_id=order_id,
-                correlation_id=correlation_id,
                 payment_id=payment_id,
-                stage="payment_retry_start",
+                correlation_id=correlation_id,
+                stage="sent_to_gateway",
                 service="payment-service"
             )
+            
+            # Process with retry pattern
             success = retry_with_backoff(
                 lambda: self.attempt_payment_processing(payment_id),
                 max_attempts=self.max_retry_attempts,
                 base_delay=self.retry_delay_base,
                 max_delay=30.0
-            )
-            
-            self.logger.debug(
-                "🍕 ЗАКАЗ ПИЦЦЫ: Retry pattern завершен",
-                order_id=order_id,
-                payment_id=payment_id,
-                stage="payment_retry_completed",
-                success=success,
-                service="payment-service"
             )
             
             if success:
@@ -414,23 +394,27 @@ class PaymentService(BaseService):
                 self.logger.info(status_message, order_id=order_id, payment_id=payment_id)
                 self.update_payment_status(payment_id, PaymentStatus.COMPLETED.value)
                 
-                # Publish success event
-                self.logger.debug(
-                    "🍕 ЗАКАЗ ПИЦЦЫ: Отправляем событие успешного платежа в Kafka",
+                self.logger.info(
+                    "payment-service принял сообщение об успешной оплате",
                     order_id=order_id,
                     payment_id=payment_id,
-                    stage="payment_success_event_publishing",
+                    correlation_id=correlation_id,
+                    stage="payment_confirmed",
                     service="payment-service"
                 )
+                
+                # Publish success event
                 self.publish_payment_success_event(payment_id, correlation_id)
                 
                 self.logger.info(
-                    "🍕 ЗАКАЗ ПИЦЦЫ: Обработка платежа успешно завершена",
+                    "payment-service отослал в кафку",
                     order_id=order_id,
                     payment_id=payment_id,
-                    stage="payment_processing_success",
+                    correlation_id=correlation_id,
+                    stage="payment_event_sent_kafka",
                     service="payment-service"
                 )
+                
                 self.metrics.record_business_event('payment_completed', 'success')
                 
             else:
@@ -446,22 +430,8 @@ class PaymentService(BaseService):
                 self.update_payment_status(payment_id, PaymentStatus.FAILED.value, "Payment failed after retries")
                 
                 # Publish failure event
-                self.logger.debug(
-                    "🍕 ЗАКАЗ ПИЦЦЫ: Отправляем событие неуспешного платежа в Kafka",
-                    order_id=order_id,
-                    payment_id=payment_id,
-                    stage="payment_failure_event_publishing",
-                    service="payment-service"
-                )
                 self.publish_payment_failure_event(payment_id, correlation_id)
                 
-                self.logger.error(
-                    "🍕 ЗАКАЗ ПИЦЦЫ: Обработка платежа завершена с ошибкой",
-                    order_id=order_id,
-                    payment_id=payment_id,
-                    stage="payment_processing_failed",
-                    service="payment-service"
-                )
                 self.metrics.record_business_event('payment_completed', 'failed')
                 
         except Exception as e:
@@ -483,7 +453,6 @@ class PaymentService(BaseService):
     def attempt_payment_processing(self, payment_id: str) -> bool:
         """Attempt to process payment (with circuit breaker)"""
         try:
-            self.logger.info("🔍 Starting payment attempt", payment_id=payment_id)
             payment = self.get_payment_by_id(payment_id)
             if not payment:
                 raise Exception(f"Payment {payment_id} not found")
@@ -506,25 +475,15 @@ class PaymentService(BaseService):
                     force_fail = False
             # Если ручной заказ и forceFail == False, всегда успех, игнорируем circuit breaker
             if force_fail is False and 'forceFail' in (event_data if 'event_data' in locals() else {}):
-                self.logger.debug("✅ Ручной заказ: всегда успех, circuit breaker игнорируется", payment_id=payment_id, order_id=order_id)
                 self.update_payment_attempt(self.record_payment_attempt(payment_id), success=True)
                 self.update_payment_status(payment_id, PaymentStatus.COMPLETED.value)
                 return True
             # Обычная логика для остальных случаев
             if not self.circuit_breaker.can_execute():
-                self.logger.warning("⚡ Circuit breaker is OPEN, payment blocked", payment_id=payment_id)
                 raise Exception("Payment provider is unavailable (circuit breaker OPEN)")
-            self.logger.debug("✅ Circuit breaker check passed", payment_id=payment_id)
-            self.logger.debug("📋 Getting payment details", payment_id=payment_id)
-            self.logger.debug("✅ Payment details retrieved", payment_id=payment_id, order_id=order_id)
-            self.logger.debug("📝 Recording payment attempt", payment_id=payment_id)
             attempt_id = self.record_payment_attempt(payment_id)
-            self.logger.debug("✅ Payment attempt recorded", payment_id=payment_id, attempt_id=attempt_id)
-            self.logger.debug("🌐 Calling payment provider", payment_id=payment_id)
             success = self.call_payment_provider(payment)
-            self.logger.debug(f"🎯 Payment provider call completed, success={success}", payment_id=payment_id)
             if success:
-                self.logger.debug("✅ Recording successful attempt", payment_id=payment_id, attempt_id=attempt_id)
                 self.update_payment_attempt(attempt_id, success=True)
                 self.circuit_breaker.record_success()
                 return True
@@ -542,16 +501,11 @@ class PaymentService(BaseService):
                         is_crash_test = (delivery_address_clean == '123')
                 except Exception:
                     pass
-                self.logger.warning("❌ Recording failed attempt", payment_id=payment_id, attempt_id=attempt_id)
                 self.update_payment_attempt(attempt_id, success=False, error="Payment provider rejected")
                 if not is_crash_test:
                     self.circuit_breaker.record_failure()
-                    self.logger.debug("⚡ Circuit breaker failure recorded for real payment", payment_id=payment_id)
-                else:
-                    self.logger.debug("🧪 Crash test failure - circuit breaker not affected", payment_id=payment_id)
                 raise Exception("Payment provider rejected the transaction")
         except Exception as e:
-            self.logger.warning("⚠️ Payment attempt failed", payment_id=payment_id, error=str(e), exc_info=True)
             self.circuit_breaker.record_failure()
             raise
     
@@ -575,9 +529,7 @@ class PaymentService(BaseService):
             except Exception:
                 force_fail = False
         if force_fail:
-            self.logger.warning("🧪 FORCE FAIL - Заказ помечен как неуспешный", payment_id=payment_id, order_id=order_id)
             return False
-        self.logger.debug("✅ Заказ не помечен как неуспешный, платёж будет успешным", payment_id=payment_id, order_id=order_id)
         return True
     
     def record_payment_attempt(self, payment_id: str) -> int:
@@ -594,7 +546,6 @@ class PaymentService(BaseService):
                     RETURNING id
             """, (payment_id, payment_id), fetch='one')
                 
-            self.logger.debug("Recorded new payment attempt", payment_id=payment_id, attempt_id=result['id'])
             return result['id']
                 
         except Exception as e:
@@ -612,7 +563,6 @@ class PaymentService(BaseService):
                     WHERE id = %s
             """, (status, error, attempt_id), fetch=None)
                 
-            self.logger.debug("Updated payment attempt", attempt_id=attempt_id, status=status)
         except Exception as e:
             self.logger.error("Failed to update payment attempt", error=str(e))
             raise
@@ -752,80 +702,49 @@ class PaymentService(BaseService):
     def handle_order_event(self, topic: str, event_data: Dict, key: str):
         """Handle events from order service"""
         try:
-            self.logger.debug(
-                "Событие из Kafka принято к обработке",
-                raw_event=json.dumps(event_data)
-            )
             event_type = event_data.get('event_type')
             order_id = event_data.get('orderId')
-            self.logger.debug("Received order event", event_type=event_type, order_id=order_id)
+            correlation_id = event_data.get('correlationId')
+            
+            self.logger.info(
+                "payment-service вычитал сообщение из топика",
+                order_id=order_id,
+                correlation_id=correlation_id,
+                stage="kafka_event_consumed",
+                service="payment-service"
+            )
+            
             if event_type == 'OrderCreated':
-                self.handle_order_created(event_data, order_id)
+                self.handle_order_created(event_data, correlation_id)
             else:
                 self.logger.debug("Unknown event type", event_type=event_type)
+                
         except Exception as e:
             self.logger.error("Failed to handle order event", error=str(e))
     
-    def handle_order_created(self, event_data: Dict, order_id: str):
+    def handle_order_created(self, event_data: Dict, correlation_id: str):
         """Handle OrderCreated event to initiate payment."""
         
-        # Extract correlation ID from event data
-        correlation_id = event_data.get('correlationId')
-        
-        # Log user-friendly order received message
-        self.logger.info(
-            f"💳 Получен заказ #{order_id[:8]} для обработки платежа",
-            order_id=order_id,
-            correlation_id=correlation_id
-        )
+        order_id = event_data['orderId']
         
         if not all(k in event_data for k in ['totalAmount', 'paymentMethod', 'userId']):
             self.logger.error(
-                "🍕 ЗАКАЗ ПИЦЦЫ: Неполные данные заказа для платежа",
+                "Missing required payment fields",
                 order_id=order_id,
-                correlation_id=correlation_id,
-                stage="payment_validation_failed",
-                error="Missing required payment fields",
-                service="payment-service"
+                correlation_id=correlation_id
             )
             return
         
         amount = event_data['totalAmount']
         payment_method = event_data['paymentMethod']
         
-        self.logger.info(
-            "🍕 ЗАКАЗ ПИЦЦЫ: Валидация данных платежа пройдена",
-            order_id=order_id,
-            correlation_id=correlation_id,
-            stage="payment_validation_passed",
-            amount=amount,
-            payment_method=payment_method,
-            service="payment-service"
-        )
-
         # Check for existing payment (idempotency)
         if self.get_payment_by_order_id(order_id):
-            self.logger.info(
-                "🍕 ЗАКАЗ ПИЦЦЫ: Платеж уже инициирован для этого заказа",
-                order_id=order_id,
-                correlation_id=correlation_id,
-                stage="payment_already_exists",
-                service="payment-service"
-            )
             return
         
         # Create payment record
         payment_id = generate_id('pay_')
         idempotency_key = self.generate_idempotency_key(order_id, amount, payment_method)
-        
-        self.logger.info(
-            "🍕 ЗАКАЗ ПИЦЦЫ: Создаем запись платежа в базе данных",
-            order_id=order_id,
-            correlation_id=correlation_id,
-            payment_id=payment_id,
-            stage="payment_record_creating",
-            service="payment-service"
-        )
         
         payment_record = self.create_payment_record(
             payment_id=payment_id,
@@ -835,15 +754,6 @@ class PaymentService(BaseService):
             idempotency_key=idempotency_key
         )
         
-        self.logger.info(
-            "🍕 ЗАКАЗ ПИЦЦЫ: Запись платежа создана, запускаем асинхронную обработку",
-            order_id=order_id,
-            correlation_id=correlation_id,
-            payment_id=payment_id,
-            stage="payment_async_starting",
-            service="payment-service"
-        )
-        
         # Start async payment processing (for ALL orders, not just crash tests)
         threading.Thread(
             target=self.process_payment_async,
@@ -851,14 +761,6 @@ class PaymentService(BaseService):
             daemon=True
         ).start()
         
-        self.logger.info(
-            "🍕 ЗАКАЗ ПИЦЦЫ: Асинхронная обработка платежа запущена",
-            payment_id=payment_id,
-            order_id=order_id,
-            correlation_id=correlation_id,
-            stage="payment_async_started",
-            service="payment-service"
-        )
         self.metrics.record_business_event('payment_initiated_from_event', 'success')
     
     def get_timestamp(self) -> str:
