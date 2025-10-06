@@ -55,8 +55,8 @@ class Config:
         
         # Logging Configuration
         self.LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
-        # По умолчанию используем текстовый формат логов
-        self.LOG_FORMAT = os.getenv('LOG_FORMAT', 'text')
+        # По умолчанию используем JSON-формат логов, чтобы UI получал метаданные
+        self.LOG_FORMAT = os.getenv('LOG_FORMAT', 'json')
 
 
 # ========================================

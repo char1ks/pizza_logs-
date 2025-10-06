@@ -364,7 +364,7 @@ class PaymentService(BaseService):
             
             # После установки статуса PROCESSING считаем, что отправили на оплату
             self.logger.info(
-                "payment-service отправил на оплату",
+                "💳 payment-service отправил на оплату",
                 order_id=order_id,
                 payment_id=payment_id,
                 correlation_id=correlation_id,
@@ -395,7 +395,7 @@ class PaymentService(BaseService):
                 self.update_payment_status(payment_id, PaymentStatus.COMPLETED.value)
                 
                 self.logger.info(
-                    "payment-service принял сообщение об успешной оплате",
+                    "✅ payment-service принял сообщение об успешной оплате",
                     order_id=order_id,
                     payment_id=payment_id,
                     correlation_id=correlation_id,
@@ -407,7 +407,7 @@ class PaymentService(BaseService):
                 self.publish_payment_success_event(payment_id, correlation_id)
                 
                 self.logger.info(
-                    "payment-service отослал в кафку",
+                    "📤 payment-service отослал в кафку",
                     order_id=order_id,
                     payment_id=payment_id,
                     correlation_id=correlation_id,
@@ -707,7 +707,7 @@ class PaymentService(BaseService):
             correlation_id = event_data.get('correlationId')
             
             self.logger.info(
-                "payment-service вычитал сообщение из топика",
+                "📨 payment-service вычитал сообщение из топика",
                 order_id=order_id,
                 correlation_id=correlation_id,
                 stage="kafka_event_consumed",

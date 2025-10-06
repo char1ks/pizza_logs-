@@ -596,8 +596,23 @@ class FrontendService(BaseService):
                         unique_reversed.append(ln)
                 unique = list(reversed(unique_reversed))
 
-                # Возвращаем последние tail строк после фильтрации и дедупликации
-                return unique[-tail:]
+                # Возвращаем последние tail записей, конвертируя JSON-строки в объекты для UI
+                result_lines = unique[-tail:]
+                structured = []
+                for ln in result_lines:
+                    line = ln.strip()
+                    try:
+                        obj = json.loads(line)
+                        # Гарантируем наличие ключевых полей для UI
+                        if 'event_type' not in obj:
+                            obj['event_type'] = 'LOG'
+                        if 'service' not in obj:
+                            obj['service'] = service_name
+                        structured.append(obj)
+                    except Exception:
+                        # Текстовая строка — отдаём как есть
+                        structured.append(line)
+                return structured
         except Exception as e:
             self.logger.error(f"Failed to read log file {log_file}", error=str(e))
             return [f"Error reading log file: {e}"]
