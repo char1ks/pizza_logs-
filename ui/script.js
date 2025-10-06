@@ -161,7 +161,11 @@ function addEventLogFromAPI(logData) {
     const type = logData.event_type || logData.type || 'LOG';
     let message = logData.message || logData.msg || 'No message';
     const correlationId = logData.correlationId || logData.correlation_id;
-    const key = makeLogKey(service, type, message, correlationId, timestamp);
+    const uniqueKey = logData._uniqueKey;
+    
+    // Используем уникальный ключ если он есть, иначе создаем обычный ключ
+    const key = uniqueKey || makeLogKey(service, type, message, correlationId, timestamp);
+    
     if (AppState.seenLogKeys.has(key)) {
         return false; // пропускаем дубль
     }
@@ -745,7 +749,15 @@ async function fetchServiceLogs() {
             const service = data.service || 'unknown';
             for (const line of data.logs) {
                 if (typeof line === 'string') {
-                    if (addEventLog('LOG', line.trim(), service)) count++;
+                    // Создаем уникальный ключ для каждой строки лога
+                    const uniqueKey = `${service}_${line.trim()}_${Date.now()}_${Math.random()}`;
+                    if (addEventLogFromAPI({ 
+                        message: line.trim(), 
+                        service, 
+                        event_type: 'LOG',
+                        timestamp: formatTimestamp(),
+                        _uniqueKey: uniqueKey
+                    })) count++;
                 } else {
                     if (addEventLogFromAPI({ ...line, service })) count++;
                 }
@@ -755,7 +767,15 @@ async function fetchServiceLogs() {
                 if (!Array.isArray(lines)) continue;
                 for (const line of lines) {
                     if (typeof line === 'string') {
-                        if (addEventLog('LOG', line.trim(), service)) count++;
+                        // Создаем уникальный ключ для каждой строки лога
+                        const uniqueKey = `${service}_${line.trim()}_${Date.now()}_${Math.random()}`;
+                        if (addEventLogFromAPI({ 
+                            message: line.trim(), 
+                            service, 
+                            event_type: 'LOG',
+                            timestamp: formatTimestamp(),
+                            _uniqueKey: uniqueKey
+                        })) count++;
                     } else {
                         if (addEventLogFromAPI({ ...line, service })) count++;
                     }
