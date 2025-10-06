@@ -514,7 +514,7 @@ class FrontendService(BaseService):
                 }), 500
     
     def get_service_logs(self, service_name: str, tail: int = 50) -> List[str]:
-        """Get last N lines from a service's log file."""
+        """Get last N lines from a service's log file, whitelisting only key business events."""
         log_file = f"/app/logs/{service_name}.log"
         if not os.path.exists(log_file):
             return ["Log file not found."]
@@ -522,47 +522,71 @@ class FrontendService(BaseService):
         try:
             with open(log_file, 'r') as f:
                 lines = f.readlines()
-                # Фильтруем шумные строки: dev-сервер, access-логи, технические события
-                skip_substrings = [
-                    'WARNING: This is a development server',
-                    'Running on http://',
-                    'Running on all addresses',
-                    'Press CTRL+C to quit',
-                    'GET /',
-                    '/health',
-                    '/metrics',
-                    '/api/v1/logs'
-                ]
-                skip_events = {
-                    'Service initialized',
-                    'Database connection established',
-                    'Frontend database initialized',
-                    'Frontend Service initialized',
-                    'Starting Frontend Service',
-                    'Starting service',
-                    'Kafka producer initialized',
-                    'Kafka consumer initialized',
-                    'Starting Payment Service',
-                    'Payment Service initialized',
-                    'Payments database initialized',
+                # Разрешаем только ключевые события процесса заказа/оплаты (whitelist)
+                allowed_substrings = [
+                    # Order Service: приём заказа
+                    '📥 Received order request',
+                    'Новый заказ принят',
+                    # Order Service: сохранение заказа в БД
+                    'Создаём заказ в базе данных',
+                    'Order saved to database',
+                    # Outbox Processor: публикация события в Kafka
+                    '🍕 ЗАКАЗ ПИЦЦЫ: Отправляем событие в Kafka',
+                    'kafka_publishing',
+                    '🍕 ЗАКАЗ ПИЦЦЫ: Событие успешно отправлено в Kafka',
+                    'kafka_published_success',
+                    # Payment Service: чтение из Kafka
+                    'Событие из Kafka принято к обработке',
+                    # Payment Service: отправка на оплату
+                    'Запись платежа создана, запускаем асинхронную обработку',
+                    'Асинхронная обработка платежа запущена',
+                    # Payment Service: подтверждение успешной оплаты
+                    'Обработка платежа успешно завершена',
+                    # Payment Service: публикация результата в Kafka
+                    'Payment success event published',
+                    'Отправляем событие успешного платежа в Kafka',
+                    # Order Service: чтение оплаты из Kafka
+                    '📥 Received new payment event from Kafka',
+                    # Order Service: перевод статуса в PAID
+                    'OrderStatusChanged event added to outbox',
+                    'status": "PAID',
+                    'переведён в статус PAID',
+                    # Order Service: отдача информации в UI
                     'Order retrieved'
+                ]
+
+                allowed_stages = {
+                    # Outbox
+                    'outbox_processing',
+                    'kafka_publishing',
+                    'kafka_published_success',
+                    # Payment lifecycle
+                    'payment_record_creating',
+                    'payment_async_starting',
+                    'payment_async_started',
+                    'payment_processing_success',
+                    'payment_success_event_publishing',
                 }
 
-                def is_noise(line: str) -> bool:
-                    # Простая проверка по подстрокам
-                    if any(s in line for s in skip_substrings):
+                def is_allowed(line: str) -> bool:
+                    # Разрешение по подстрокам (для простых текстовых логов)
+                    if any(s in line for s in allowed_substrings):
                         return True
-                    # Попробуем распарсить JSON и отфильтровать по полю event
+                    # Разрешение по структурированным полям (JSON)
                     try:
                         obj = json.loads(line)
-                        ev = obj.get('event')
-                        if ev in skip_events:
+                        # По stage
+                        if obj.get('stage') in allowed_stages:
+                            return True
+                        # Специфические события
+                        msg_text = obj.get('event') or obj.get('message') or obj.get('msg')
+                        if msg_text and any(s in msg_text for s in allowed_substrings):
                             return True
                     except Exception:
                         pass
                     return False
 
-                filtered = [ln for ln in lines if not is_noise(ln)]
+                filtered = [ln for ln in lines if is_allowed(ln)]
 
                 # Дедупликация: убираем повторяющиеся строки, сохраняя порядок последних сообщений
                 seen = set()
