@@ -6,7 +6,9 @@ const AppState = {
     eventLog: [],
     // Для дедупликации между опросами
     seenLogKeys: new Set(),
-    seenLogOrder: []
+    seenLogOrder: [],
+    // Ключи уже отрисованных записей, чтобы не перерисовывать весь список
+    renderedLogKeys: new Set()
 };
 const API_BASE = '/api/v1';
 const API_ENDPOINTS = {
@@ -138,33 +140,36 @@ function detectServiceFromMessage(type, message) {
 function updateEventLogDisplay() {
     const eventLogNodes = document.querySelectorAll('#eventLog');
     if (!eventLogNodes || eventLogNodes.length === 0) return;
-    // Фильтруем только события, помеченные для отображения
-    const displayEvents = AppState.eventLog.filter(event => event.display !== false);
-    const html = displayEvents.map(event => {
+
+    // Добавляем только новые события наверх списка, не перерисовывая весь список
+    for (const event of AppState.eventLog) {
+        if (event.display === false) continue;
+        const renderKey = makeLogKey(event.service, event.type, event.message, '', event.timestamp || '');
+        if (AppState.renderedLogKeys.has(renderKey)) continue;
+
         const serviceClass = `service-${event.service.replace('-', '_')}`;
-        return `
+        const html = `
         <div class="log-entry animate-slide-in">
             <span class="timestamp">${event.timestamp}</span>
             <span class="service ${serviceClass}">[${event.service}]</span>
             <span class="event-type">${event.type}</span>
             <span class="message">${event.message}</span>
         </div>
-    `;
-    }).join('');
-    eventLogNodes.forEach(node => {
-        node.innerHTML = html;
-    });
+        `;
+
+        eventLogNodes.forEach(node => {
+            node.insertAdjacentHTML('afterbegin', html);
+        });
+        AppState.renderedLogKeys.add(renderKey);
+    }
 }
 function addEventLogFromAPI(logData) {
-    const timestamp = logData.timestamp || formatTimestamp();
+    const timestamp = logData.timestamp; // используем серверный timestamp, если он есть
     const service = logData.service || 'unknown';
     const type = logData.event_type || logData.type || 'LOG';
     let message = logData.message || logData.msg || 'No message';
     const correlationId = logData.correlationId || logData.correlation_id;
-    const uniqueKey = logData._uniqueKey;
-    
-    // Используем уникальный ключ если он есть, иначе создаем обычный ключ
-    const key = uniqueKey || makeLogKey(service, type, message, correlationId, timestamp);
+    const key = makeLogKey(service, type, message, correlationId, timestamp || '');
     
     if (AppState.seenLogKeys.has(key)) {
         return false; // пропускаем дубль
@@ -177,7 +182,7 @@ function addEventLogFromAPI(logData) {
     const shouldDisplay = type === 'LOG';
     
     AppState.eventLog.unshift({ 
-        timestamp, 
+        timestamp: timestamp || formatTimestamp(), 
         service, 
         type, 
         message,
@@ -749,14 +754,11 @@ async function fetchServiceLogs() {
             const service = data.service || 'unknown';
             for (const line of data.logs) {
                 if (typeof line === 'string') {
-                    // Создаем уникальный ключ для каждой строки лога
-                    const uniqueKey = `${service}_${line.trim()}_${Date.now()}_${Math.random()}`;
+                    // Для простых строк используем стабильный ключ без timestamp
                     if (addEventLogFromAPI({ 
                         message: line.trim(), 
                         service, 
-                        event_type: 'LOG',
-                        timestamp: formatTimestamp(),
-                        _uniqueKey: uniqueKey
+                        event_type: 'LOG'
                     })) count++;
                 } else {
                     if (addEventLogFromAPI({ ...line, service })) count++;
@@ -767,14 +769,11 @@ async function fetchServiceLogs() {
                 if (!Array.isArray(lines)) continue;
                 for (const line of lines) {
                     if (typeof line === 'string') {
-                        // Создаем уникальный ключ для каждой строки лога
-                        const uniqueKey = `${service}_${line.trim()}_${Date.now()}_${Math.random()}`;
+                        // Для простых строк используем стабильный ключ без timestamp
                         if (addEventLogFromAPI({ 
                             message: line.trim(), 
                             service, 
-                            event_type: 'LOG',
-                            timestamp: formatTimestamp(),
-                            _uniqueKey: uniqueKey
+                            event_type: 'LOG'
                         })) count++;
                     } else {
                         if (addEventLogFromAPI({ ...line, service })) count++;
@@ -827,8 +826,8 @@ function initializeApp() {
     // Load menu
     loadMenu();
     
-    // Start logs polling
-    startLogsPolling();
+    // Единоразовая загрузка логов без периодического авто-опроса
+    fetchServiceLogs();
 
     
     // Add initial welcome message
