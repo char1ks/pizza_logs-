@@ -108,7 +108,12 @@ const STAGE_ORDER = {
 
 function detectStageFromMessage(service, message) {
     const msg = (message || '').toLowerCase();
+    const svc = (service || '').toLowerCase();
     if (msg.includes('принял заказ в обработку')) return 'order_processing_started';
+    // Уточняем: чтение оплаты ордер-сервисом должно быть после публикации результата оплаты
+    if (svc.includes('order-service') && msg.includes('вычитал сообщение') && msg.includes('о платеже')) {
+        return 'order_payment_event_consumed';
+    }
     if (msg.includes('вычитал сообщение')) return 'kafka_event_consumed';
     if (msg.includes('отправил на оплату') || msg.includes('запускаем асинхронную обработку')) return 'sent_to_gateway';
     if (msg.includes('принял сообщение об успешной оплате') || msg.includes('обработка платежа успешно завершена')) return 'payment_confirmed';
@@ -200,7 +205,7 @@ function updateEventLogDisplay() {
     const eventLogNodes = document.querySelectorAll('#eventLog');
     if (!eventLogNodes || eventLogNodes.length === 0) return;
 
-    // Добавляем только новые события, вставляя их по возрастанию времени и line_no
+    // Добавляем только новые события, вставляя их по убыванию времени и stage/line_no
     for (const event of AppState.eventLog) {
         if (event.display === false) continue;
         const renderKey = makeLogKey(event.service, event.type, event.message, '', (event.line_no ?? '') || (event.timestamp || ''));
@@ -222,7 +227,7 @@ function updateEventLogDisplay() {
             <span class="message">${event.message}</span>
         `;
 
-        // Вставка по возрастанию времени; при равенстве — по стадии, затем по line_no
+        // Вставка по убыванию времени; при равенстве — по более «поздней» стадии, затем по line_no
         eventLogNodes.forEach(node => {
             const children = Array.from(node.querySelectorAll('.log-entry'));
             let inserted = false;
@@ -235,11 +240,11 @@ function updateEventLogDisplay() {
                     '',
                     ch.querySelector('.message')?.textContent || ''
                 );
-                // Условие для вставки перед текущим элементом:
-                // 1) если время текущего элемента больше, чем у нового (мы хотим возрастание времени)
-                // 2) или при равном времени — если стадия текущего элемента «позже» новой
-                // 3) или при равном времени и стадии — если line_no текущего элемента больше
-                if (chTime > timeMs || (chTime === timeMs && chStage > stageRank) || (chTime === timeMs && chStage === stageRank && chLine > lineNo)) {
+                // Условие для вставки перед текущим элементом (новые сверху):
+                // 1) если время текущего элемента меньше, чем у нового (мы хотим убывание времени)
+                // 2) или при равном времени — если стадия текущего элемента «раньше» новой
+                // 3) или при равном времени и стадии — если line_no текущего элемента меньше
+                if (chTime < timeMs || (chTime === timeMs && chStage < stageRank) || (chTime === timeMs && chStage === stageRank && chLine < lineNo)) {
                     node.insertBefore(el, ch);
                     inserted = true;
                     break;
