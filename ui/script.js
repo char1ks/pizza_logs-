@@ -178,7 +178,7 @@ function updateEventLogDisplay() {
             <span class="message">${event.message}</span>
         `;
 
-        // Вставка по возрастанию времени, при равенстве — по возрастанию line_no
+        // Вставка по убыванию времени, при равенстве — по убыванию line_no
         eventLogNodes.forEach(node => {
             const children = Array.from(node.querySelectorAll('.log-entry'));
             let inserted = false;
@@ -186,7 +186,7 @@ function updateEventLogDisplay() {
                 const ch = children[i];
                 const chTime = Number(ch.dataset.time || 0) || parseTimestampToMillis(ch.querySelector('.timestamp')?.textContent || '');
                 const chLine = ch.dataset.line ? Number(ch.dataset.line) : Number.MAX_SAFE_INTEGER;
-                if (chTime > timeMs || (chTime === timeMs && chLine > lineNo)) {
+                if (chTime < timeMs || (chTime === timeMs && chLine < lineNo)) {
                     node.insertBefore(el, ch);
                     inserted = true;
                     break;
