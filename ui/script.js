@@ -68,6 +68,21 @@ function formatTimestamp(date = new Date()) {
     });
 }
 
+// Надёжный парсер временной метки в миллисекунды
+function parseTimestampToMillis(ts) {
+    if (!ts) return Date.now();
+    const parsed = Date.parse(ts);
+    if (!Number.isNaN(parsed)) return parsed;
+    // Поддержка формата "DD.MM.YYYY, HH:MM:SS"
+    const m = ts.match(/^(\d{2})\.(\d{2})\.(\d{4}),\s*(\d{2}):(\d{2}):(\d{2})$/);
+    if (m) {
+        const [_, d, mo, y, h, mi, s] = m;
+        const dt = new Date(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(s));
+        return dt.getTime();
+    }
+    return Date.now();
+}
+
 // ===================== Дедупликация логов =====================
 function makeLogKey(service, type, message, correlationId = '', extra = '') {
     // Используем line_no из бэкенда для уникальности, если он есть
@@ -117,6 +132,7 @@ function addEventLog(type, message, service = null) {
         type, 
         message, 
         service: finalService,
+        line_no: null,
         display: shouldDisplay
     });
     rememberLogKey(key);
@@ -142,24 +158,41 @@ function updateEventLogDisplay() {
     const eventLogNodes = document.querySelectorAll('#eventLog');
     if (!eventLogNodes || eventLogNodes.length === 0) return;
 
-    // Добавляем только новые события наверх списка, не перерисовывая весь список
+    // Добавляем только новые события, вставляя их по возрастанию времени и line_no
     for (const event of AppState.eventLog) {
         if (event.display === false) continue;
-        const renderKey = makeLogKey(event.service, event.type, event.message, '', event.timestamp || '');
+        const renderKey = makeLogKey(event.service, event.type, event.message, '', (event.line_no ?? '') || (event.timestamp || ''));
         if (AppState.renderedLogKeys.has(renderKey)) continue;
 
-        const serviceClass = `service-${event.service.replace('-', '_')}`;
-        const html = `
-        <div class="log-entry animate-slide-in">
+        const serviceClass = `service-${event.service.replace(/-/g, '_')}`;
+        const el = document.createElement('div');
+        el.className = 'log-entry animate-slide-in';
+        const timeMs = parseTimestampToMillis(event.timestamp);
+        const lineNo = (event.line_no !== undefined && event.line_no !== null && event.line_no !== '') ? Number(event.line_no) : Number.MAX_SAFE_INTEGER;
+        el.dataset.time = String(timeMs);
+        el.dataset.line = String(lineNo);
+        el.innerHTML = `
             <span class="timestamp">${event.timestamp}</span>
             <span class="service ${serviceClass}">[${event.service}]</span>
             <span class="event-type">${event.type}</span>
             <span class="message">${event.message}</span>
-        </div>
         `;
 
+        // Вставка по возрастанию времени, при равенстве — по возрастанию line_no
         eventLogNodes.forEach(node => {
-            node.insertAdjacentHTML('afterbegin', html);
+            const children = Array.from(node.querySelectorAll('.log-entry'));
+            let inserted = false;
+            for (let i = 0; i < children.length; i++) {
+                const ch = children[i];
+                const chTime = Number(ch.dataset.time || 0) || parseTimestampToMillis(ch.querySelector('.timestamp')?.textContent || '');
+                const chLine = ch.dataset.line ? Number(ch.dataset.line) : Number.MAX_SAFE_INTEGER;
+                if (chTime > timeMs || (chTime === timeMs && chLine > lineNo)) {
+                    node.insertBefore(el, ch);
+                    inserted = true;
+                    break;
+                }
+            }
+            if (!inserted) node.appendChild(el);
         });
         AppState.renderedLogKeys.add(renderKey);
     }
@@ -189,6 +222,7 @@ function addEventLogFromAPI(logData) {
         service, 
         type, 
         message,
+        line_no: lineNo,
         display: shouldDisplay
     });
     rememberLogKey(key);
