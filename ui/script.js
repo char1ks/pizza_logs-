@@ -83,6 +83,48 @@ function parseTimestampToMillis(ts) {
     return Date.now();
 }
 
+// Порядок стадий процесса для стабильной сортировки при равном времени
+const STAGE_ORDER = {
+    // Начало обработки заказа
+    'order_processing_started': 10,
+    // Чтение события из Kafka (order/payment)
+    'kafka_event_consumed': 20,
+    'payment_event_consumed': 20,
+    // Отправка в платёжный шлюз
+    'sent_to_gateway': 30,
+    'payment_async_starting': 30,
+    'payment_async_started': 32,
+    // Подтверждение успешной оплаты
+    'payment_confirmed': 40,
+    'payment_processing_success': 40,
+    // Публикация результата оплаты
+    'payment_success_event_publishing': 50,
+    'payment_event_sent_kafka': 50,
+    // Перевод заказа в PAID
+    'order_status_paid': 60,
+    // Отдача информации в UI (информационное)
+    'ui_notification_sent': 70
+};
+
+function detectStageFromMessage(service, message) {
+    const msg = (message || '').toLowerCase();
+    if (msg.includes('принял заказ в обработку')) return 'order_processing_started';
+    if (msg.includes('вычитал сообщение')) return 'kafka_event_consumed';
+    if (msg.includes('отправил на оплату') || msg.includes('запускаем асинхронную обработку')) return 'sent_to_gateway';
+    if (msg.includes('принял сообщение об успешной оплате') || msg.includes('обработка платежа успешно завершена')) return 'payment_confirmed';
+    if (msg.includes('отослал в кафку') || msg.includes('отправляем событие успешного платежа в kafka')) return 'payment_event_sent_kafka';
+    if (msg.includes('перевёл заказ в статус paid') || msg.includes('status": "paid')) return 'order_status_paid';
+    return '';
+}
+
+function getStageRank(service, stage, message) {
+    const st = stage || detectStageFromMessage(service, message);
+    if (st && STAGE_ORDER[st] !== undefined) return STAGE_ORDER[st];
+    // SYSTEM и прочие — самый низкий приоритет (первее при сортировке по возрастанию времени)
+    if ((service || '').toLowerCase().includes('system')) return 0;
+    return 5; // дефолтная ранжировка для неизвестных стадий
+}
+
 // ===================== Дедупликация логов =====================
 function makeLogKey(service, type, message, correlationId = '', extra = '') {
     // Используем line_no из бэкенда для уникальности, если он есть
@@ -169,8 +211,10 @@ function updateEventLogDisplay() {
         el.className = 'log-entry animate-slide-in';
         const timeMs = parseTimestampToMillis(event.timestamp);
         const lineNo = (event.line_no !== undefined && event.line_no !== null && event.line_no !== '') ? Number(event.line_no) : Number.MAX_SAFE_INTEGER;
+        const stageRank = getStageRank(event.service, event.stage, event.message);
         el.dataset.time = String(timeMs);
         el.dataset.line = String(lineNo);
+        el.dataset.stageRank = String(stageRank);
         el.innerHTML = `
             <span class="timestamp">${event.timestamp}</span>
             <span class="service ${serviceClass}">[${event.service}]</span>
@@ -178,7 +222,7 @@ function updateEventLogDisplay() {
             <span class="message">${event.message}</span>
         `;
 
-        // Вставка по убыванию времени, при равенстве — по убыванию line_no
+        // Вставка по возрастанию времени; при равенстве — по стадии, затем по line_no
         eventLogNodes.forEach(node => {
             const children = Array.from(node.querySelectorAll('.log-entry'));
             let inserted = false;
@@ -186,7 +230,16 @@ function updateEventLogDisplay() {
                 const ch = children[i];
                 const chTime = Number(ch.dataset.time || 0) || parseTimestampToMillis(ch.querySelector('.timestamp')?.textContent || '');
                 const chLine = ch.dataset.line ? Number(ch.dataset.line) : Number.MAX_SAFE_INTEGER;
-                if (chTime < timeMs || (chTime === timeMs && chLine < lineNo)) {
+                const chStage = ch.dataset.stageRank ? Number(ch.dataset.stageRank) : getStageRank(
+                    (ch.querySelector('.service')?.textContent || '').replace(/[\[\]]/g, '').trim(),
+                    '',
+                    ch.querySelector('.message')?.textContent || ''
+                );
+                // Условие для вставки перед текущим элементом:
+                // 1) если время текущего элемента больше, чем у нового (мы хотим возрастание времени)
+                // 2) или при равном времени — если стадия текущего элемента «позже» новой
+                // 3) или при равном времени и стадии — если line_no текущего элемента больше
+                if (chTime > timeMs || (chTime === timeMs && chStage > stageRank) || (chTime === timeMs && chStage === stageRank && chLine > lineNo)) {
                     node.insertBefore(el, ch);
                     inserted = true;
                     break;
@@ -204,6 +257,7 @@ function addEventLogFromAPI(logData) {
     let message = logData.message || logData.msg || 'No message';
     const correlationId = logData.correlationId || logData.correlation_id;
     const lineNo = logData.line_no || ''; // используем line_no из бэкенда для дедупликации
+    const stage = logData.stage || '';
     
     const key = makeLogKey(service, type, message, correlationId, lineNo);
     
@@ -223,6 +277,7 @@ function addEventLogFromAPI(logData) {
         type, 
         message,
         line_no: lineNo,
+        stage,
         display: shouldDisplay
     });
     rememberLogKey(key);

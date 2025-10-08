@@ -584,13 +584,22 @@ class FrontendService(BaseService):
                         pass
                     return False
 
-                # Сохраняем индекс строки, чтобы UI мог отличать повторяющиеся события
-                indexed_filtered = [(i, ln) for i, ln in enumerate(lines) if is_allowed(ln)]
+                filtered = [ln for ln in lines if is_allowed(ln)]
+
+                # Дедупликация: убираем повторяющиеся строки, сохраняя порядок последних сообщений
+                seen = set()
+                unique_reversed = []
+                for ln in reversed(filtered):
+                    key = ln.strip()
+                    if key not in seen:
+                        seen.add(key)
+                        unique_reversed.append(ln)
+                unique = list(reversed(unique_reversed))
 
                 # Возвращаем последние tail записей, конвертируя JSON-строки в объекты для UI
-                result_items = indexed_filtered[-tail:]
+                result_lines = unique[-tail:]
                 structured = []
-                for i, ln in result_items:
+                for ln in result_lines:
                     line = ln.strip()
                     try:
                         obj = json.loads(line)
@@ -599,17 +608,10 @@ class FrontendService(BaseService):
                             obj['event_type'] = 'LOG'
                         if 'service' not in obj:
                             obj['service'] = service_name
-                        # Добавляем порядковый номер строки лога для устойчивой дедупликации на клиенте
-                        obj['line_no'] = i
                         structured.append(obj)
                     except Exception:
-                        # Текстовая строка — формируем структурированный объект
-                        structured.append({
-                            'event_type': 'LOG',
-                            'service': service_name,
-                            'message': line,
-                            'line_no': i
-                        })
+                        # Текстовая строка — отдаём как есть
+                        structured.append(line)
                 return structured
         except Exception as e:
             self.logger.error(f"Failed to read log file {log_file}", error=str(e))
