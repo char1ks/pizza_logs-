@@ -98,6 +98,7 @@ const STAGE_ORDER = {
     'payment_confirmed': 40,
     'payment_processing_success': 40,
     // Публикация результата оплаты
+    'order_payment_event_consumed': 45,
     'payment_success_event_publishing': 50,
     'payment_event_sent_kafka': 50,
     // Перевод заказа в PAID
