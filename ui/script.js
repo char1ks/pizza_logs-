@@ -211,10 +211,10 @@ function updateEventLogDisplay() {
     const eventLogNodes = document.querySelectorAll('#eventLog');
     if (!eventLogNodes || eventLogNodes.length === 0) return;
 
-    // Добавляем только новые события, сортируя по хронологии:
-    // 1) по возрастанию времени (старые сверху)
-    // 2) при равном времени — по возрастанию стадии процесса (ранние шаги выше)
-    // 3) затем по возрастанию line_no
+    // Добавляем только новые события, сортируя для «снизу вверх» отображения:
+    // 1) по убыванию времени (новые сверху)
+    // 2) при равном времени — по убыванию стадии процесса (поздние шаги выше)
+    // 3) затем по убыванию line_no
     for (const event of AppState.eventLog) {
         if (event.display === false) continue;
         const renderKey = makeLogKey(event.service, event.type, event.message, '', (event.line_no ?? '') || (event.timestamp || ''));
@@ -236,20 +236,20 @@ function updateEventLogDisplay() {
             <span class="message">${event.message}</span>
         `;
 
-        // Вставка по возрастанию времени; при равенстве — по более «ранней» стадии, затем по меньшему line_no
-        eventLogNodes.forEach(node => {
-            const children = Array.from(node.querySelectorAll('.log-entry'));
-            let inserted = false;
-            for (let i = 0; i < children.length; i++) {
-                const ch = children[i];
-                const chTime = Number(ch.dataset.time || 0) || parseTimestampToMillis(ch.querySelector('.timestamp')?.textContent || '');
-                const chLine = ch.dataset.line ? Number(ch.dataset.line) : Number.MAX_SAFE_INTEGER;
-                const chStage = ch.dataset.stageRank ? Number(ch.dataset.stageRank) : getStageRank(
-                    (ch.querySelector('.service')?.textContent || '').replace(/[\[\]]/g, '').trim(),
-                    '',
-                    ch.querySelector('.message')?.textContent || ''
-                );
-                if (chTime > timeMs || (chTime === timeMs && chStage > stageRank) || (chTime === timeMs && chStage === stageRank && chLine > lineNo)) {
+            // Вставка по убыванию времени; при равенстве — по более «поздней» стадии, затем по большему line_no
+            eventLogNodes.forEach(node => {
+                const children = Array.from(node.querySelectorAll('.log-entry'));
+                let inserted = false;
+                for (let i = 0; i < children.length; i++) {
+                    const ch = children[i];
+                    const chTime = Number(ch.dataset.time || 0) || parseTimestampToMillis(ch.querySelector('.timestamp')?.textContent || '');
+                    const chLine = ch.dataset.line ? Number(ch.dataset.line) : Number.MAX_SAFE_INTEGER;
+                    const chStage = ch.dataset.stageRank ? Number(ch.dataset.stageRank) : getStageRank(
+                        (ch.querySelector('.service')?.textContent || '').replace(/[\[\]]/g, '').trim(),
+                        '',
+                        ch.querySelector('.message')?.textContent || ''
+                    );
+                if (chTime < timeMs || (chTime === timeMs && chStage < stageRank) || (chTime === timeMs && chStage === stageRank && chLine < lineNo)) {
                     node.insertBefore(el, ch);
                     inserted = true;
                     break;
