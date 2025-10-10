@@ -279,9 +279,9 @@ function addEventLogFromAPI(logData) {
         return false; // пропускаем дубль
     }
     if (correlationId) {
-        message = `[corr=${correlationId}] ${message}`;
+        message = `${message}`;
     } else if (orderId) {
-        message = `[order=${orderId}] ${message}`;
+        message = `${message}`;
     }
     
     // Фильтруем только LOG события для отображения на HTML странице
