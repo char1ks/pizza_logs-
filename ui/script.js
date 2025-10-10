@@ -266,16 +266,22 @@ function addEventLogFromAPI(logData) {
     const type = logData.event_type || logData.type || 'LOG';
     let message = logData.message || logData.msg || 'No message';
     const correlationId = logData.correlationId || logData.correlation_id;
+    const orderId = logData.order_id || logData.orderId || (AppState.currentOrder && AppState.currentOrder.id);
     const lineNo = logData.line_no || ''; // используем line_no из бэкенда для дедупликации
     const stage = logData.stage || '';
     
-    const key = makeLogKey(service, type, message, correlationId, lineNo);
+    // Формируем более устойчивый ключ: сначала correlationId, иначе orderId; extra — line_no или timestamp
+    const corrKey = correlationId || orderId || '';
+    const extraKey = lineNo || timestamp || '';
+    const key = makeLogKey(service, type, message, corrKey, extraKey);
     
     if (AppState.seenLogKeys.has(key)) {
         return false; // пропускаем дубль
     }
     if (correlationId) {
         message = `[corr=${correlationId}] ${message}`;
+    } else if (orderId) {
+        message = `[order=${orderId}] ${message}`;
     }
     
     // Фильтруем только LOG события для отображения на HTML странице
