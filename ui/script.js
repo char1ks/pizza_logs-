@@ -4,10 +4,8 @@ const AppState = {
     currentOrder: null,
     isLoading: false,
     eventLog: [],
-    // Для дедупликации между опросами
     seenLogKeys: new Set(),
     seenLogOrder: [],
-    // Ключи уже отрисованных записей, чтобы не перерисовывать весь список
     renderedLogKeys: new Set()
 };
 const API_BASE = '/api/v1';
@@ -85,41 +83,48 @@ function parseTimestampToMillis(ts) {
 
 // Порядок стадий процесса для стабильной сортировки при равном времени
 const STAGE_ORDER = {
-    // Начало обработки заказа
+    // 1. Начало обработки заказа (order-service)
     'order_processing_started': 10,
-    // Чтение события из Kafka (order/payment)
-    'kafka_event_consumed': 20,
-    'payment_event_consumed': 20,
-    // Отправка в платёжный шлюз
-    'sent_to_gateway': 30,
-    'payment_async_starting': 30,
-    'payment_async_started': 32,
-    // Подтверждение успешной оплаты
-    'payment_confirmed': 40,
-    'payment_processing_success': 40,
-    // Публикация результата оплаты
-    'order_payment_event_consumed': 45,
-    'payment_success_event_publishing': 50,
-    'payment_event_sent_kafka': 50,
-    // Перевод заказа в PAID
-    'order_status_paid': 60,
-    // Отдача информации в UI (информационное)
-    'ui_notification_sent': 70
+    'order_saved_to_db': 15,
+    'order_polling_started': 20,
+    
+    // 2. Обработка платежа (payment-service)
+    'payment_event_consumed': 30,
+    'sent_to_gateway': 40,
+    'payment_confirmed': 50,
+    'payment_event_sent_kafka': 60,
+    
+    // 3. Завершение заказа (order-service)
+    'order_payment_event_consumed': 70,
+    'order_status_paid': 80,
+    'ui_notification_sent': 90
 };
 
 function detectStageFromMessage(service, message) {
     const msg = (message || '').toLowerCase();
     const svc = (service || '').toLowerCase();
+    
+    // Order Service стадии
     if (msg.includes('принял заказ в обработку')) return 'order_processing_started';
-    // Уточняем: чтение оплаты ордер-сервисом должно быть после публикации результата оплаты
-    if (svc.includes('order-service') && msg.includes('вычитал сообщение') && msg.includes('о платеже')) {
-        return 'order_payment_event_consumed';
-    }
-    if (msg.includes('вычитал сообщение')) return 'kafka_event_consumed';
+    if (msg.includes('сохранил в базу') || msg.includes('saved to database')) return 'order_saved_to_db';
+    if (msg.includes('стал полить') || msg.includes('polling started')) return 'order_polling_started';
+    
+    // Payment Service стадии
+    if (svc.includes('payment-service') && msg.includes('вычитал сообщение из топика')) return 'payment_event_consumed';
     if (msg.includes('отправил на оплату') || msg.includes('запускаем асинхронную обработку')) return 'sent_to_gateway';
     if (msg.includes('принял сообщение об успешной оплате') || msg.includes('обработка платежа успешно завершена')) return 'payment_confirmed';
     if (msg.includes('отослал в кафку') || msg.includes('отправляем событие успешного платежа в kafka')) return 'payment_event_sent_kafka';
+    
+    // Order Service завершающие стадии
+    if (svc.includes('order-service') && msg.includes('вычитал сообщение из топика о платеже')) {
+        return 'order_payment_event_consumed';
+    }
     if (msg.includes('перевёл заказ в статус paid') || msg.includes('status": "paid')) return 'order_status_paid';
+    if (msg.includes('отдал информацию в ui') || msg.includes('ui notification')) return 'ui_notification_sent';
+    
+    // Fallback для общих случаев
+    if (msg.includes('вычитал сообщение')) return 'payment_event_consumed';
+    
     return '';
 }
 
@@ -206,7 +211,10 @@ function updateEventLogDisplay() {
     const eventLogNodes = document.querySelectorAll('#eventLog');
     if (!eventLogNodes || eventLogNodes.length === 0) return;
 
-    // Добавляем только новые события, вставляя их по убыванию времени и stage/line_no
+    // Добавляем только новые события, сортируя по хронологии:
+    // 1) по возрастанию времени (старые сверху)
+    // 2) при равном времени — по возрастанию стадии процесса (ранние шаги выше)
+    // 3) затем по возрастанию line_no
     for (const event of AppState.eventLog) {
         if (event.display === false) continue;
         const renderKey = makeLogKey(event.service, event.type, event.message, '', (event.line_no ?? '') || (event.timestamp || ''));
@@ -228,7 +236,7 @@ function updateEventLogDisplay() {
             <span class="message">${event.message}</span>
         `;
 
-        // Вставка по убыванию времени; при равенстве — по более «поздней» стадии, затем по line_no
+        // Вставка по возрастанию времени; при равенстве — по более «ранней» стадии, затем по меньшему line_no
         eventLogNodes.forEach(node => {
             const children = Array.from(node.querySelectorAll('.log-entry'));
             let inserted = false;
@@ -241,11 +249,7 @@ function updateEventLogDisplay() {
                     '',
                     ch.querySelector('.message')?.textContent || ''
                 );
-                // Условие для вставки перед текущим элементом (новые сверху):
-                // 1) если время текущего элемента меньше, чем у нового (мы хотим убывание времени)
-                // 2) или при равном времени — если стадия текущего элемента «раньше» новой
-                // 3) или при равном времени и стадии — если line_no текущего элемента меньше
-                if (chTime < timeMs || (chTime === timeMs && chStage < stageRank) || (chTime === timeMs && chStage === stageRank && chLine < lineNo)) {
+                if (chTime > timeMs || (chTime === timeMs && chStage > stageRank) || (chTime === timeMs && chStage === stageRank && chLine > lineNo)) {
                     node.insertBefore(el, ch);
                     inserted = true;
                     break;
