@@ -412,18 +412,48 @@ class FrontendService(BaseService):
                 rps = data.get('rps', 1000)
                 duration = data.get('duration', '1m')
                 fail_rate = data.get('failRate', 0)
-                # Формируем команду запуска k6
+                # Генерируем идентификатор теста и фиксируем параметры
+                test_id = generate_id('load_')
+                start_ts = self.get_timestamp()
+
+                # Формируем команду запуска k6 (RATE/DURATION из env)
                 cmd = [
                     'k6', 'run',
                     '--env', f'FAIL_RATE={fail_rate}',
-                    '--vus', str(rps),
-                    '--duration', duration,
-                    'load-testing/order-create.js'
+                    '--env', f'RATE={rps}',
+                    '--env', f'DURATION={duration}',
+                    '/app/load-testing/order-create.js'
                 ]
+                # Сохраняем параметры теста в файл для последующего расчёта
+                try:
+                    os.makedirs('/app/logs', exist_ok=True)
+                    tests_file = '/app/logs/load_tests.json'
+                    record = {
+                        'test_id': test_id,
+                        'rps': rps,
+                        'duration': duration,
+                        'fail_rate': fail_rate,
+                        'started_at': start_ts
+                    }
+                    # Читаем существующие записи (если есть)
+                    existing = []
+                    if os.path.exists(tests_file):
+                        with open(tests_file, 'r') as f:
+                            try:
+                                existing = json.load(f) or []
+                            except Exception:
+                                existing = []
+                    existing.append(record)
+                    with open(tests_file, 'w') as f:
+                        json.dump(existing, f)
+                except Exception as e:
+                    self.logger.warning("Failed to persist load test record", error=str(e))
+
                 # Запускаем k6 в фоне
                 subprocess.Popen(cmd)
                 return jsonify({
                     'success': True,
+                    'test_id': test_id,
                     'message': f'k6 started with {rps} RPS, {fail_rate}% fail, duration {duration}'
                 })
                 
@@ -441,27 +471,72 @@ class FrontendService(BaseService):
         def get_load_test_results(test_id: str):
             """Get load test results"""
             try:
-                # Get the configured failure rate from the test parameters
-                # For now, we'll use a simple file-based approach
-                total_requests = 60000  # Estimated for 1000 RPS * 60s
-                
-                # Calculate success rate based on the configured failure rate
-                # We expect success_rate to be approximately 100 - failure_rate
-                success_rate = 70.0  # Expected rate for 30% failure rate
-                
+                # Читаем параметры теста из файла
+                tests_file = '/app/logs/load_tests.json'
+                matched = None
+                if os.path.exists(tests_file):
+                    with open(tests_file, 'r') as f:
+                        try:
+                            records = json.load(f) or []
+                            matched = next((r for r in records if r.get('test_id') == test_id), None)
+                        except Exception:
+                            matched = None
 
-                
+                if not matched:
+                    return jsonify({
+                        'success': False,
+                        'error': 'Test not found',
+                        'message': 'Unknown test_id; results unavailable'
+                    }), 404
+
+                # Рассчитываем ожидаемое количество запросов
+                rps = int(matched.get('rps', 1000))
+                duration_str = str(matched.get('duration', '1m'))
+                # Переводим duration в секунды (поддерживаем "Xs" и "Xm")
+                seconds = 60
+                if duration_str.endswith('s'):
+                    seconds = int(duration_str[:-1])
+                elif duration_str.endswith('m'):
+                    seconds = int(duration_str[:-1]) * 60
+                total_requests = rps * seconds
+
+                # Интервал времени теста
+                started_at = matched.get('started_at')
+                # Поскольку timestamp в ISO, используем PostgreSQL для сравнения
+                start_time = started_at
+                # Простейшая оценка окончания
+                # В БД сравним created_at в интервале [start, start + duration]
+                # Выполняем подсчёт заказов и успешных статусов
+                with self.db.get_cursor() as cursor:
+                    cursor.execute("SET search_path TO orders, public")
+                    cursor.execute("""
+                        SELECT COUNT(*)
+                        FROM orders.orders
+                        WHERE created_at >= %s AND created_at <= (%s::timestamp + make_interval(secs => %s))
+                    """, (start_time, start_time, seconds))
+                    total_created = cursor.fetchone()[0]
+
+                    cursor.execute("""
+                        SELECT COUNT(*)
+                        FROM orders.orders
+                        WHERE created_at >= %s AND created_at <= (%s::timestamp + make_interval(secs => %s))
+                          AND status IN ('PAID','COMPLETED')
+                    """, (start_time, start_time, seconds))
+                    total_success = cursor.fetchone()[0]
+
+                success_rate = 0.0 if total_created == 0 else round((total_success / total_created) * 100, 2)
+                errors = max(total_created - total_success, 0)
+
                 return jsonify({
                     'success': True,
                     'test_id': test_id,
                     'results': {
-                        'total_requests': total_requests,
+                        'total_requests_expected': total_requests,
+                        'total_orders_created': total_created,
                         'success_rate': success_rate,
-                        'avg_response_time': 150,
-                        'max_response_time': 2500,
-                        'errors': int(total_requests * (100 - success_rate) / 100)
+                        'errors': errors
                     },
-                    'message': 'Results are estimated. Check Grafana for detailed metrics.',
+                    'message': 'Результаты рассчитаны по данным БД orders за интервал теста',
                     'timestamp': self.get_timestamp()
                 })
                 

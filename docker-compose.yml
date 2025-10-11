@@ -406,7 +406,7 @@ services:
     environment:
       DATABASE_URL: postgresql://pizza_user:pizza_password@postgres:5432/pizza_system
       KAFKA_BROKER: kafka:29092
-      FAILURE_RATE: "0.3"
+      FAILURE_RATE: "0.0"
       SERVICE_NAME: payment-mock
       SERVICE_VERSION: "1.0.0"
       PORT: "5003"

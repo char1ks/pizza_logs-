@@ -6,7 +6,9 @@ const AppState = {
     eventLog: [],
     seenLogKeys: new Set(),
     seenLogOrder: [],
-    renderedLogKeys: new Set()
+    renderedLogKeys: new Set(),
+    orderPollingInterval: null,
+    orderPollCount: 0
 };
 const API_BASE = '/api/v1';
 const API_ENDPOINTS = {
@@ -441,6 +443,8 @@ async function createOrder() {
         addEventLog('ORDER', 'Корзина очищена, форма сброшена');
         
         showOrderStatus(orderObject);
+        // Перед новым опросом корректно останавливаем предыдущий, если он был
+        stopOrderStatusPolling('старт нового заказа');
         startOrderStatusPolling(orderObject.id);
     } catch (error) {
         addEventLog('ERROR', `Ошибка создания заказа: ${error.message}`);
@@ -462,17 +466,25 @@ async function getOrderStatus(orderId) {
     }
 }
 
+function stopOrderStatusPolling(reason = '') {
+    if (AppState.orderPollingInterval) {
+        clearInterval(AppState.orderPollingInterval);
+        AppState.orderPollingInterval = null;
+        if (reason) addEventLog('POLL', `Опрос статуса остановлен: ${reason}`);
+    }
+}
+
 function startOrderStatusPolling(orderId) {
     addEventLog('POLL', `Начинаем опрос статуса заказа #${orderId}`);
     addEventLog('POLL', `Интервал опроса: каждые 5 секунд`);
     console.log(`Starting status polling for order: ${orderId}`);
-
-    let pollingInterval;
-    let pollCount = 0;
+    // Сбрасываем предыдущий интервал, если он был
+    stopOrderStatusPolling('перезапуск опроса для нового заказа');
+    AppState.orderPollCount = 0;
 
     const poll = async () => {
-        pollCount++;
-        addEventLog('POLL', `Опрос статуса #${pollCount} для заказа #${orderId}`);
+        AppState.orderPollCount++;
+        addEventLog('POLL', `Опрос статуса #${AppState.orderPollCount} для заказа #${orderId}`);
         console.log(`Polling status for order: ${orderId}`);
         
         try {
@@ -487,14 +499,14 @@ function startOrderStatusPolling(orderId) {
                 
                 // Stop polling if status is final
                 if (['COMPLETED', 'PAID', 'FAILED', 'CANCELLED'].includes(orderResponse.order.status)) {
-                    clearInterval(pollingInterval);
+                    stopOrderStatusPolling(`финальный статус: ${orderResponse.order.status}`);
                     addEventLog('POLL', `Завершаем опрос статуса: ${orderResponse.order.status} (финальный статус)`);
-                    addEventLog('POLL', `Всего выполнено опросов: ${pollCount}`);
+                    addEventLog('POLL', `Всего выполнено опросов: ${AppState.orderPollCount}`);
                     console.log(`Polling stopped for order ${orderId}, final status: ${orderResponse.order.status}`);
                 }
             } else {
                 console.error('Invalid order response:', orderResponse);
-                addEventLog('ERROR', `Не удалось получить статус заказа #${orderId} (опрос #${pollCount})`);
+                addEventLog('ERROR', `Не удалось получить статус заказа #${orderId} (опрос #${AppState.orderPollCount})`);
             }
         } catch (error) {
             addEventLog('ERROR', `Ошибка при опросе статуса заказа #${orderId}: ${error.message}`);
@@ -507,7 +519,7 @@ function startOrderStatusPolling(orderId) {
     setTimeout(poll, 1000);
 
     // Set interval for subsequent checks
-    pollingInterval = setInterval(poll, 5000);
+    AppState.orderPollingInterval = setInterval(poll, 5000);
     
     console.log(`Polling interval set for order ${orderId}, checking every 5 seconds`);
 }
@@ -1125,12 +1137,23 @@ async function getLoadTestResults(testId) {
             const results = response.results;
             const expectedSuccessRate = 100 - testSettings.failRate;
             const actualSuccessRate = results.success_rate;
+            // Align with backend fields and remain backward-compatible
+            const totalActual = (
+                results.total_orders_created ??
+                results.total_created ??
+                results.total_requests
+            );
+            const totalExpected = (
+                results.total_requests_expected ??
+                results.total_expected ??
+                totalActual
+            );
             
-            addEventLog('LOAD_TEST', `Результаты теста: ${results.total_requests} запросов, ${actualSuccessRate}% успешных (ожидалось ${expectedSuccessRate}%)`);
+            addEventLog('LOAD_TEST', `Результаты теста: ожидалось ${totalExpected} запросов, фактически ${totalActual}, ${actualSuccessRate}% успешных (ожидалось ${expectedSuccessRate}%)`);
             
             // Show detailed results in toast
             showToast(
-                `📊 Результаты: ${results.total_requests} запросов, ${actualSuccessRate}% успешных`,
+                `📊 Результаты: ожидалось ${totalExpected}, фактически ${totalActual}, ${actualSuccessRate}% успешных`,
                 '📊',
                 5000
             );

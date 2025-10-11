@@ -6,22 +6,24 @@ import { Trend, Counter, Rate } from 'k6/metrics';
 // Test Configuration
 // =================================================================================
 
+// Allow overriding rate/duration via environment variables
+const RATE = __ENV.RATE ? parseInt(__ENV.RATE, 10) : 1000;
+const DURATION = __ENV.DURATION ? String(__ENV.DURATION) : '1m';
+
 export const options = {
-  // Target RPS (requests per second)
   scenarios: {
     constant_request_rate: {
       executor: 'constant-arrival-rate',
-      rate: 1000, // 1000 requests per second
+      rate: RATE,
       timeUnit: '1s',
-      duration: '30s', // Test duration
-      preAllocatedVUs: 100, // Initial number of virtual users
-      maxVUs: 500, // Maximum number of virtual users
+      duration: DURATION,
+      preAllocatedVUs: Math.min(Math.max(Math.floor(RATE / 10), 50), 1000),
+      maxVUs: Math.min(Math.max(RATE * 2, 200), 2000),
     },
   },
-  // Thresholds for success/failure - removing this as we want to allow higher failure rates
   thresholds: {
-    'http_req_failed': [], // Remove threshold to allow configured failure rate
-    'http_req_duration': ['p(95)<500'], // 95% of requests should be below 500ms
+    'http_req_failed': [],
+    'http_req_duration': ['p(95)<500'],
   },
 };
 
@@ -86,4 +88,4 @@ export default function () {
     orderCreationTime.add(res.timings.duration);
   });
   sleep(1);
-} 
+}

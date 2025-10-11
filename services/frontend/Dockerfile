@@ -42,6 +42,9 @@ COPY shared/ shared/
 # Копируем все файлы текущей папки (frontend)
 COPY frontend/ .
 
+# Копируем k6-скрипты нагрузочного тестирования
+COPY load-testing/ load-testing/
+
 # Copy and setup init script
 COPY shared/init_logs.sh /usr/local/bin/init_logs.sh
 RUN chmod +x /usr/local/bin/init_logs.sh
