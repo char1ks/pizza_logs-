@@ -509,20 +509,20 @@ class FrontendService(BaseService):
                 # Выполняем подсчёт заказов и успешных статусов
                 with self.db.get_cursor() as cursor:
                     cursor.execute("SET search_path TO orders, public")
-                    cursor.execute("""
-                        SELECT COUNT(*)
+                    cursor.execute(
+                        """
+                        SELECT 
+                            COUNT(*) AS total_created,
+                            COUNT(*) FILTER (WHERE status IN ('PAID','COMPLETED')) AS total_success
                         FROM orders.orders
-                        WHERE created_at >= %s AND created_at <= (%s::timestamp + make_interval(secs => %s))
-                    """, (start_time, start_time, seconds))
-                    total_created = cursor.fetchone()[0]
-
-                    cursor.execute("""
-                        SELECT COUNT(*)
-                        FROM orders.orders
-                        WHERE created_at >= %s AND created_at <= (%s::timestamp + make_interval(secs => %s))
-                          AND status IN ('PAID','COMPLETED')
-                    """, (start_time, start_time, seconds))
-                    total_success = cursor.fetchone()[0]
+                        WHERE created_at >= %s 
+                          AND created_at <= (%s::timestamp + make_interval(secs => %s))
+                        """,
+                        (start_time, start_time, seconds)
+                    )
+                    row = cursor.fetchone()
+                    total_created = row['total_created'] if isinstance(row, dict) else row[0]
+                    total_success = row['total_success'] if isinstance(row, dict) else row[1]
 
                 success_rate = 0.0 if total_created == 0 else round((total_success / total_created) * 100, 2)
                 errors = max(total_created - total_success, 0)

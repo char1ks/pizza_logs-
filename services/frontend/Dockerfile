@@ -42,8 +42,8 @@ COPY shared/ shared/
 # Копируем все файлы текущей папки (frontend)
 COPY frontend/ .
 
-# Копируем k6-скрипты нагрузочного тестирования
-COPY load-testing/ load-testing/
+# k6-скрипты монтируются через volume в docker-compose.yml
+# Не нужно копировать, так как есть volume mapping: ./load-testing:/app/load-testing
 
 # Copy and setup init script
 COPY shared/init_logs.sh /usr/local/bin/init_logs.sh

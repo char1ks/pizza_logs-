@@ -17,6 +17,7 @@ from contextlib import contextmanager
 
 import psycopg2
 import psycopg2.extras
+from psycopg2.pool import ThreadedConnectionPool
 from kafka import KafkaProducer, KafkaConsumer
 from kafka.errors import KafkaError
 from flask import Flask, request, jsonify
@@ -271,38 +272,48 @@ class ServiceMetrics:
 # ========================================
 
 class DatabaseManager:
-    """Database connection and query management"""
+    """Database connection and query management with thread-safe pool"""
     
     def __init__(self, config: Config, logger: structlog.BoundLogger, metrics: ServiceMetrics):
         self.config = config
         self.logger = logger
         self.metrics = metrics
-        self._connection = None
+        self._pool: Optional[ThreadedConnectionPool] = None
     
-    def get_connection(self):
-        """Get database connection with retry logic"""
-        if self._connection is None or self._connection.closed:
-            self._connection = self._create_connection()
-        return self._connection
+    def _get_pool(self) -> ThreadedConnectionPool:
+        """Lazy-initialize a ThreadedConnectionPool"""
+        if self._pool is None:
+            try:
+                minconn = int(os.getenv('DB_POOL_MIN', '5'))
+                maxconn = int(os.getenv('DB_POOL_MAX', '50'))
+                self._pool = ThreadedConnectionPool(
+                    minconn,
+                    maxconn,
+                    self.config.DATABASE_URL,
+                    cursor_factory=psycopg2.extras.RealDictCursor
+                )
+                self.logger.info("Database connection pool established", minconn=minconn, maxconn=maxconn)
+            except Exception as e:
+                self.logger.error("Failed to create DB pool", error=str(e))
+                raise
+        return self._pool
     
-    def _create_connection(self):
-        """Create new database connection"""
+    def _acquire(self):
+        pool = self._get_pool()
+        conn = pool.getconn()
+        conn.autocommit = False
+        return conn
+    
+    def _release(self, conn):
         try:
-            connection = psycopg2.connect(
-                self.config.DATABASE_URL,
-                cursor_factory=psycopg2.extras.RealDictCursor
-            )
-            connection.autocommit = False
-            self.logger.info("Database connection established")
-            return connection
-        except Exception as e:
-            self.logger.error("Failed to connect to database", error=str(e))
-            raise
+            self._get_pool().putconn(conn)
+        except Exception:
+            pass
     
     @contextmanager
     def get_cursor(self):
-        """Context manager for database cursor"""
-        connection = self.get_connection()
+        """Context manager for database cursor (pooled)"""
+        connection = self._acquire()
         cursor = connection.cursor()
         try:
             yield cursor
@@ -311,13 +322,23 @@ class DatabaseManager:
             self.logger.error("Database operation failed", error=str(e))
             raise
         finally:
-            cursor.close()
+            try:
+                cursor.close()
+            finally:
+                self._release(connection)
     
     @contextmanager
     def transaction(self):
-        """Context manager for database transactions"""
-        connection = self.get_connection()
+        """Context manager for database transactions (pooled)"""
+        connection = self._acquire()
         try:
+            # Guard against long-running statements
+            try:
+                with connection.cursor() as c:
+                    c.execute("SET LOCAL statement_timeout = '10s'")
+            except Exception:
+                pass
+            
             yield connection
             connection.commit()
             self.logger.debug("Transaction committed")
@@ -325,6 +346,8 @@ class DatabaseManager:
             connection.rollback()
             self.logger.error("Transaction rolled back", error=str(e))
             raise
+        finally:
+            self._release(connection)
     
     def execute_query(self, query: str, params: tuple = None, fetch: str = None) -> Optional[Dict]:
         """Execute database query with metrics"""

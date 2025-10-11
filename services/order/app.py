@@ -35,6 +35,11 @@ class OrderService(BaseService):
         
         # Initialize HTTP session with connection pooling
         self.http_session = self._create_http_session()
+        # Simple menu cache to avoid per-item fetches
+        self._menu_cache = {
+            'data': None,
+            'expires_at': 0
+        }
         
         # Setup routes
         self.setup_routes()
@@ -69,7 +74,29 @@ class OrderService(BaseService):
         session.mount("https://", adapter)
         
         return session
-    
+
+    def _get_menu_catalog(self) -> Dict[str, Dict]:
+        """Fetch full menu once and cache it for a short TTL"""
+        frontend_url = os.getenv('FRONTEND_SERVICE_URL', 'http://frontend-service:5000')
+        now = time.time()
+        ttl = int(os.getenv('MENU_CACHE_TTL', '30'))
+        if self._menu_cache['data'] and self._menu_cache['expires_at'] > now:
+            return self._menu_cache['data']
+
+        # Fetch full menu
+        resp = self.http_session.get(f"{frontend_url}/api/v1/menu", timeout=10)
+        if resp.status_code != 200:
+            raise Exception("Failed to fetch menu catalog")
+        payload = resp.json()
+        if not payload.get('success'):
+            raise Exception("Invalid response from Frontend Service menu")
+        pizzas = payload.get('pizzas', [])
+        # Index by pizza id
+        catalog = {p.get('id'): p for p in pizzas if p.get('id')}
+        self._menu_cache['data'] = catalog
+        self._menu_cache['expires_at'] = now + ttl
+        return catalog
+
 
     
     def setup_routes(self):
@@ -300,47 +327,28 @@ class OrderService(BaseService):
                 }), 500
     
     def get_pizza_details(self, items: List[Dict]) -> List[Dict]:
-        """Get pizza details from Frontend Service"""
+        """Get pizza details using cached catalog to avoid N network calls"""
         try:
-            import requests
-            
-            frontend_url = os.getenv('FRONTEND_SERVICE_URL', 'http://frontend-service:5000')
+            catalog = self._get_menu_catalog()
             pizza_details = []
-            
-            # Use pooled session for better performance
             for item in items:
                 pizza_id = item.get('pizzaId')
                 quantity = item.get('quantity', 1)
-                
                 if not pizza_id:
                     raise ValidationError("Pizza ID is required for each item")
-                
-                # Get pizza from Frontend Service
-                response = self.http_session.get(f"{frontend_url}/api/v1/menu/{pizza_id}", timeout=10)
-                
-                if response.status_code == 404:
+                pizza = catalog.get(pizza_id)
+                if not pizza:
                     raise ValidationError(f"Pizza not found: {pizza_id}")
-                elif response.status_code != 200:
-                    raise Exception(f"Failed to get pizza details for {pizza_id}")
-                
-                pizza_data = response.json()
-                if not pizza_data.get('success'):
-                    raise Exception(f"Invalid response for pizza {pizza_id}")
-                
-                pizza = pizza_data['pizza']
+                price = pizza.get('price')
+                name = pizza.get('name')
                 pizza_details.append({
                     'pizza_id': pizza_id,
-                    'pizza_name': pizza['name'],
-                    'pizza_price': pizza['price'],
+                    'pizza_name': name,
+                    'pizza_price': price,
                     'quantity': quantity,
-                    'subtotal': pizza['price'] * quantity
+                    'subtotal': price * quantity
                 })
-            
             return pizza_details
-            
-        except requests.RequestException as e:
-            self.logger.error("Failed to connect to Frontend Service", error=str(e))
-            raise Exception("Unable to validate pizza items")
         except Exception as e:
             self.logger.error("Failed to get pizza details", error=str(e))
             raise
