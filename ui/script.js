@@ -430,11 +430,21 @@ async function createOrder() {
         
         addEventLog('ORDER', 'Получение деталей созданного заказа...');
         const fullOrderResponse = await getOrderStatus(response.orderId);
-        if (!fullOrderResponse || !fullOrderResponse.order) {
-            throw new Error('Не удалось получить детали созданного заказа.');
+        let orderObject;
+        if (fullOrderResponse && fullOrderResponse.order) {
+            orderObject = fullOrderResponse.order;
+            addEventLog('SUCCESS', `Детали заказа получены, статус: ${orderObject.status}`);
+        } else {
+            // Грейсфул-обработка ситуации, когда заказ ещё не доступен для чтения
+            addEventLog('WARN', 'Детали заказа пока недоступны (404). Продолжаем с поллингом...');
+            orderObject = {
+                id: response.orderId,
+                status: 'PENDING',
+                total: totalAmount,
+                delivery_address: deliveryAddress,
+                payment_method: paymentMethod
+            };
         }
-        const orderObject = fullOrderResponse.order;
-        addEventLog('SUCCESS', `Детали заказа получены, статус: ${orderObject.status}`);
         
         AppState.currentOrder = orderObject;
         AppState.cart = [];
