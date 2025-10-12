@@ -37,7 +37,9 @@ class Config:
         self.DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://pizza_user:pizza_password@postgres:5432/pizza_system')
         
         # Kafka Configuration
-        self.KAFKA_BOOTSTRAP_SERVERS = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'kafka:29092').split(',')
+        # Support both KAFKA_BOOTSTRAP_SERVERS and legacy alias KAFKA_BROKER
+        kafka_servers_env = os.getenv('KAFKA_BOOTSTRAP_SERVERS') or os.getenv('KAFKA_BROKER') or 'kafka:29092'
+        self.KAFKA_BOOTSTRAP_SERVERS = kafka_servers_env.split(',')
         self.KAFKA_RETRIES = int(os.getenv('KAFKA_RETRIES', '3'))
         self.KAFKA_RETRY_BACKOFF_MS = int(os.getenv('KAFKA_RETRY_BACKOFF_MS', '100'))
         
@@ -486,6 +488,11 @@ class EventManager:
             
         except KafkaError as e:
             self.logger.error("Failed to publish event", topic=topic, error=str(e))
+            self.metrics.record_business_event('event_publish', 'failed')
+            return False
+        except Exception as e:
+            # Catch any unexpected errors (serialization, timeout, etc.)
+            self.logger.error("Unexpected error during event publish", topic=topic, error=str(e))
             self.metrics.record_business_event('event_publish', 'failed')
             return False
     

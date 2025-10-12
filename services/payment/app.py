@@ -687,7 +687,45 @@ class PaymentService(BaseService):
                 self.logger.error("Failed to publish payment failure event", payment_id=payment_id, order_id=payment['order_id'], correlation_id=correlation_id)
                 
         except Exception as e:
+            # Log primary publish error
             self.logger.error("Failed to publish payment failure event", payment_id=payment_id, error=str(e))
+            # Attempt DLQ fallback to preserve failed event
+            try:
+                payment = payment if 'payment' in locals() and payment else self.get_payment_by_id(payment_id)
+                dlq_event = {
+                    'event_type': 'PaymentFailed',
+                    'payment_id': payment_id,
+                    'order_id': payment.get('order_id') if payment else None,
+                    'amount': payment.get('amount') if payment else None,
+                    'payment_method': payment.get('payment_method') if payment else None,
+                    'failure_reason': payment.get('failure_reason', 'Unknown error') if payment else 'Unknown error',
+                    'timestamp': self.get_timestamp(),
+                    'correlationId': correlation_id,
+                    'publish_error': str(e)
+                }
+                dlq_key = str(payment.get('order_id')) if payment and payment.get('order_id') else None
+                dlq_published = self.events.publish_event('dlq-events', dlq_event, dlq_key)
+                if dlq_published:
+                    self.logger.warning(
+                        "PaymentFailed routed to DLQ",
+                        payment_id=payment_id,
+                        order_id=dlq_key,
+                        correlation_id=correlation_id
+                    )
+                else:
+                    self.logger.error(
+                        "Failed to publish PaymentFailed to DLQ",
+                        payment_id=payment_id,
+                        order_id=dlq_key,
+                        correlation_id=correlation_id
+                    )
+            except Exception as dlq_err:
+                self.logger.error(
+                    "DLQ fallback failed",
+                    payment_id=payment_id,
+                    error=str(dlq_err),
+                    correlation_id=correlation_id
+                )
     
     def start_event_consumer(self):
         """Start Kafka event consumer in background thread"""
