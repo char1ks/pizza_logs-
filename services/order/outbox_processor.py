@@ -43,6 +43,7 @@ class OutboxProcessor:
         
         # Initialize database
         self.service.init_database_with_schema_creation('orders', 'SELECT COUNT(*) FROM orders.outbox_events WHERE processed = false')
+        self.db.default_schema = 'orders'
         
         self.logger.info("Outbox Processor initialized")
     

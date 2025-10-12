@@ -67,6 +67,7 @@ class NotificationService(BaseService):
         
         # Initialize database
         self.init_database_with_schema_creation('notifications', 'SELECT 1')
+        self.db.default_schema = 'notifications'
         
         # Create default templates
         self.create_default_templates()

@@ -302,6 +302,15 @@ class DatabaseManager:
         pool = self._get_pool()
         conn = pool.getconn()
         conn.autocommit = False
+        # Ensure the correct search_path is set for every new connection
+        try:
+            default_schema = getattr(self, 'default_schema', None)
+            if default_schema:
+                with conn.cursor() as c:
+                    c.execute(f"SET search_path TO {default_schema}, public")
+        except Exception as e:
+            # Log but don't fail acquisition – queries will error out later and be logged there
+            self.logger.debug("Failed to set search_path on new connection", error=str(e))
         return conn
     
     def _release(self, conn):

@@ -114,6 +114,8 @@ class PaymentService(BaseService):
         
         # Initialize database
         self.init_database_with_schema_creation('payments', 'SELECT 1')
+        # Ensure following connections in pool default to payments schema
+        self.db.default_schema = 'payments'
         
         # Start event consumer in background thread
         self.start_event_consumer()
