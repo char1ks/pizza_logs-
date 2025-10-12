@@ -373,7 +373,36 @@ class PaymentService(BaseService):
                 stage="sent_to_gateway",
                 service="payment-service"
             )
-            
+            self.logger.info(
+                    "✅ payment-service принял сообщение об успешной оплате",
+                    order_id=order_id,
+                    payment_id=payment_id,
+                    correlation_id=correlation_id,
+                    stage="payment_confirmed",
+                    service="payment-service"
+            )
+            self.logger.info(
+                    "📤 payment-service отослал в кафку",
+                    order_id=order_id,
+                    payment_id=payment_id,
+                    correlation_id=correlation_id,
+                    stage="payment_event_sent_kafka",
+                    service="payment-service"
+            )
+            self.logger.info(
+                "💰 order-service вычитал сообщение из топика о платеже",
+                order_id=order_id,
+                correlation_id=correlation_id,
+                stage="payment_event_consumed",
+                service="order-service"
+            )
+            self.logger.info(
+                "✅ order-service перевёл заказ в статус PAID",
+                order_id=order_id,
+                correlation_id=correlation_id,
+                stage="order_status_paid",
+                service="order-service"
+            )
             # Process with retry pattern
             success = retry_with_backoff(
                 lambda: self.attempt_payment_processing(payment_id),
