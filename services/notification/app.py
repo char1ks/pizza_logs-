@@ -121,11 +121,13 @@ class NotificationService(BaseService):
         """Create default notification templates if they don't exist."""
         templates = [
             # Align types with init.sql canonical names
-            {'type': self._normalize_template_type('OrderCreated'), 'title_template': 'Заказ #{order_id} создан', 'message_template': 'Ваш заказ на сумму {total} руб. принят и обрабатывается. Адрес доставки: {delivery_address}'},
-            {'type': self._normalize_template_type('PaymentProcessing'), 'title_template': 'Обработка оплаты заказа #{order_id}', 'message_template': 'Ваш заказ на сумму {total} руб. передан в обработку платежной системе.'},
-            {'type': self._normalize_template_type('OrderPaid'), 'title_template': 'Заказ #{order_id} оплачен!', 'message_template': 'Оплата на сумму {total} руб. прошла успешно. Ваш заказ готовится!'},
-            {'type': self._normalize_template_type('PaymentFailed'), 'title_template': 'Ошибка оплаты заказа #{order_id}', 'message_template': 'К сожалению, оплата на сумму {total} руб. не прошла. Причина: {failure_reason}. Попробуйте снова или выберите другой способ оплаты.'},
-            {'type': self._normalize_template_type('OrderCompleted'), 'title_template': 'Заказ #{order_id} готов!', 'message_template': 'Ваш заказ готов и отправлен по адресу: {delivery_address}. Спасибо за покупку!'}
+            # Order service uses camelCase keys
+            {'type': self._normalize_template_type('OrderCreated'), 'title_template': 'Заказ #{orderId} создан', 'message_template': 'Ваш заказ на сумму {totalAmount} руб. принят и обрабатывается. Адрес доставки: {deliveryAddress}'},
+            # Payment service uses snake_case keys
+            {'type': self._normalize_template_type('PaymentProcessing'), 'title_template': 'Обработка оплаты заказа #{order_id}', 'message_template': 'Ваш заказ на сумму {amount} руб. передан в обработку платежной системе.'},
+            {'type': self._normalize_template_type('OrderPaid'), 'title_template': 'Заказ #{order_id} оплачен!', 'message_template': 'Оплата на сумму {amount} руб. прошла успешно. Ваш заказ готовится!'},
+            {'type': self._normalize_template_type('PaymentFailed'), 'title_template': 'Ошибка оплаты заказа #{order_id}', 'message_template': 'К сожалению, оплата на сумму {amount} руб. не прошла. Причина: {failure_reason}. Попробуйте снова или выберите другой способ оплаты.'},
+            {'type': self._normalize_template_type('OrderCompleted'), 'title_template': 'Заказ #{orderId} готов!', 'message_template': 'Ваш заказ готов и отправлен по адресу: {deliveryAddress}. Спасибо за покупку!'}
         ]
         
         try:
@@ -136,7 +138,9 @@ class NotificationService(BaseService):
                             """
                             INSERT INTO notifications.notification_templates (type, title_template, message_template)
                             VALUES (%s, %s, %s)
-                            ON CONFLICT (type) DO NOTHING
+                            ON CONFLICT (type) DO UPDATE
+                            SET title_template = EXCLUDED.title_template,
+                                message_template = EXCLUDED.message_template
                             """,
                             (t['type'], t['title_template'], t['message_template'])
                         )
@@ -641,8 +645,22 @@ class NotificationService(BaseService):
             service="notification-service"
         )
 
-        message = template['message_template'].format(**event_data)
-        subject = template['title_template'].format(**event_data)
+        try:
+            message = template['message_template'].format(**event_data)
+            subject = template['title_template'].format(**event_data)
+        except Exception as e:
+            self.logger.error(
+                "🍕 ЗАКАЗ ПИЦЦЫ: Ошибка форматирования сообщения из шаблона OrderCreated",
+                order_id=order_id,
+                correlation_id=correlation_id,
+                stage="notification_message_formatting_failed",
+                service="notification-service",
+                error=str(e),
+                event_data_keys=list(event_data.keys()),
+                template_title=template.get('title_template'),
+                template_message=template.get('message_template')
+            )
+            return
 
         self.logger.info(
             "🍕 ЗАКАЗ ПИЦЦЫ: Сохраняем уведомление в базу данных",
@@ -732,8 +750,22 @@ class NotificationService(BaseService):
             service="notification-service"
         )
 
-        message = template['message_template'].format(**event_data)
-        subject = template['title_template'].format(**event_data)
+        try:
+            message = template['message_template'].format(**event_data)
+            subject = template['title_template'].format(**event_data)
+        except Exception as e:
+            self.logger.error(
+                "🍕 ЗАКАЗ ПИЦЦЫ: Ошибка форматирования сообщения из шаблона OrderPaid",
+                order_id=order_id,
+                correlation_id=correlation_id,
+                stage="notification_message_formatting_failed",
+                service="notification-service",
+                error=str(e),
+                event_data_keys=list(event_data.keys()),
+                template_title=template.get('title_template'),
+                template_message=template.get('message_template')
+            )
+            return
         
         self.logger.info(
             "🍕 ЗАКАЗ ПИЦЦЫ: Сохраняем уведомление об успешном платеже в базу данных",
@@ -823,8 +855,22 @@ class NotificationService(BaseService):
             service="notification-service"
         )
 
-        message = template['message_template'].format(**event_data)
-        subject = template['title_template'].format(**event_data)
+        try:
+            message = template['message_template'].format(**event_data)
+            subject = template['title_template'].format(**event_data)
+        except Exception as e:
+            self.logger.error(
+                "🍕 ЗАКАЗ ПИЦЦЫ: Ошибка форматирования сообщения из шаблона PaymentFailed",
+                order_id=order_id,
+                correlation_id=correlation_id,
+                stage="notification_message_formatting_failed",
+                service="notification-service",
+                error=str(e),
+                event_data_keys=list(event_data.keys()),
+                template_title=template.get('title_template'),
+                template_message=template.get('message_template')
+            )
+            return
         
         self.logger.info(
             "🍕 ЗАКАЗ ПИЦЦЫ: Сохраняем уведомление о неуспешном платеже в базу данных",
