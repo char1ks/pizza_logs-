@@ -363,6 +363,13 @@ class PaymentService(BaseService):
             
             # Update status to PROCESSING
             self.update_payment_status(payment_id, PaymentStatus.PROCESSING.value)
+
+            # Также обновим статус заказа через внутренний API, чтобы фронт сразу видел изменения
+            try:
+                self._update_order_status_via_http(order_id, 'PROCESSING', 'Платеж в обработке', correlation_id)
+            except Exception as e:
+                # Не прерываем оплату, если обновление статуса заказа не удалось
+                self.logger.warning("Order status PROCESSING HTTP update failed", order_id=order_id, error=str(e))
             
             # После установки статуса PROCESSING считаем, что отправили на оплату
             self.logger.info(
@@ -424,6 +431,12 @@ class PaymentService(BaseService):
                 )
                 self.logger.info(status_message, order_id=order_id, payment_id=payment_id)
                 self.update_payment_status(payment_id, PaymentStatus.COMPLETED.value)
+
+                # Обновим статус заказа на PAID через HTTP, чтобы UI получил обновление
+                try:
+                    self._update_order_status_via_http(order_id, 'PAID', 'Оплата успешно завершена', correlation_id)
+                except Exception as e:
+                    self.logger.warning("Order status PAID HTTP update failed", order_id=order_id, error=str(e))
                 
                 self.logger.info(
                     "✅ payment-service принял сообщение об успешной оплате",
@@ -459,6 +472,12 @@ class PaymentService(BaseService):
                 )
                 self.logger.error(status_message, order_id=order_id, payment_id=payment_id)
                 self.update_payment_status(payment_id, PaymentStatus.FAILED.value, "Payment failed after retries")
+
+                # Обновим статус заказа на FAILED через HTTP, чтобы UI получил обновление
+                try:
+                    self._update_order_status_via_http(order_id, 'FAILED', 'Платеж не прошел после нескольких попыток', correlation_id)
+                except Exception as e:
+                    self.logger.warning("Order status FAILED HTTP update failed", order_id=order_id, error=str(e))
                 
                 # Publish failure event
                 self.publish_payment_failure_event(payment_id, correlation_id)
@@ -777,6 +796,38 @@ class PaymentService(BaseService):
         consumer_thread = threading.Thread(target=consume_events, daemon=True)
         consumer_thread.start()
         self.logger.debug("Event consumer thread started")
+    
+    def _update_order_status_via_http(self, order_id: str, new_status: str, reason: str = '', correlation_id: Optional[str] = None) -> bool:
+        """Update order status via Order Service HTTP API to ensure UI reflects changes immediately."""
+        try:
+            order_service_url = os.getenv('ORDER_SERVICE_URL', 'http://order-service:5001')
+            url = f"{order_service_url}/api/v1/orders/{order_id}/status"
+            payload = {
+                'status': new_status,
+                'reason': reason or ''
+            }
+            headers = {
+                'Content-Type': 'application/json'
+            }
+            if correlation_id:
+                headers['X-Correlation-ID'] = correlation_id
+            resp = requests.put(url, json=payload, headers=headers, timeout=5)
+            if resp.status_code == 200:
+                try:
+                    body = resp.json()
+                except Exception:
+                    body = {}
+                if body.get('success'):
+                    return True
+            return False
+        except Exception as e:
+            self.logger.error(
+                "Order status update via HTTP error",
+                order_id=order_id,
+                new_status=new_status,
+                error=str(e)
+            )
+            return False
     
     def handle_order_event(self, topic: str, event_data: Dict, key: str):
         """Handle events from order service"""
