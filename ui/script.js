@@ -233,6 +233,17 @@ function detectServiceFromMessage(type, message) {
     if (type === 'SYSTEM') return 'frontend-ui';
     return 'frontend-ui';
 }
+
+// Извлекаем имя сервиса прямо из текста сообщения, если оно явно упомянуто
+function detectServiceFromLogText(message) {
+    if (!message || typeof message !== 'string') return null;
+    const m = message.toLowerCase();
+    if (m.includes('order-service')) return 'order-service';
+    if (m.includes('payment-service')) return 'payment-service';
+    if (m.includes('notification-service')) return 'notification-service';
+    if (m.includes('frontend-service')) return 'frontend-service';
+    return null;
+}
 function updateEventLogDisplay() {
     const eventLogNodes = document.querySelectorAll('#eventLog');
     if (!eventLogNodes || eventLogNodes.length === 0) return;
@@ -308,12 +319,17 @@ function updateEventLogDisplay() {
 }
 function addEventLogFromAPI(logData) {
     const timestamp = logData.timestamp; // используем серверный timestamp, если он есть
-    const service = logData.service || 'unknown';
+    let service = logData.service || 'unknown';
     const type = logData.event_type || logData.type || 'LOG';
     let message = logData.event || logData.message || logData.msg || 'No message';
     const correlationId = logData.correlationId || logData.correlation_id;
     const orderId = logData.order_id || logData.orderId || (AppState.currentOrder && AppState.currentOrder.id);
     const lineNo = logData.line_no || ''; // используем line_no из бэкенда для дедупликации
+    // Если в тексте явно указан сервис, используем его вместо источника файла
+    const mentionedService = detectServiceFromLogText(message);
+    if (mentionedService) {
+        service = mentionedService;
+    }
     // Переопределяем стадию на основе текста сообщения, т.к. сервер может ошибочно проставить stage
     const derivedStage = detectStageFromMessage(service, message);
     
