@@ -266,7 +266,7 @@ function addEventLogFromAPI(logData) {
     const timestamp = logData.timestamp; // используем серверный timestamp, если он есть
     const service = logData.service || 'unknown';
     const type = logData.event_type || logData.type || 'LOG';
-    let message = logData.message || logData.msg || 'No message';
+    let message = logData.event || logData.message || logData.msg || 'No message';
     const correlationId = logData.correlationId || logData.correlation_id;
     const orderId = logData.order_id || logData.orderId || (AppState.currentOrder && AppState.currentOrder.id);
     const lineNo = logData.line_no || ''; // используем line_no из бэкенда для дедупликации
@@ -298,6 +298,21 @@ function addEventLogFromAPI(logData) {
         stage,
         display: shouldDisplay
     });
+    // Реакция UI на ключевые события: меняем статус заказа
+    if (shouldDisplay && AppState.currentOrder && (!orderId || orderId === AppState.currentOrder.id)) {
+        // Отправка на оплату — переходим в PROCESSING
+        if (service === 'payment-service' && (stage === 'sent_to_gateway' || message.includes('отправил на оплату'))) {
+            updateOrderStatus({ id: AppState.currentOrder.id, status: 'PROCESSING' });
+        }
+        // Успешная оплата — заказ становится PAID
+        if (service === 'order-service' && (stage === 'order_status_paid' || message.toLowerCase().includes('перевёл заказ в статус paid'))) {
+            updateOrderStatus({ id: AppState.currentOrder.id, status: 'PAID' });
+        }
+        // Ошибка оплаты — заказ FAILED
+        if ((service === 'order-service' || service === 'payment-service') && (stage === 'payment_failed' || message.toLowerCase().includes('ошибка оплаты'))) {
+            updateOrderStatus({ id: AppState.currentOrder.id, status: 'FAILED' });
+        }
+    }
     rememberLogKey(key);
     if (AppState.eventLog.length > 50) {
         AppState.eventLog = AppState.eventLog.slice(0, 50);
