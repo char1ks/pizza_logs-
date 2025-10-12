@@ -7,6 +7,7 @@ Base class and utilities for all microservices
 
 import os
 import json
+from decimal import Decimal
 import logging
 import time
 import uuid
@@ -416,13 +417,22 @@ class EventManager:
         self.metrics = metrics
         self._producer = None
         self._consumers = {}
+
+    # JSON serializer default to handle special types (e.g., Decimal from Postgres)
+    @staticmethod
+    def _json_default(obj):
+        if isinstance(obj, Decimal):
+            # Convert Decimal to float for JSON compatibility
+            return float(obj)
+        # Fallback: represent unknown types as string to avoid silent failures
+        return str(obj)
     
     def get_producer(self) -> KafkaProducer:
         """Get Kafka producer with retry logic"""
         if self._producer is None:
             self._producer = KafkaProducer(
                 bootstrap_servers=self.config.KAFKA_BOOTSTRAP_SERVERS,
-                value_serializer=lambda x: json.dumps(x).encode('utf-8'),
+                value_serializer=lambda x: json.dumps(x, default=self._json_default).encode('utf-8'),
                 key_serializer=lambda x: x.encode('utf-8') if x else None,
                 retries=self.config.KAFKA_RETRIES,
                 retry_backoff_ms=self.config.KAFKA_RETRY_BACKOFF_MS,
