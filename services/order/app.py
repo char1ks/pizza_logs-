@@ -543,14 +543,6 @@ class OrderService(BaseService):
                 self.logger.warning("Payment event missing order_id", event_data=event_data)
                 return
             
-            self.logger.info(
-                "💰 order-service вычитал сообщение из топика о платеже",
-                order_id=order_id,
-                correlation_id=correlation_id,
-                stage="payment_event_consumed",
-                service="order-service"
-            )
-            
             if event_type == 'OrderPaid':
                 self.handle_order_paid(order_id, event_data)
             elif event_type == 'PaymentFailed':
