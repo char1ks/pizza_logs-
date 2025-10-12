@@ -125,19 +125,30 @@ function detectStageFromMessage(service, message) {
     if (svc.includes('payment-service') && msg.includes('вычитал сообщение из топика')) return 'payment_event_consumed';
     if (msg.includes('отправил на оплату') || msg.includes('запускаем асинхронную обработку')) return 'sent_to_gateway';
     if (msg.includes('принял сообщение об успешной оплате') || msg.includes('обработка платежа успешно завершена')) return 'payment_confirmed';
-    if (msg.includes('отослал в кафку') || msg.includes('отправляем событие успешного платежа в kafka')) return 'payment_event_sent_kafka';
+    if (
+        msg.includes('отослал в кафку') ||
+        msg.includes('отправил в кафку') ||
+        (msg.includes('kafka') && (msg.includes('отправ') || msg.includes('sent')))
+    ) return 'payment_event_sent_kafka';
     
     // Order Service завершающие стадии
     // Независимо от поля service, если текст явно говорит, что
     // order-service вычитал событие о платеже — считаем это стадией заказа
-    if (msg.includes('вычитал сообщение из топика о платеже')) {
+    if (
+        (
+            msg.includes('order-service') &&
+            (msg.includes('вычитал сообщение из топика') || msg.includes('получил сообщение') || msg.includes('прочитал сообщение')) &&
+            (msg.includes('платеж') || msg.includes('payment'))
+        ) ||
+        msg.includes('вычитал сообщение из топика о платеже')
+    ) {
         return 'order_payment_event_consumed';
     }
     if (msg.includes('перевёл заказ в статус paid') || msg.includes('status": "paid')) return 'order_status_paid';
     if (msg.includes('отдал информацию в ui') || msg.includes('ui notification')) return 'ui_notification_sent';
     
     // Fallback для общих случаев
-    if (msg.includes('вычитал сообщение')) return 'payment_event_consumed';
+    if (msg.includes('вычитал сообщение') && svc.includes('payment-service')) return 'payment_event_consumed';
     
     return '';
 }
