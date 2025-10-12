@@ -309,7 +309,8 @@ function addEventLogFromAPI(logData) {
         display: shouldDisplay
     });
     // Реакция UI на ключевые события: меняем статус заказа
-    if (shouldDisplay && AppState.currentOrder && (!orderId || orderId === AppState.currentOrder.id)) {
+    // Обрабатываем события любых типов, а не только LOG, чтобы статус обновлялся корректно
+    if (AppState.currentOrder && (!orderId || orderId === AppState.currentOrder.id)) {
         // Отправка на оплату — переходим в PROCESSING
         if (service === 'payment-service' && (stage === 'sent_to_gateway' || message.includes('отправил на оплату'))) {
             updateOrderStatus({ id: AppState.currentOrder.id, status: 'PROCESSING' });
