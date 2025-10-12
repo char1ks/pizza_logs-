@@ -117,6 +117,37 @@ class NotificationService(BaseService):
         }
         return mapping.get(template_type, template_type.lower())
 
+    class _SafeDict(dict):
+        """Dict that returns the placeholder unchanged when key missing."""
+        def __missing__(self, key):
+            return '{' + key + '}'
+
+    def _safe_format(self, template_str: str, context: Dict) -> str:
+        """Format template safely: missing keys remain as {key} instead of raising."""
+        try:
+            return template_str.format_map(self._SafeDict(context))
+        except Exception as e:
+            # Extremely defensive: return original template to avoid breaking flow
+            self.logger.error("Safe format failed", error=str(e), template=template_str)
+            return template_str
+
+    def _build_template_context(self, event_data: Dict) -> Dict:
+        """Provide both camelCase and snake_case keys so templates format reliably."""
+        ctx = dict(event_data)
+        # Order identifiers
+        ctx['orderId'] = event_data.get('orderId') or event_data.get('order_id')
+        ctx['order_id'] = event_data.get('order_id') or event_data.get('orderId')
+        # Amounts
+        ctx['totalAmount'] = event_data.get('totalAmount') or event_data.get('total') or event_data.get('amount')
+        ctx['total'] = event_data.get('total') or event_data.get('totalAmount') or event_data.get('amount')
+        ctx['amount'] = event_data.get('amount') or event_data.get('total') or event_data.get('totalAmount')
+        # Addresses
+        ctx['deliveryAddress'] = event_data.get('deliveryAddress') or event_data.get('delivery_address')
+        ctx['delivery_address'] = event_data.get('delivery_address') or event_data.get('deliveryAddress')
+        # Failure reason
+        ctx['failure_reason'] = event_data.get('failure_reason') or event_data.get('reason')
+        return ctx
+
     def create_default_templates(self):
         """Create default notification templates if they don't exist."""
         templates = [
@@ -646,8 +677,9 @@ class NotificationService(BaseService):
         )
 
         try:
-            message = template['message_template'].format(**event_data)
-            subject = template['title_template'].format(**event_data)
+            context = self._build_template_context(event_data)
+            message = self._safe_format(template['message_template'], context)
+            subject = self._safe_format(template['title_template'], context)
         except Exception as e:
             self.logger.error(
                 "🍕 ЗАКАЗ ПИЦЦЫ: Ошибка форматирования сообщения из шаблона OrderCreated",
@@ -751,8 +783,9 @@ class NotificationService(BaseService):
         )
 
         try:
-            message = template['message_template'].format(**event_data)
-            subject = template['title_template'].format(**event_data)
+            context = self._build_template_context(event_data)
+            message = self._safe_format(template['message_template'], context)
+            subject = self._safe_format(template['title_template'], context)
         except Exception as e:
             self.logger.error(
                 "🍕 ЗАКАЗ ПИЦЦЫ: Ошибка форматирования сообщения из шаблона OrderPaid",
@@ -856,8 +889,9 @@ class NotificationService(BaseService):
         )
 
         try:
-            message = template['message_template'].format(**event_data)
-            subject = template['title_template'].format(**event_data)
+            context = self._build_template_context(event_data)
+            message = self._safe_format(template['message_template'], context)
+            subject = self._safe_format(template['title_template'], context)
         except Exception as e:
             self.logger.error(
                 "🍕 ЗАКАЗ ПИЦЦЫ: Ошибка форматирования сообщения из шаблона PaymentFailed",
