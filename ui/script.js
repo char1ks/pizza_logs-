@@ -309,23 +309,44 @@ function addEventLogFromAPI(logData) {
     return true;
 }
 async function apiRequest(url, options = {}) {
+    // Allow callers to suppress some HTTP errors (e.g., 404 during eventual consistency)
+    const {
+        ignoreStatuses = [], // Array of status codes that should not be treated as errors
+        headers: customHeaders = {},
+        ...fetchOptions
+    } = options;
+
     try {
         const response = await fetch(url, {
             headers: {
                 'Content-Type': 'application/json',
-                ...options.headers
+                ...customHeaders
             },
-            ...options
+            ...fetchOptions
         });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+
+        // If the status is acceptable, simply return parsed JSON (or null on 204 / 404 without body)
+        if (response.ok || ignoreStatuses.includes(response.status)) {
+            // For 204-No Content responses just return null
+            if (response.status === 204) return null;
+            try {
+                return await response.json();
+            } catch (jsonErr) {
+                // Some endpoints may legitimately return an empty body on success (e.g., 404 bypass)
+                return null;
+            }
         }
-        
-        return await response.json();
+
+        // Otherwise, throw rich error so caller can decide what to do
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     } catch (error) {
-        console.error('API Request failed:', error);
-        addEventLog('ERROR', `API запрос неудачен: ${error.message}`);
+        // Only log to global event log if we are NOT suppressing this status
+        const statusMatch = /HTTP\s+(\d{3})/.exec(error.message);
+        const statusCode = statusMatch ? parseInt(statusMatch[1], 10) : null;
+        if (!statusCode || !ignoreStatuses.includes(statusCode)) {
+            console.error('API Request failed:', error);
+            addEventLog('ERROR', `API запрос неудачен: ${error.message}`);
+        }
         throw error;
     }
 }
@@ -468,9 +489,11 @@ async function createOrder() {
 }
 async function getOrderStatus(orderId) {
     try {
-        const response = await apiRequest(`${API_ENDPOINTS.orders}/${orderId}`);
+        // We ignore 404 here because order might not be committed yet when we poll immediately after creation
+        const response = await apiRequest(`${API_ENDPOINTS.orders}/${orderId}`, { ignoreStatuses: [404] });
         return response;
     } catch (error) {
+        // Any other error (non-404) will still be handled here
         console.error('Failed to get order status:', error);
         return null;
     }
