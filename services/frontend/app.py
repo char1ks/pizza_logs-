@@ -504,9 +504,6 @@ class FrontendService(BaseService):
                 started_at = matched.get('started_at')
                 # Поскольку timestamp в ISO, используем PostgreSQL для сравнения
                 start_time = started_at
-                # Простейшая оценка окончания
-                # В БД сравним created_at в интервале [start, start + duration]
-                # Выполняем подсчёт заказов и успешных статусов
                 with self.db.get_cursor() as cursor:
                     cursor.execute("SET search_path TO orders, public")
                     cursor.execute(
