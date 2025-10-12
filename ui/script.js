@@ -120,7 +120,20 @@ function detectStageFromMessage(service, message) {
     if (msg.includes('принял заказ в обработку')) return 'order_processing_started';
     if (msg.includes('сохранил в базу') || msg.includes('saved to database')) return 'order_saved_to_db';
     if (msg.includes('стал полить') || msg.includes('polling started')) return 'order_polling_started';
-    
+
+    // ВАЖНО: сначала распознаём, что order-service вычитал событие о платеже,
+    // даже если этот лог пришёл со стороны payment-service (ошибочно размеченный service)
+    if (
+        msg.includes('вычитал сообщение из топика о платеже') ||
+        (
+            msg.includes('order-service') &&
+            (msg.includes('вычитал сообщение') || msg.includes('прочитал сообщение') || msg.includes('получил сообщение')) &&
+            (msg.includes('платеж') || msg.includes('payment'))
+        )
+    ) {
+        return 'order_payment_event_consumed';
+    }
+
     // Payment Service стадии
     if (svc.includes('payment-service') && msg.includes('вычитал сообщение из топика')) return 'payment_event_consumed';
     if (msg.includes('отправил на оплату') || msg.includes('запускаем асинхронную обработку')) return 'sent_to_gateway';
@@ -132,18 +145,6 @@ function detectStageFromMessage(service, message) {
     ) return 'payment_event_sent_kafka';
     
     // Order Service завершающие стадии
-    // Независимо от поля service, если текст явно говорит, что
-    // order-service вычитал событие о платеже — считаем это стадией заказа
-    if (
-        (
-            msg.includes('order-service') &&
-            (msg.includes('вычитал сообщение из топика') || msg.includes('получил сообщение') || msg.includes('прочитал сообщение')) &&
-            (msg.includes('платеж') || msg.includes('payment'))
-        ) ||
-        msg.includes('вычитал сообщение из топика о платеже')
-    ) {
-        return 'order_payment_event_consumed';
-    }
     if (msg.includes('перевёл заказ в статус paid') || msg.includes('status": "paid')) return 'order_status_paid';
     if (msg.includes('отдал информацию в ui') || msg.includes('ui notification')) return 'ui_notification_sent';
     
