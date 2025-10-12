@@ -353,6 +353,7 @@ services:
     ports:
       - "5002:5002"
     environment:
+      LOG_FORMAT: json
       DATABASE_URL: postgresql://pizza_user:pizza_password@postgres:5432/pizza_system
       KAFKA_BROKER: kafka:29092
       PAYMENT_MOCK_URL: http://payment-mock:5003

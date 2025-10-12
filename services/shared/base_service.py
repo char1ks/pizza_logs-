@@ -3,6 +3,20 @@ Pizza Order System - Shared Base Service
 Event-Driven Saga Architecture
 
 Base class and utilities for all microservices
+ошибка не исчезла payment-service         | 🍕 ЗАКАЗ ПИЦЦЫ: Критическая ошибка при асинхронной обработке платежа
+payment-service         | Failed to publish payment failure event
+payment-service         | PaymentFailed routed to DLQ,такие ошибки дропаются,возможно из-за них 
+postgres                | 2025-10-12 12:02:31.019 UTC [101] ERROR:  pg_stat_statements must be loaded via shared_preload_libraries
+postgres                | 2025-10-12 12:02:31.019 UTC [101] STATEMENT:  SELECT query, calls, total_exec_time AS total_time, mean_exec_time AS mean_time, rows
+postgres-exporter       | time=2025-10-12T12:02:31.020Z level=INFO source=namespace.go:235 msg="error finding namespace" err="Error running query on database \"postgres:5432\": pg_slow_queries pq: pg_stat_statements must be loaded via shared_preload_libraries"
+postgres                |       FROM pg_stat_statements
+postgres                |       WHERE mean_exec_time > 100
+postgres                |       ORDER BY mean_exec_time DESC
+postgres                |       LIMIT 10
+postgres                | 
+postgres-exporter       | time=2025-10-12T12:02:31.027Z level=ERROR source=postgres_exporter.go:684 msg="error scraping dsn" err="queryNamespaceMappings errors encountered, namespace: pg_slow_queries error: Error running query on database \"postgres:5432\": pg_slow_queries pq: pg_stat_statements must be loaded via shared_preload_libraries" dsn="postgresql://pizza_user:PASSWORD_REMOVED@postgres:5432/pizza_system?sslmode=disable"
+kafka-exporter          | I1012 12:02:31.212140       1 kafka_exporter.go:701] [kafka:29092]
+pgadmin                 | /venv/lib/python3.12/site-packages/passlib/pwd.py:16: UserWarning: pkg_resources is deprecated as an API. See  The pkg_resources package is slated for removal as.ТЫ ДОЛЖЖЕН ПРОЙТИСЬ ПО ВСЕМУ КОУДУ ИЗ ПРОЕКТА,а я тебе предоставлю логи чутчуть из постгреса и тп 
 """
 
 import os
@@ -81,15 +95,14 @@ def setup_logging(service_name: str, log_level: str = 'INFO') -> structlog.Bound
         os.makedirs(logs_dir, exist_ok=True)
         log_file_path = os.path.join(logs_dir, f"{service_name}.log")
 
-    # Выбираем формат логов: text или json
-    def _event_text_renderer(logger, name, event_dict):
-        # Пишем только текст события/сообщение без метаданных
-        msg = event_dict.get('event') or event_dict.get('message') or ''
-        # На случай если передали нестроковые данные
-        return str(msg)
-
+    # Выбираем формат логов: text (key=value) или json
+    # По умолчанию в text-режиме выводим все ключи как key=value для удобной диагностики
     log_format = os.getenv('LOG_FORMAT', 'text').lower()
-    final_renderer = structlog.processors.JSONRenderer() if log_format == 'json' else _event_text_renderer
+    if log_format == 'json':
+        final_renderer = structlog.processors.JSONRenderer()
+    else:
+        # Текстовый рендерер с ключами, чтобы видеть error, topic, order_id и т.п.
+        final_renderer = structlog.processors.KeyValueRenderer(sort_keys=True)
 
     # Configure structlog
     structlog.configure(
