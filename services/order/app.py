@@ -360,8 +360,8 @@ class OrderService(BaseService):
                                 pizza_details: List[Dict], total_amount: int,
                                 delivery_address: str, payment_method: str, force_fail: bool = False, correlation_id: str = None) -> Dict:
         """Create order and outbox event in a single transaction"""
-        with self.db.transaction():
-            with self.db.get_cursor() as cursor:
+        with self.db.transaction() as conn:
+            with conn.cursor() as cursor:
                 # 1. Create Order
                 cursor.execute("""
                     INSERT INTO orders.orders (id, user_id, status, total, delivery_address, payment_method)
