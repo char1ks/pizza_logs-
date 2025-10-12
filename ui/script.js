@@ -223,11 +223,31 @@ function updateEventLogDisplay() {
     const eventLogNodes = document.querySelectorAll('#eventLog');
     if (!eventLogNodes || eventLogNodes.length === 0) return;
 
-    // Добавляем только новые события, сортируя по хронологии:
+    // Подготавливаем список новых событий для рендера и сортируем их заранее,
+    // чтобы порядок вывода не зависел от порядка прихода сообщений.
+    // Сортировка:
     // 1) по возрастанию времени (старые сверху)
     // 2) при равном времени — по возрастанию стадии процесса (ранние шаги выше)
-    // 3) затем по возрастанию line_no
-    for (const event of AppState.eventLog) {
+    // 3) затем по возрастанию line_no (если есть)
+    const eventsToRender = AppState.eventLog
+        .filter(ev => ev.display !== false)
+        .filter(ev => {
+            const renderKey = makeLogKey(ev.service, ev.type, ev.message, '', (ev.line_no ?? '') || (ev.timestamp || ''));
+            return !AppState.renderedLogKeys.has(renderKey);
+        })
+        .sort((a, b) => {
+            const timeA = parseTimestampToMillis(a.timestamp);
+            const timeB = parseTimestampToMillis(b.timestamp);
+            if (timeA !== timeB) return timeA - timeB;
+            const stageA = getStageRank(a.service, a.stage, a.message);
+            const stageB = getStageRank(b.service, b.stage, b.message);
+            if (stageA !== stageB) return stageA - stageB;
+            const lineA = (a.line_no !== undefined && a.line_no !== null && a.line_no !== '') ? Number(a.line_no) : Number.MAX_SAFE_INTEGER;
+            const lineB = (b.line_no !== undefined && b.line_no !== null && b.line_no !== '') ? Number(b.line_no) : Number.MAX_SAFE_INTEGER;
+            return lineA - lineB;
+        });
+
+    for (const event of eventsToRender) {
         if (event.display === false) continue;
         const renderKey = makeLogKey(event.service, event.type, event.message, '', (event.line_no ?? '') || (event.timestamp || ''));
         if (AppState.renderedLogKeys.has(renderKey)) continue;
