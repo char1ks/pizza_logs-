@@ -106,12 +106,26 @@ class NotificationService(BaseService):
             webhook_enabled=self.webhook_enabled
         )
 
+    def _normalize_template_type(self, template_type: str) -> str:
+        """Map event/template types to DB canonical names used in init.sql."""
+        mapping = {
+            'OrderCreated': 'order_created',
+            'OrderPaid': 'payment_success',
+            'PaymentFailed': 'payment_failed',
+            'PaymentProcessing': 'payment_processing',
+            'OrderCompleted': 'order_completed'
+        }
+        return mapping.get(template_type, template_type.lower())
+
     def create_default_templates(self):
         """Create default notification templates if they don't exist."""
         templates = [
-            {'type': 'OrderCreated', 'title_template': 'Pizza Order Confirmed', 'message_template': 'Your pizza order #{order_id} has been confirmed. Total: ${total/100:.2f}. We\'ll notify you when payment is processed.'},
-            {'type': 'OrderPaid', 'title_template': 'Payment Successful', 'message_template': 'Payment of ${amount/100:.2f} for order #{order_id} was successful. Your pizza is being prepared!'},
-            {'type': 'PaymentFailed', 'title_template': 'Payment Failed', 'message_template': 'Payment for order #{order_id} failed: {failure_reason}. Please try again or contact support.'}
+            # Align types with init.sql canonical names
+            {'type': self._normalize_template_type('OrderCreated'), 'title_template': 'Заказ #{order_id} создан', 'message_template': 'Ваш заказ на сумму {total} руб. принят и обрабатывается. Адрес доставки: {delivery_address}'},
+            {'type': self._normalize_template_type('PaymentProcessing'), 'title_template': 'Обработка оплаты заказа #{order_id}', 'message_template': 'Ваш заказ на сумму {total} руб. передан в обработку платежной системе.'},
+            {'type': self._normalize_template_type('OrderPaid'), 'title_template': 'Заказ #{order_id} оплачен!', 'message_template': 'Оплата на сумму {total} руб. прошла успешно. Ваш заказ готовится!'},
+            {'type': self._normalize_template_type('PaymentFailed'), 'title_template': 'Ошибка оплаты заказа #{order_id}', 'message_template': 'К сожалению, оплата на сумму {total} руб. не прошла. Причина: {failure_reason}. Попробуйте снова или выберите другой способ оплаты.'},
+            {'type': self._normalize_template_type('OrderCompleted'), 'title_template': 'Заказ #{order_id} готов!', 'message_template': 'Ваш заказ готов и отправлен по адресу: {delivery_address}. Спасибо за покупку!'}
         ]
         
         try:
@@ -849,22 +863,26 @@ class NotificationService(BaseService):
             )
     
     def get_template(self, template_type: str) -> Optional[Dict]:
-        """Retrieve notification template by type (case-insensitive). If missing, recreate defaults once."""
+        """Retrieve notification template by canonical type used in DB.
+        Performs case-insensitive lookup and retries once after ensuring defaults exist.
+        """
         try:
+            canonical_type = self._normalize_template_type(template_type)
             template = self.db.execute_query(
                 """
                 SELECT * FROM notifications.notification_templates
                 WHERE lower(type) = lower(%s)
                 LIMIT 1
                 """,
-                (template_type,),
+                (canonical_type,),
                 fetch='one'
             )
             if not template:
                 # Attempt to recreate default templates and retry once
                 self.logger.warning(
                     "Notification template not found, attempting to recreate default templates",
-                    template_type=template_type
+                    template_type=template_type,
+                    canonical_type=canonical_type
                 )
                 self.create_default_templates()
                 template = self.db.execute_query(
@@ -873,9 +891,25 @@ class NotificationService(BaseService):
                     WHERE lower(type) = lower(%s)
                     LIMIT 1
                     """,
-                    (template_type,),
+                    (canonical_type,),
                     fetch='one'
                 )
+                if not template:
+                    # Log available types for diagnostics
+                    try:
+                        rows = self.db.execute_query(
+                            "SELECT type FROM notifications.notification_templates ORDER BY id DESC",
+                            fetch='all'
+                        ) or []
+                        available = [r.get('type') for r in rows]
+                        self.logger.error(
+                            "Notification template still not found after recreation",
+                            requested_type=template_type,
+                            canonical_type=canonical_type,
+                            available_types=available
+                        )
+                    except Exception as inner_e:
+                        self.logger.error("Failed to list available templates", error=str(inner_e))
             return template
         except Exception as e:
             self.logger.error("Failed to get notification template", template_type=template_type, error=str(e))
@@ -886,7 +920,8 @@ class NotificationService(BaseService):
         try:
             notification_id = generate_id('notif_')
             channels = metadata.get('notification_channels', ['EMAIL', 'PUSH']) # Default channels
-            
+            canonical_type = self._normalize_template_type(template_type)
+
             self.create_notification_record(
                 notification_id=notification_id,
                 user_id=user_id,
@@ -895,7 +930,7 @@ class NotificationService(BaseService):
                 message=message,
                 channels=channels,
                 priority='normal',
-                template_type=template_type
+                template_type=canonical_type
             )
             self.logger.info("Notification saved to DB", notification_id=notification_id, order_id=order_id)
             return notification_id

@@ -640,9 +640,11 @@ class PaymentService(BaseService):
                 'timestamp': self.get_timestamp(),
                 'correlationId': correlation_id
             }
-            
-            success = self.events.publish_event('payment-events', event_data, payment['order_id'])
-            
+            # Retry publish with backoff to handle transient Kafka errors
+            def _publish():
+                return self.events.publish_event('payment-events', event_data, str(payment['order_id']))
+            success = retry_with_backoff(_publish, max_attempts=3, base_delay=1.0, max_delay=5.0)
+
             if success:
                 self.logger.debug("Payment success event published", payment_id=payment_id, order_id=payment['order_id'], correlation_id=correlation_id)
             else:
@@ -668,9 +670,11 @@ class PaymentService(BaseService):
                 'timestamp': self.get_timestamp(),
                 'correlationId': correlation_id
             }
-            
-            success = self.events.publish_event('payment-events', event_data, payment['order_id'])
-            
+            # Retry publish with backoff to handle transient Kafka errors
+            def _publish():
+                return self.events.publish_event('payment-events', event_data, str(payment['order_id']))
+            success = retry_with_backoff(_publish, max_attempts=3, base_delay=1.0, max_delay=5.0)
+
             if success:
                 self.logger.debug("Payment failure event published", payment_id=payment_id, order_id=payment['order_id'], correlation_id=correlation_id)
             else:
