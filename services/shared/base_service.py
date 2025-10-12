@@ -95,14 +95,15 @@ def setup_logging(service_name: str, log_level: str = 'INFO') -> structlog.Bound
         os.makedirs(logs_dir, exist_ok=True)
         log_file_path = os.path.join(logs_dir, f"{service_name}.log")
 
-    # Выбираем формат логов: text (key=value) или json
-    # По умолчанию в text-режиме выводим все ключи как key=value для удобной диагностики
+    # Выбираем формат логов: text или json
+    def _event_text_renderer(logger, name, event_dict):
+        # Пишем только текст события/сообщение без метаданных
+        msg = event_dict.get('event') or event_dict.get('message') or ''
+        # На случай если передали нестроковые данные
+        return str(msg)
+
     log_format = os.getenv('LOG_FORMAT', 'text').lower()
-    if log_format == 'json':
-        final_renderer = structlog.processors.JSONRenderer()
-    else:
-        # Текстовый рендерер с ключами, чтобы видеть error, topic, order_id и т.п.
-        final_renderer = structlog.processors.KeyValueRenderer(sort_keys=True)
+    final_renderer = structlog.processors.JSONRenderer() if log_format == 'json' else _event_text_renderer
 
     # Configure structlog
     structlog.configure(

@@ -678,14 +678,8 @@ class FrontendService(BaseService):
                         # Гарантируем наличие ключевых полей для UI
                         if 'event_type' not in obj:
                             obj['event_type'] = 'LOG'
-                        # Определяем сервис из logger, если не указан явно
-                        if 'service' not in obj or not obj.get('service'):
-                            obj['service'] = obj.get('logger') or service_name
-                        # Маппим поле сообщения для UI: используем event/message/msg
-                        obj['message'] = obj.get('message') or obj.get('event') or obj.get('msg') or ''
-                        # Гарантируем наличие timestamp
-                        if 'timestamp' not in obj or not obj.get('timestamp'):
-                            obj['timestamp'] = self.get_timestamp()
+                        if 'service' not in obj:
+                            obj['service'] = service_name
                         structured.append(obj)
                     except Exception:
                         # Текстовая строка — отдаём как есть

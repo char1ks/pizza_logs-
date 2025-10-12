@@ -266,7 +266,7 @@ function addEventLogFromAPI(logData) {
     const timestamp = logData.timestamp; // используем серверный timestamp, если он есть
     const service = logData.service || 'unknown';
     const type = logData.event_type || logData.type || 'LOG';
-    let message = logData.message || logData.msg || logData.event || 'No message';
+    let message = logData.message || logData.msg || 'No message';
     const correlationId = logData.correlationId || logData.correlation_id;
     const orderId = logData.order_id || logData.orderId || (AppState.currentOrder && AppState.currentOrder.id);
     const lineNo = logData.line_no || ''; // используем line_no из бэкенда для дедупликации
