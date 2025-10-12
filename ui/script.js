@@ -325,20 +325,23 @@ async function apiRequest(url, options = {}) {
             ...fetchOptions
         });
 
-        // If the status is acceptable, simply return parsed JSON (or null on 204 / 404 without body)
-        if (response.ok || ignoreStatuses.includes(response.status)) {
+        // If the status is acceptable, simply return parsed JSON (or null on 204 / ignored status without body)
+        if (response.ok) {
             // For 204-No Content responses just return null
             if (response.status === 204) return null;
             try {
                 return await response.json();
             } catch (jsonErr) {
-                // Some endpoints may legitimately return an empty body on success (e.g., 404 bypass)
                 return null;
             }
         }
 
-        // Otherwise, throw rich error so caller can decide what to do
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        // If we explicitly want to ignore this status (e.g., 404 during eventual consistency), just return null
+        if (ignoreStatuses.includes(response.status)) {
+            return null;
+        }
+        // Some endpoints may legitimately return an empty body on success (e.g., 404 bypass)
+        return null;
     } catch (error) {
         // Only log to global event log if we are NOT suppressing this status
         const statusMatch = /HTTP\s+(\d{3})/.exec(error.message);
@@ -536,10 +539,13 @@ function startOrderStatusPolling(orderId) {
                     addEventLog('POLL', `Завершаем опрос статуса: ${orderResponse.order.status} (финальный статус)`);
                     addEventLog('POLL', `Всего выполнено опросов: ${AppState.orderPollCount}`);
                     console.log(`Polling stopped for order ${orderId}, final status: ${orderResponse.order.status}`);
+                } else if (orderResponse === null) {
+                    // 404 ignored, order not available yet
+                    addEventLog('POLL', `Заказ #${orderId} ещё не готов. Продолжаем ожидание...`);
+                } else {
+                    console.error('Invalid order response:', orderResponse);
+                    addEventLog('ERROR', `Не удалось получить статус заказа #${orderId} (опрос #${AppState.orderPollCount})`);
                 }
-            } else {
-                console.error('Invalid order response:', orderResponse);
-                addEventLog('ERROR', `Не удалось получить статус заказа #${orderId} (опрос #${AppState.orderPollCount})`);
             }
         } catch (error) {
             addEventLog('ERROR', `Ошибка при опросе статуса заказа #${orderId}: ${error.message}`);
