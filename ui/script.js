@@ -97,7 +97,7 @@ const STAGE_ORDER = {
     'payment_event_sent_kafka': 60,
     
     // 3. Завершение заказа (order-service)
-    'order_payment_event_consumed': 70,
+    'order_payment_event_consumed': 65,
     'order_status_paid': 80,
     'ui_notification_sent': 90
 };
