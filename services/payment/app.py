@@ -21,7 +21,7 @@ import requests
 # Add shared module to path
 sys.path.insert(0, '/app/shared')
 
-from base_service import BaseService, generate_id, validate_required_fields, ValidationError, retry_with_backoff, format_order_status_message
+from base_service import BaseService, generate_id, validate_required_fields, ValidationError, retry_with_backoff, format_order_status_message, EventPublishError
 
 
 class PaymentStatus(Enum):
@@ -642,7 +642,10 @@ class PaymentService(BaseService):
             }
             # Retry publish with backoff to handle transient Kafka errors
             def _publish():
-                return self.events.publish_event('payment-events', event_data, str(payment['order_id']))
+                published = self.events.publish_event('payment-events', event_data, str(payment['order_id']))
+                if not published:
+                    raise EventPublishError("Failed to publish payment success event")
+                return True
             success = retry_with_backoff(_publish, max_attempts=3, base_delay=1.0, max_delay=5.0)
 
             if success:
@@ -672,7 +675,10 @@ class PaymentService(BaseService):
             }
             # Retry publish with backoff to handle transient Kafka errors
             def _publish():
-                return self.events.publish_event('payment-events', event_data, str(payment['order_id']))
+                published = self.events.publish_event('payment-events', event_data, str(payment['order_id']))
+                if not published:
+                    raise EventPublishError("Failed to publish payment failure event")
+                return True
             success = retry_with_backoff(_publish, max_attempts=3, base_delay=1.0, max_delay=5.0)
 
             if success:
