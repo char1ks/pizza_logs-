@@ -128,7 +128,9 @@ function detectStageFromMessage(service, message) {
     if (msg.includes('отослал в кафку') || msg.includes('отправляем событие успешного платежа в kafka')) return 'payment_event_sent_kafka';
     
     // Order Service завершающие стадии
-    if (svc.includes('order-service') && msg.includes('вычитал сообщение из топика о платеже')) {
+    // Независимо от поля service, если текст явно говорит, что
+    // order-service вычитал событие о платеже — считаем это стадией заказа
+    if (msg.includes('вычитал сообщение из топика о платеже')) {
         return 'order_payment_event_consumed';
     }
     if (msg.includes('перевёл заказ в статус paid') || msg.includes('status": "paid')) return 'order_status_paid';
@@ -300,7 +302,8 @@ function addEventLogFromAPI(logData) {
     const correlationId = logData.correlationId || logData.correlation_id;
     const orderId = logData.order_id || logData.orderId || (AppState.currentOrder && AppState.currentOrder.id);
     const lineNo = logData.line_no || ''; // используем line_no из бэкенда для дедупликации
-    const stage = logData.stage || '';
+    // Переопределяем стадию на основе текста сообщения, т.к. сервер может ошибочно проставить stage
+    const derivedStage = detectStageFromMessage(service, message);
     
     // Формируем более устойчивый ключ: сначала correlationId, иначе orderId; extra — line_no или timestamp
     const corrKey = correlationId || orderId || '';
@@ -325,22 +328,22 @@ function addEventLogFromAPI(logData) {
         type, 
         message,
         line_no: lineNo,
-        stage,
+        stage: derivedStage,
         display: shouldDisplay
     });
     // Реакция UI на ключевые события: меняем статус заказа
     // Обрабатываем события любых типов, а не только LOG, чтобы статус обновлялся корректно
     if (AppState.currentOrder && (!orderId || orderId === AppState.currentOrder.id)) {
         // Отправка на оплату — переходим в PROCESSING
-        if (service === 'payment-service' && (stage === 'sent_to_gateway' || message.includes('отправил на оплату'))) {
+        if (service === 'payment-service' && (derivedStage === 'sent_to_gateway' || message.includes('отправил на оплату'))) {
             updateOrderStatus({ id: AppState.currentOrder.id, status: 'PROCESSING' });
         }
         // Успешная оплата — заказ становится PAID
-        if (service === 'order-service' && (stage === 'order_status_paid' || message.toLowerCase().includes('перевёл заказ в статус paid'))) {
+        if (service === 'order-service' && (derivedStage === 'order_status_paid' || message.toLowerCase().includes('перевёл заказ в статус paid'))) {
             updateOrderStatus({ id: AppState.currentOrder.id, status: 'PAID' });
         }
         // Ошибка оплаты — заказ FAILED
-        if ((service === 'order-service' || service === 'payment-service') && (stage === 'payment_failed' || message.toLowerCase().includes('ошибка оплаты'))) {
+        if ((service === 'order-service' || service === 'payment-service') && (derivedStage === 'payment_failed' || message.toLowerCase().includes('ошибка оплаты'))) {
             updateOrderStatus({ id: AppState.currentOrder.id, status: 'FAILED' });
         }
     }
