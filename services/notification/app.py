@@ -849,12 +849,34 @@ class NotificationService(BaseService):
             )
     
     def get_template(self, template_type: str) -> Optional[Dict]:
+        """Retrieve notification template by type (case-insensitive). If missing, recreate defaults once."""
         try:
-            return self.db.execute_query(
-                "SELECT * FROM notifications.notification_templates WHERE type = %s",
+            template = self.db.execute_query(
+                """
+                SELECT * FROM notifications.notification_templates
+                WHERE lower(type) = lower(%s)
+                LIMIT 1
+                """,
                 (template_type,),
                 fetch='one'
             )
+            if not template:
+                # Attempt to recreate default templates and retry once
+                self.logger.warning(
+                    "Notification template not found, attempting to recreate default templates",
+                    template_type=template_type
+                )
+                self.create_default_templates()
+                template = self.db.execute_query(
+                    """
+                    SELECT * FROM notifications.notification_templates
+                    WHERE lower(type) = lower(%s)
+                    LIMIT 1
+                    """,
+                    (template_type,),
+                    fetch='one'
+                )
+            return template
         except Exception as e:
             self.logger.error("Failed to get notification template", template_type=template_type, error=str(e))
             return None
