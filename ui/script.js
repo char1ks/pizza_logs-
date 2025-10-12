@@ -102,6 +102,16 @@ const STAGE_ORDER = {
     'ui_notification_sent': 90
 };
 
+// Порядок статусов заказа: используем для предотвращения «отката» статуса назад
+const STATUS_ORDER = {
+    'UNKNOWN': 0,
+    'PENDING': 10,
+    'PROCESSING': 20,
+    'PAID': 30,
+    'FAILED': 40,
+    'COMPLETED': 50
+};
+
 function detectStageFromMessage(service, message) {
     const msg = (message || '').toLowerCase();
     const svc = (service || '').toLowerCase();
@@ -703,6 +713,15 @@ function updateOrderStatus(order) {
     const currentStatus = AppState.currentOrder.status;
 
     console.log(`Checking status update: current=${currentStatus}, new=${order.status}`);
+
+    // Не понижаем статус: если новый статус «младше» текущего — игнорируем
+    const currentRank = STATUS_ORDER[currentStatus] ?? 0;
+    const newRank = STATUS_ORDER[order.status] ?? 0;
+    if (newRank < currentRank) {
+        console.log(`Ignoring downgrade: ${order.status} (${newRank}) < ${currentStatus} (${currentRank})`);
+        addEventLog('WARN', `Игнорируем понижение статуса: ${currentStatus} -> ${order.status}`);
+        return;
+    }
 
     if (currentStatus !== order.status) {
         addEventLog('UPDATE', `Статус заказа изменился: ${currentStatus} -> ${order.status}`);
