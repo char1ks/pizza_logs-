@@ -528,6 +528,13 @@ function startOrderStatusPolling(orderId) {
             
             console.log('Order response received:', orderResponse);
             
+            // Handle 404 ignored case first
+            if (orderResponse === null) {
+                addEventLog('POLL', `Заказ #${orderId} ещё не готов. Продолжаем ожидание...`);
+                return; // Skip further processing until we get a real response
+            }
+
+            // Process valid order response
             if (orderResponse && orderResponse.order) {
                 console.log('Order data:', orderResponse.order);
                 addEventLog('POLL', `Получен статус: ${orderResponse.order.status}`);
@@ -539,13 +546,11 @@ function startOrderStatusPolling(orderId) {
                     addEventLog('POLL', `Завершаем опрос статуса: ${orderResponse.order.status} (финальный статус)`);
                     addEventLog('POLL', `Всего выполнено опросов: ${AppState.orderPollCount}`);
                     console.log(`Polling stopped for order ${orderId}, final status: ${orderResponse.order.status}`);
-                } else if (orderResponse === null) {
-                    // 404 ignored, order not available yet
-                    addEventLog('POLL', `Заказ #${orderId} ещё не готов. Продолжаем ожидание...`);
-                } else {
-                    console.error('Invalid order response:', orderResponse);
-                    addEventLog('ERROR', `Не удалось получить статус заказа #${orderId} (опрос #${AppState.orderPollCount})`);
                 }
+            } else {
+                // Any unexpected structure will be logged for debugging
+                console.error('Invalid order response:', orderResponse);
+                addEventLog('ERROR', `Не удалось обработать ответ сервера для заказа #${orderId} (опрос #${AppState.orderPollCount})`);
             }
         } catch (error) {
             addEventLog('ERROR', `Ошибка при опросе статуса заказа #${orderId}: ${error.message}`);
