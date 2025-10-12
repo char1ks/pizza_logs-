@@ -750,7 +750,7 @@ function updateOrderStatus(order) {
 function getStatusText(status) {
     const statusMap = {
         'PENDING': 'Ожидает обработки',
-        'PROCESSING': 'Обрабатывается',
+        'PROCESSING': '✅ Оплачен',
         'PAID': '✅ Оплачен',
         'FAILED': '❌ Ошибка оплаты',
         'COMPLETED': '🎉 Выполнен',
