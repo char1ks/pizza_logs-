@@ -40,6 +40,12 @@ class OrderService(BaseService):
             'data': None,
             'expires_at': 0
         }
+        # Pre-warm menu cache to avoid thundering herd on first requests
+        try:
+            _ = self._get_menu_catalog()
+            self.logger.info("Menu cache pre-warmed")
+        except Exception as e:
+            self.logger.warning("Menu cache pre-warm failed", error=str(e))
         
         # Setup routes
         self.setup_routes()
@@ -115,7 +121,7 @@ class OrderService(BaseService):
                 correlation_id = generate_id('corr_')
                 
                 self.logger.info(
-                    "🍕 принял заказ в обработку",
+                    "🍕 order-service принял заказ в обработку",
                     order_id=order_id,
                     correlation_id=correlation_id,
                     stage="order_processing_started",
@@ -582,7 +588,7 @@ class OrderService(BaseService):
             self.logger.info(status_message, order_id=order_id, correlation_id=correlation_id)
             
             self.logger.info(
-                "✅ перевёл заказ в статус PAID",
+                "✅ order-service перевёл заказ в статус PAID",
                 order_id=order_id,
                 correlation_id=correlation_id,
                 stage="order_status_paid",
@@ -590,7 +596,7 @@ class OrderService(BaseService):
             )
             
             self.logger.info(
-                "📤 отдал информацию в UI о смене статуса",
+                "📤 order-service отдал информацию в UI о смене статуса",
                 order_id=order_id,
                 correlation_id=correlation_id,
                 stage="ui_notification_sent",
