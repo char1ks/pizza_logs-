@@ -11,7 +11,7 @@ const AppState = {
     orderPollCount: 0
 };
 // Адрес доставки по умолчанию для формы
-const DEFAULT_DELIVERY_ADDRESS = 'ул. Примерная, 42';
+const DEFAULT_DELIVERY_ADDRESS = 'Светлая ул, д 50';
 const API_BASE = '/api/v1';
 const API_ENDPOINTS = {
     menu: `${API_BASE}/menu`,

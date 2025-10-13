@@ -115,7 +115,7 @@ class OrderService(BaseService):
                 correlation_id = generate_id('corr_')
                 
                 self.logger.info(
-                    "🍕 order-service принял заказ в обработку",
+                    "🍕 принял заказ в обработку",
                     order_id=order_id,
                     correlation_id=correlation_id,
                     stage="order_processing_started",
@@ -582,7 +582,7 @@ class OrderService(BaseService):
             self.logger.info(status_message, order_id=order_id, correlation_id=correlation_id)
             
             self.logger.info(
-                "✅ order-service перевёл заказ в статус PAID",
+                "✅ перевёл заказ в статус PAID",
                 order_id=order_id,
                 correlation_id=correlation_id,
                 stage="order_status_paid",
@@ -590,7 +590,7 @@ class OrderService(BaseService):
             )
             
             self.logger.info(
-                "📤 order-service отдал информацию в UI о смене статуса",
+                "📤 отдал информацию в UI о смене статуса",
                 order_id=order_id,
                 correlation_id=correlation_id,
                 stage="ui_notification_sent",
