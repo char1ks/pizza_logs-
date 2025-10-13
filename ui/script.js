@@ -10,6 +10,8 @@ const AppState = {
     orderPollingInterval: null,
     orderPollCount: 0
 };
+// Адрес доставки по умолчанию для формы
+const DEFAULT_DELIVERY_ADDRESS = 'ул. Примерная, 42';
 const API_BASE = '/api/v1';
 const API_ENDPOINTS = {
     menu: `${API_BASE}/menu`,
@@ -549,7 +551,8 @@ async function createOrder() {
         
         AppState.currentOrder = orderObject;
         AppState.cart = [];
-        document.getElementById('deliveryAddress').value = '';
+        // После повторного нажатия восстанавливаем дефолтный адрес
+        document.getElementById('deliveryAddress').value = DEFAULT_DELIVERY_ADDRESS;
         updateCartDisplay();
         addEventLog('ORDER', 'Корзина очищена, форма сброшена');
         
