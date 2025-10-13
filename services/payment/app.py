@@ -451,8 +451,8 @@ class PaymentService(BaseService):
                     service="payment-service"
                 )
                 
-                # Publish success event
-                self.publish_payment_success_event(payment_id, correlation_id)
+                # Publish success event (передаем order_id на случай отсутствия записи платежа)
+                self.publish_payment_success_event(payment_id, correlation_id, order_id=order_id)
                 
                 self.logger.info(
                     "📤 payment-service отослал в кафку",
@@ -483,8 +483,8 @@ class PaymentService(BaseService):
                 except Exception as e:
                     self.logger.warning("Order status FAILED HTTP update failed", order_id=order_id, error=str(e))
                 
-                # Publish failure event
-                self.publish_payment_failure_event(payment_id, correlation_id)
+                # Publish failure event (с передачей order_id и причины, чтобы не терять контекст)
+                self.publish_payment_failure_event(payment_id, correlation_id, order_id=order_id, failure_reason="Payment failed after retries")
                 
                 self.metrics.record_business_event('payment_completed', 'failed')
                 
@@ -501,8 +501,8 @@ class PaymentService(BaseService):
             # Update status to FAILED
             self.update_payment_status(payment_id, PaymentStatus.FAILED.value, str(e))
             
-            # Publish failure event
-            self.publish_payment_failure_event(payment_id)
+            # Publish failure event (с передачей order_id и причины, чтобы не терять контекст)
+            self.publish_payment_failure_event(payment_id, order_id=order_id if 'order_id' in locals() else None, failure_reason=str(e))
     
     def attempt_payment_processing(self, payment_id: str) -> bool:
         """Attempt to process payment (with circuit breaker)"""
@@ -676,12 +676,18 @@ class PaymentService(BaseService):
             self.logger.error("Failed to update payment status", payment_id=payment_id, error=str(e))
             raise
     
-    def publish_payment_success_event(self, payment_id: str, correlation_id: Optional[str] = None):
+    def publish_payment_success_event(self, payment_id: str, correlation_id: Optional[str] = None, order_id: Optional[str] = None):
         """Publish payment success event"""
         try:
             payment = self.get_payment_by_id(payment_id)
+            # Если запись платежа не найдена, используем переданный order_id, чтобы не падать
             if not payment:
-                raise Exception(f"Payment {payment_id} not found")
+                payment = {
+                    'id': payment_id,
+                    'order_id': order_id,
+                    'amount': None,
+                    'payment_method': None
+                }
             
             event_data = {
                 'event_type': 'OrderPaid',
@@ -694,7 +700,8 @@ class PaymentService(BaseService):
             }
             # Retry publish with backoff to handle transient Kafka errors
             def _publish():
-                published = self.events.publish_event('payment-events', event_data, str(payment['order_id']))
+                key = str(payment['order_id']) if payment.get('order_id') is not None else None
+                published = self.events.publish_event('payment-events', event_data, key)
                 if not published:
                     raise EventPublishError("Failed to publish payment success event")
                 return True
@@ -708,12 +715,19 @@ class PaymentService(BaseService):
         except Exception as e:
             self.logger.error("Failed to publish payment success event", payment_id=payment_id, error=str(e))
     
-    def publish_payment_failure_event(self, payment_id: str, correlation_id: Optional[str] = None):
+    def publish_payment_failure_event(self, payment_id: str, correlation_id: Optional[str] = None, order_id: Optional[str] = None, failure_reason: Optional[str] = None):
         """Publish payment failure event"""
         try:
             payment = self.get_payment_by_id(payment_id)
+            # Если запись платежа не найдена, используем переданные order_id и failure_reason, чтобы не падать
             if not payment:
-                raise Exception(f"Payment {payment_id} not found")
+                payment = {
+                    'id': payment_id,
+                    'order_id': order_id,
+                    'amount': None,
+                    'payment_method': None,
+                    'failure_reason': failure_reason or 'Unknown error'
+                }
             
             event_data = {
                 'event_type': 'PaymentFailed',
@@ -747,15 +761,15 @@ class PaymentService(BaseService):
                 dlq_event = {
                     'event_type': 'PaymentFailedDLQ',
                     'payment_id': payment_id,
-                    'order_id': payment.get('order_id') if payment else None,
+                    'order_id': payment.get('order_id') if payment else order_id,
                     'amount': payment.get('amount') if payment else None,
                     'payment_method': payment.get('payment_method') if payment else None,
-                    'failure_reason': payment.get('failure_reason', 'Unknown error') if payment else 'Unknown error',
+                    'failure_reason': payment.get('failure_reason', failure_reason or 'Unknown error') if payment else (failure_reason or 'Unknown error'),
                     'timestamp': self.get_timestamp(),
                     'correlationId': correlation_id,
                     'publish_error': str(e)
                 }
-                dlq_key = str(payment.get('order_id')) if payment and payment.get('order_id') else None
+                dlq_key = str(payment.get('order_id')) if payment and payment.get('order_id') else (str(order_id) if order_id else None)
                 dlq_published = self.events.publish_event('dlq-events', dlq_event, dlq_key)
                 if dlq_published:
                     self.logger.warning(
