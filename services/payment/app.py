@@ -410,6 +410,10 @@ class PaymentService(BaseService):
                 stage="order_status_paid",
                 service="order-service"
             )
+            # Безусловно отправляем событие об успешной оплате в Kafka,
+            # чтобы статус обновился в order-service даже при проблемах с последующей обработкой
+            self.publish_payment_success_event(payment_id, correlation_id)
+            self.metrics.record_business_event('payment_event_sent_kafka', 'success')
             # Process with retry pattern
             success = retry_with_backoff(
                 lambda: self.attempt_payment_processing(payment_id),
@@ -741,7 +745,7 @@ class PaymentService(BaseService):
             try:
                 payment = payment if 'payment' in locals() and payment else self.get_payment_by_id(payment_id)
                 dlq_event = {
-                    'event_type': 'PaymentFailed',
+                    'event_type': 'PaymentFailedDLQ',
                     'payment_id': payment_id,
                     'order_id': payment.get('order_id') if payment else None,
                     'amount': payment.get('amount') if payment else None,
