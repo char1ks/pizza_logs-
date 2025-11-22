@@ -329,7 +329,7 @@ class PaymentService(BaseService):
             with self.db.transaction():
                 with self.db.get_cursor() as cursor:
                     cursor.execute("""
-                        INSERT INTO payments (id, order_id, amount, payment_method, status, idempotency_key)
+                        INSERT INTO payments.payments (id, order_id, amount, payment_method, status, idempotency_key)
                         VALUES (%s, %s, %s, %s, %s, %s)
                     """, (payment_id, order_id, amount, payment_method, PaymentStatus.PENDING.value, idempotency_key))
                 
@@ -350,7 +350,15 @@ class PaymentService(BaseService):
         """Process payment asynchronously with retry pattern"""
         try:
             payment = self.get_payment_by_id(payment_id)
+            if not payment:
+                for i in range(3):
+                    time.sleep(0.1 * (i + 1))
+                    payment = self.get_payment_by_id(payment_id)
+                    if payment:
+                        break
             order_id = (payment.get('order_id') if payment else None) or order_id_fallback
+            if not payment:
+                raise Exception(f"Payment {payment_id} not found")
             
             # Log user-friendly payment start message
             status_message = format_order_status_message(
@@ -365,7 +373,8 @@ class PaymentService(BaseService):
 
             # Также обновим статус заказа через внутренний API, чтобы фронт сразу видел изменения
             try:
-                self._update_order_status_via_http(order_id, 'PROCESSING', 'Платеж в обработке', correlation_id)
+                if order_id:
+                    self._update_order_status_via_http(order_id, 'PROCESSING', 'Платеж в обработке', correlation_id)
             except Exception as e:
                 # Не прерываем оплату, если обновление статуса заказа не удалось
                 self.logger.warning("Order status PROCESSING HTTP update failed", order_id=order_id, error=str(e))
@@ -378,36 +387,6 @@ class PaymentService(BaseService):
                 correlation_id=correlation_id,
                 stage="sent_to_gateway",
                 service="payment-service"
-            )
-            self.logger.info(
-                    "✅ payment-service принял сообщение об успешной оплате",
-                    order_id=order_id,
-                    payment_id=payment_id,
-                    correlation_id=correlation_id,
-                    stage="payment_confirmed",
-                    service="payment-service"
-            )
-            self.logger.info(
-                    "📤 payment-service отослал в кафку",
-                    order_id=order_id,
-                    payment_id=payment_id,
-                    correlation_id=correlation_id,
-                    stage="payment_event_sent_kafka",
-                    service="payment-service"
-            )
-            self.logger.info(
-                "💰 order-service вычитал сообщение из топика о платеже",
-                order_id=order_id,
-                correlation_id=correlation_id,
-                stage="payment_event_consumed",
-                service="order-service"
-            )
-            self.logger.info(
-                "✅ order-service перевёл заказ в статус PAID",
-                order_id=order_id,
-                correlation_id=correlation_id,
-                stage="order_status_paid",
-                service="order-service"
             )
             # Раннюю публикацию убрали, отправим событие только после подтверждённой обработки
             # Process with retry pattern
@@ -434,7 +413,8 @@ class PaymentService(BaseService):
 
                 # Обновим статус заказа на PAID через HTTP, чтобы UI получил обновление
                 try:
-                    self._update_order_status_via_http(order_id, 'PAID', 'Оплата успешно завершена', correlation_id)
+                    if order_id:
+                        self._update_order_status_via_http(order_id, 'PAID', 'Оплата успешно завершена', correlation_id)
                 except Exception as e:
                     self.logger.warning("Order status PAID HTTP update failed", order_id=order_id, error=str(e))
                 
@@ -478,7 +458,8 @@ class PaymentService(BaseService):
 
                 # Обновим статус заказа на FAILED через HTTP, чтобы UI получил обновление
                 try:
-                    self._update_order_status_via_http(order_id, 'FAILED', 'Платеж не прошел после нескольких попыток', correlation_id)
+                    if order_id:
+                        self._update_order_status_via_http(order_id, 'FAILED', 'Платеж не прошел после нескольких попыток', correlation_id)
                 except Exception as e:
                     self.logger.warning("Order status FAILED HTTP update failed", order_id=order_id, error=str(e))
                 
@@ -590,10 +571,10 @@ class PaymentService(BaseService):
         try:
             # The status is explicitly set to PENDING on creation
             result = self.db.execute_query("""
-                INSERT INTO payment_attempts (payment_id, attempt_number, status)
+                INSERT INTO payments.payment_attempts (payment_id, attempt_number, status)
                 VALUES (
                     %s, 
-                    (SELECT COALESCE(MAX(attempt_number), 0) + 1 FROM payment_attempts WHERE payment_id = %s),
+                    (SELECT COALESCE(MAX(attempt_number), 0) + 1 FROM payments.payment_attempts WHERE payment_id = %s),
                     'PENDING'
                 )
                     RETURNING id
@@ -611,7 +592,7 @@ class PaymentService(BaseService):
             status = 'SUCCESS' if success else 'FAILED'
             
             self.db.execute_query("""
-                    UPDATE payment_attempts
+                    UPDATE payments.payment_attempts
                 SET status = %s, error_message = %s, completed_at = CURRENT_TIMESTAMP
                     WHERE id = %s
             """, (status, error, attempt_id), fetch=None)
@@ -624,7 +605,7 @@ class PaymentService(BaseService):
         """Get payment by ID from database"""
         try:
             payments = self.db.execute_query(
-                "SELECT * FROM payments WHERE id = %s",
+                "SELECT * FROM payments.payments WHERE id = %s",
                 (payment_id,),
                 fetch=True
             )
@@ -637,7 +618,7 @@ class PaymentService(BaseService):
         """Get payment by order ID"""
         try:
             payments = self.db.execute_query(
-                "SELECT * FROM payments WHERE order_id = %s",
+                "SELECT * FROM payments.payments WHERE order_id = %s",
                 (order_id,),
                 fetch=True
             )
@@ -650,7 +631,7 @@ class PaymentService(BaseService):
         """Get payment attempts for a payment"""
         try:
             return self.db.execute_query(
-                "SELECT * FROM payment_attempts WHERE payment_id = %s ORDER BY attempt_number",
+                "SELECT * FROM payments.payment_attempts WHERE payment_id = %s ORDER BY attempt_number",
                 (payment_id,),
                 fetch=True
             )
@@ -664,7 +645,7 @@ class PaymentService(BaseService):
             with self.db.transaction():
                 with self.db.get_cursor() as cursor:
                     cursor.execute("""
-                        UPDATE payments
+                        UPDATE payments.payments
                         SET status = %s, failure_reason = %s, updated_at = CURRENT_TIMESTAMP
                         WHERE id = %s
                     """, (status, failure_reason, payment_id))
