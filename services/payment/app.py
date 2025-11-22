@@ -11,6 +11,7 @@ import json
 import threading
 import time
 import hashlib
+import uuid
 from typing import Dict, List, Any, Optional
 from flask import request, jsonify
 from flask_cors import CORS
@@ -324,25 +325,36 @@ class PaymentService(BaseService):
     
     def create_payment_record(self, payment_id: str, order_id: str, amount: int,
                             payment_method: str, idempotency_key: str) -> Dict:
-        """Create payment record in database"""
+        """Create payment record in database. If a record for the given order_id already exists, return it instead of failing."""
         try:
             with self.db.transaction():
                 with self.db.get_cursor() as cursor:
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         INSERT INTO payments.payments (id, order_id, amount, payment_method, status, idempotency_key)
                         VALUES (%s, %s, %s, %s, %s, %s)
                         ON CONFLICT (order_id) DO NOTHING
-                    """, (payment_id, order_id, amount, payment_method, PaymentStatus.PENDING.value, idempotency_key))
-                
+                        """,
+                        (payment_id, order_id, amount, payment_method, PaymentStatus.PENDING.value, idempotency_key),
+                    )
 
-                
-                return {
-                    'payment_id': payment_id,
-                    'order_id': order_id,
-                    'amount': amount,
-                    'status': PaymentStatus.PENDING.value
-                }
-                
+                # If nothing was inserted because of a conflict, fetch existing payment
+                if cursor.rowcount == 0:
+                    existing = self.get_payment_by_order_id(order_id)
+                    if existing:
+                        return {
+                            'payment_id': existing['id'],
+                            'order_id': existing['order_id'],
+                            'amount': existing['amount'],
+                            'status': existing['status'],
+                        }
+
+            return {
+                'payment_id': payment_id,
+                'order_id': order_id,
+                'amount': amount,
+                'status': PaymentStatus.PENDING.value,
+            }
         except Exception as e:
             self.logger.error("Failed to create payment record", error=str(e))
             raise
@@ -915,8 +927,8 @@ class PaymentService(BaseService):
         if self.get_payment_by_order_id(order_id):
             return
         
-        # Create payment record
-        payment_id = generate_id('pay_')
+        # Create payment record – use full UUID to avoid collisions
+        payment_id = f"pay_{uuid.uuid4().hex}"
         idempotency_key = self.generate_idempotency_key(order_id, amount, payment_method)
         
         payment_record = self.create_payment_record(
