@@ -331,6 +331,7 @@ class PaymentService(BaseService):
                     cursor.execute("""
                         INSERT INTO payments.payments (id, order_id, amount, payment_method, status, idempotency_key)
                         VALUES (%s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (order_id) DO NOTHING
                     """, (payment_id, order_id, amount, payment_method, PaymentStatus.PENDING.value, idempotency_key))
                 
 
@@ -362,6 +363,27 @@ class PaymentService(BaseService):
                     payment = alt
                     payment_id = payment.get('id', payment_id)
             order_id = (payment.get('order_id') if payment else None) or order_id_fallback
+            if not payment and order_id:
+                details = self.db.execute_query(
+                    "SELECT total, payment_method FROM orders.orders WHERE id = %s",
+                    (order_id,),
+                    fetch='one'
+                )
+                if details:
+                    idem = self.generate_idempotency_key(order_id, details['total'], details['payment_method'])
+                    try:
+                        with self.db.transaction():
+                            with self.db.get_cursor() as cursor:
+                                cursor.execute("""
+                                    INSERT INTO payments.payments (id, order_id, amount, payment_method, status, idempotency_key)
+                                    VALUES (%s, %s, %s, %s, %s, %s)
+                                    ON CONFLICT (order_id) DO NOTHING
+                                """, (payment_id, order_id, details['total'], details['payment_method'], PaymentStatus.PENDING.value, idem))
+                    except Exception:
+                        pass
+                    payment = self.get_payment_by_order_id(order_id)
+                    if payment:
+                        payment_id = payment.get('id', payment_id)
             if not payment:
                 self.update_payment_status(payment_id, PaymentStatus.FAILED.value, "Payment record not found")
                 try:
