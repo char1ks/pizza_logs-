@@ -56,20 +56,21 @@ class OrderService(BaseService):
         self.init_database_with_schema_creation('orders', 'SELECT 1')
         self.db.default_schema = 'orders'
         try:
-            with self.db.get_cursor() as cursor:
-                cursor.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS orders.events_processed (
-                        event_id VARCHAR(100) PRIMARY KEY,
-                        topic VARCHAR(100),
-                        partition INTEGER,
-                        offset BIGINT,
-                        consumed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            with self.db.transaction():
+                with self.db.get_cursor() as cursor:
+                    cursor.execute(
+                        """
+                        CREATE TABLE IF NOT EXISTS orders.events_processed (
+                            event_id VARCHAR(100) PRIMARY KEY,
+                            topic VARCHAR(100),
+                            partition INTEGER,
+                            offset BIGINT,
+                            consumed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        )
+                        """
                     )
-                    """
-                )
-        except Exception:
-            pass
+        except Exception as e:
+            self.logger.error("Failed to create orders.events_processed table", error=str(e))
         
         # Start event consumer in background thread
         self.start_event_consumer()
