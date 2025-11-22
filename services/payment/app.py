@@ -330,7 +330,7 @@ class PaymentService(BaseService):
                             event_id VARCHAR(100) PRIMARY KEY,
                             topic VARCHAR(100),
                             partition INTEGER,
-                            offset BIGINT,
+                            "offset" BIGINT,
                             consumed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                         )
                         """
