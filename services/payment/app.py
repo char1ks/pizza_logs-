@@ -174,7 +174,7 @@ class PaymentService(BaseService):
                 # Process payment asynchronously
                 threading.Thread(
                     target=self.process_payment_async,
-                    args=(payment_id,),
+                    args=(payment_id, None, order_id),
                     daemon=True
                 ).start()
                 
@@ -346,12 +346,11 @@ class PaymentService(BaseService):
             self.logger.error("Failed to create payment record", error=str(e))
             raise
     
-    def process_payment_async(self, payment_id: str, correlation_id: str = None):
+    def process_payment_async(self, payment_id: str, correlation_id: Optional[str] = None, order_id_fallback: Optional[str] = None):
         """Process payment asynchronously with retry pattern"""
         try:
-            # Получаем order_id для трейсинга
             payment = self.get_payment_by_id(payment_id)
-            order_id = payment.get('order_id') if payment else None
+            order_id = (payment.get('order_id') if payment else None) or order_id_fallback
             
             # Log user-friendly payment start message
             status_message = format_order_status_message(
@@ -502,7 +501,7 @@ class PaymentService(BaseService):
             self.update_payment_status(payment_id, PaymentStatus.FAILED.value, str(e))
             
             # Publish failure event (с передачей order_id и причины, чтобы не терять контекст)
-            self.publish_payment_failure_event(payment_id, order_id=order_id if 'order_id' in locals() else None, failure_reason=str(e))
+            self.publish_payment_failure_event(payment_id, order_id=order_id or order_id_fallback, failure_reason=str(e))
     
     def attempt_payment_processing(self, payment_id: str) -> bool:
         """Attempt to process payment (with circuit breaker)"""
@@ -906,7 +905,7 @@ class PaymentService(BaseService):
         # Start async payment processing (for ALL orders, not just crash tests)
         threading.Thread(
             target=self.process_payment_async,
-            args=(payment_id, correlation_id),
+            args=(payment_id, correlation_id, order_id),
             daemon=True
         ).start()
         
