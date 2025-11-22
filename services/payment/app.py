@@ -358,7 +358,15 @@ class PaymentService(BaseService):
                         break
             order_id = (payment.get('order_id') if payment else None) or order_id_fallback
             if not payment:
-                raise Exception(f"Payment {payment_id} not found")
+                self.update_payment_status(payment_id, PaymentStatus.FAILED.value, "Payment record not found")
+                try:
+                    if order_id:
+                        self._update_order_status_via_http(order_id, 'FAILED', 'Платеж не найден', correlation_id)
+                except Exception as e:
+                    self.logger.warning("Order status FAILED HTTP update failed", order_id=order_id, error=str(e))
+                self.publish_payment_failure_event(payment_id, correlation_id, order_id=order_id or order_id_fallback, failure_reason="Payment record not found")
+                self.metrics.record_business_event('payment_completed', 'failed')
+                return
             
             # Log user-friendly payment start message
             status_message = format_order_status_message(
@@ -470,7 +478,7 @@ class PaymentService(BaseService):
                 
         except Exception as e:
             self.logger.error(
-                "🍕 ЗАКАЗ ПИЦЦЫ: Критическая ошибка при асинхронной обработке платежа",
+                f"🍕 ЗАКАЗ ПИЦЦЫ: Критическая ошибка при асинхронной обработке платежа:{e}",
                 order_id=order_id if 'order_id' in locals() else None,
                 payment_id=payment_id,
                 stage="payment_processing_error",
