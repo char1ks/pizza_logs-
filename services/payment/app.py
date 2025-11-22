@@ -115,8 +115,22 @@ class PaymentService(BaseService):
         
         # Initialize database
         self.init_database_with_schema_creation('payments', 'SELECT 1')
-        # Ensure following connections in pool default to payments schema
         self.db.default_schema = 'payments'
+        try:
+            with self.db.get_cursor() as cursor:
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS payments.events_processed (
+                        event_id VARCHAR(100) PRIMARY KEY,
+                        topic VARCHAR(100),
+                        partition INTEGER,
+                        offset BIGINT,
+                        consumed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                    """
+                )
+        except Exception:
+            pass
         
         # Start event consumer in background thread
         self.start_event_consumer()
@@ -901,6 +915,16 @@ class PaymentService(BaseService):
             event_type = event_data.get('event_type')
             order_id = event_data.get('orderId')
             correlation_id = event_data.get('correlationId')
+            event_id = event_data.get('event_id')
+            if event_id:
+                existing = self.db.execute_query(
+                    "SELECT 1 FROM payments.events_processed WHERE event_id = %s",
+                    (event_id,),
+                    fetch='one'
+                )
+                if existing:
+                    self.logger.debug("Skipping already processed event", event_id=event_id)
+                    return
             
             self.logger.info(
                 "📨 payment-service вычитал сообщение из топика",
@@ -914,6 +938,20 @@ class PaymentService(BaseService):
                 self.handle_order_created(event_data, correlation_id)
             else:
                 self.logger.debug("Unknown event type", event_type=event_type)
+            if event_id:
+                try:
+                    with self.db.transaction():
+                        with self.db.get_cursor() as cursor:
+                            cursor.execute(
+                                """
+                                INSERT INTO payments.events_processed (event_id, topic, partition, offset)
+                                VALUES (%s, %s, %s, %s)
+                                ON CONFLICT (event_id) DO NOTHING
+                                """,
+                                (event_id, topic, None, None)
+                            )
+                except Exception:
+                    pass
                 
         except Exception as e:
             self.logger.error("Failed to handle order event", error=str(e))

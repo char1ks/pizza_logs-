@@ -55,6 +55,21 @@ class OrderService(BaseService):
         # Initialize database
         self.init_database_with_schema_creation('orders', 'SELECT 1')
         self.db.default_schema = 'orders'
+        try:
+            with self.db.get_cursor() as cursor:
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS orders.events_processed (
+                        event_id VARCHAR(100) PRIMARY KEY,
+                        topic VARCHAR(100),
+                        partition INTEGER,
+                        offset BIGINT,
+                        consumed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                    """
+                )
+        except Exception:
+            pass
         
         # Start event consumer in background thread
         self.start_event_consumer()
@@ -563,6 +578,16 @@ class OrderService(BaseService):
             order_id = event_data.get('order_id')
             
             correlation_id = event_data.get('correlationId')
+            event_id = event_data.get('event_id')
+            if event_id:
+                existing = self.db.execute_query(
+                    "SELECT 1 FROM orders.events_processed WHERE event_id = %s",
+                    (event_id,),
+                    fetch='one'
+                )
+                if existing:
+                    self.logger.debug("Skipping already processed event", event_id=event_id)
+                    return
             
             self.logger.info(
                 "📨 order-service вычитал сообщение из топика о платеже",
@@ -586,6 +611,20 @@ class OrderService(BaseService):
                 self.logger.warning("Unknown payment event type", event_type=event_type)
             
             self.metrics.record_business_event('payment_event_processed', 'success')
+            if event_id:
+                try:
+                    with self.db.transaction():
+                        with self.db.get_cursor() as cursor:
+                            cursor.execute(
+                                """
+                                INSERT INTO orders.events_processed (event_id, topic, partition, offset)
+                                VALUES (%s, %s, %s, %s)
+                                ON CONFLICT (event_id) DO NOTHING
+                                """,
+                                (event_id, topic, None, None)
+                            )
+                except Exception:
+                    pass
             
         except Exception as e:
             self.logger.error("Failed to handle payment event", error=str(e), event_data=event_data)
