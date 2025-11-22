@@ -938,6 +938,7 @@ class PaymentService(BaseService):
             payment_method=payment_method,
             idempotency_key=idempotency_key
         )
+        payment_id = payment_record['payment_id']
         
         # Start async payment processing (for ALL orders, not just crash tests)
         threading.Thread(
