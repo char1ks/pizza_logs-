@@ -688,7 +688,7 @@ class OrderService(BaseService):
                         with self.db.get_cursor() as cursor:
                             cursor.execute(
                                 """
-                                INSERT INTO orders.events_processed (event_id, topic, partition, offset)
+                                INSERT INTO orders.events_processed (event_id, topic, partition, "offset")
                                 VALUES (%s, %s, %s, %s)
                                 ON CONFLICT (event_id) DO NOTHING
                                 """,
