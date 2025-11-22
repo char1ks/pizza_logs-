@@ -391,7 +391,7 @@ class PaymentService(BaseService):
             # Раннюю публикацию убрали, отправим событие только после подтверждённой обработки
             # Process with retry pattern
             success = retry_with_backoff(
-                lambda: self.attempt_payment_processing(payment_id),
+                lambda: self.attempt_payment_processing(payment_id, order_id),
                 max_attempts=self.max_retry_attempts,
                 base_delay=self.retry_delay_base,
                 max_delay=30.0
@@ -484,12 +484,21 @@ class PaymentService(BaseService):
             # Publish failure event (с передачей order_id и причины, чтобы не терять контекст)
             self.publish_payment_failure_event(payment_id, order_id=order_id or order_id_fallback, failure_reason=str(e))
     
-    def attempt_payment_processing(self, payment_id: str) -> bool:
+    def attempt_payment_processing(self, payment_id: str, order_id_hint: Optional[str] = None) -> bool:
         """Attempt to process payment (with circuit breaker)"""
         try:
             payment = self.get_payment_by_id(payment_id)
+            if not payment and order_id_hint:
+                for i in range(3):
+                    time.sleep(0.1 * (i + 1))
+                    payment = self.get_payment_by_order_id(order_id_hint)
+                    if payment:
+                        break
             if not payment:
-                raise Exception(f"Payment {payment_id} not found")
+                attempt_id = self.record_payment_attempt(payment_id)
+                self.update_payment_attempt(attempt_id, success=False, error="Payment record not found")
+                self.update_payment_status(payment_id, PaymentStatus.FAILED.value, "Payment record not found")
+                return False
             # Получаем forceFail из заказа
             order_id = payment.get('order_id')
             order = self.db.execute_query(
@@ -514,7 +523,7 @@ class PaymentService(BaseService):
                 return True
             # Обычная логика для остальных случаев
             if not self.circuit_breaker.can_execute():
-                raise Exception("Payment provider is unavailable (circuit breaker OPEN)")
+                return False
             attempt_id = self.record_payment_attempt(payment_id)
             success = self.call_payment_provider(payment)
             if success:
@@ -538,10 +547,10 @@ class PaymentService(BaseService):
                 self.update_payment_attempt(attempt_id, success=False, error="Payment provider rejected")
                 if not is_crash_test:
                     self.circuit_breaker.record_failure()
-                raise Exception("Payment provider rejected the transaction")
-        except Exception as e:
+                return False
+        except Exception:
             self.circuit_breaker.record_failure()
-            raise
+            return False
     
     def call_payment_provider(self, payment: Dict) -> bool:
         payment_id = payment.get('id', 'unknown')
