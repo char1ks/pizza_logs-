@@ -563,7 +563,17 @@ class OrderService(BaseService):
             order_id = event_data.get('order_id')
             
             correlation_id = event_data.get('correlationId')
-
+            
+            self.logger.info(
+                "📨 order-service вычитал сообщение из топика",
+                order_id=order_id,
+                correlation_id=correlation_id,
+                event_type=event_type,
+                topic=topic,
+                stage="kafka_event_consumed",
+                service="order-service"
+            )
+            
             if not order_id:
                 self.logger.warning("Payment event missing order_id", event_data=event_data)
                 return

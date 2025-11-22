@@ -413,6 +413,11 @@ class PaymentService(BaseService):
                 self.metrics.record_business_event('payment_completed', 'failed')
                 return
             
+            # Skip reprocessing if already in terminal or processing state
+            if payment.get('status') in (PaymentStatus.COMPLETED.value, PaymentStatus.FAILED.value, PaymentStatus.PROCESSING.value):
+                self.logger.debug("Skipping reprocessing payment", payment_id=payment_id, status=payment.get('status'), order_id=order_id)
+                return
+            
             # Log user-friendly payment start message
             status_message = format_order_status_message(
                 order_id=order_id,
