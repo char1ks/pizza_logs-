@@ -362,9 +362,9 @@ class OrderService(BaseService):
                             id VARCHAR(50) PRIMARY KEY,
                             user_id VARCHAR(50) NOT NULL,
                             status VARCHAR(20) DEFAULT 'PENDING',
-                            total_amount INTEGER NOT NULL,
+                            total INTEGER NOT NULL,
                             delivery_address TEXT NOT NULL,
-                            phone VARCHAR(20),
+                            payment_method VARCHAR(50),
                             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                         )
@@ -378,17 +378,29 @@ class OrderService(BaseService):
                         CREATE TABLE IF NOT EXISTS orders.order_items (
                             id SERIAL PRIMARY KEY,
                             order_id VARCHAR(50) REFERENCES orders.orders(id),
-                            pizz-id VARCHAR(50) NOT NULL,
-                            pizz-name VARCHAR(100) NOT NULL,
+                            pizza_id VARCHAR(50) NOT NULL,
+                            pizza_name VARCHAR(100) NOT NULL,
+                            pizza_price INTEGER NOT NULL,
                             quantity INTEGER NOT NULL DEFAULT 1,
-                            unit_price INTEGER NOT NULL,
-                            total_price INTEGER NOT NULL,
+                            subtotal INTEGER NOT NULL,
                             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                         )
                         """
                     )
                     self.logger.debug("Table orders.order_items verified/created")
 
+                    cursor.execute(
+                        """
+                        CREATE TABLE IF NOT EXISTS orders.order_saga_state (
+                            order_id VARCHAR(50) PRIMARY KEY,
+                            current_step VARCHAR(50) NOT NULL,
+                            steps_completed TEXT[] DEFAULT ARRAY[]::TEXT[],
+                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        )
+                        """
+                    )
+                    self.logger.debug("Table orders.order_saga_state verified/created")
+                    
                     # Outbox events table
                     cursor.execute(
                         """
