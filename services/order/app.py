@@ -410,11 +410,14 @@ class OrderService(BaseService):
                             event_type VARCHAR(50) NOT NULL,
                             event_data JSONB NOT NULL,
                             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                            processed_at TIMESTAMP,
-                            status VARCHAR(20) DEFAULT 'PENDING'
+                            processed BOOLEAN DEFAULT false,
+                            processed_at TIMESTAMP
                         )
                         """
                     )
+                    # Ensure columns exist if table was created earlier with a different schema
+                    cursor.execute("ALTER TABLE orders.outbox_events ADD COLUMN IF NOT EXISTS processed BOOLEAN DEFAULT false")
+                    cursor.execute("ALTER TABLE orders.outbox_events ADD COLUMN IF NOT EXISTS processed_at TIMESTAMP")
                     self.logger.debug("Table orders.outbox_events verified/created")
             self.logger.info("Database tables verified/created successfully")
         except Exception as e:
