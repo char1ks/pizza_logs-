@@ -52,6 +52,7 @@ class OrderService(BaseService):
         
         # Initialize database
         self.init_database_with_schema_creation('orders', 'SELECT 1')
+        self.db.default_schema = 'orders'
         
         # Start event consumer in background thread
         self.start_event_consumer()
@@ -401,6 +402,13 @@ class OrderService(BaseService):
                     VALUES (%s, %s, %s, %s, %s, %s)
                 """, order_items_to_insert)
 
+                # Initialize saga state
+                cursor.execute("""
+                    INSERT INTO orders.order_saga_state (order_id, current_step, steps_completed)
+                    VALUES (%s, 'created', ARRAY['created'])
+                    ON CONFLICT (order_id) DO NOTHING
+                """, (order_id,))
+
                 # 3. Create Outbox Event - минимальные данные для избежания больших сообщений
                 simplified_items = [
                     {
@@ -572,9 +580,9 @@ class OrderService(BaseService):
             with self.db.transaction():
                 with self.db.get_cursor() as cursor:
                     cursor.execute("""
-                        UPDATE order_saga_state 
+                        UPDATE orders.order_saga_state 
                         SET current_step = 'payment_processed',
-                            steps_completed = array_append(steps_completed, 'payment_processed'),
+                            steps_completed = array_append(COALESCE(steps_completed, ARRAY[]::TEXT[]), 'payment_processed'),
                             updated_at = CURRENT_TIMESTAMP
                         WHERE order_id = %s
                     """, (order_id,))
@@ -617,7 +625,7 @@ class OrderService(BaseService):
             with self.db.transaction():
                 with self.db.get_cursor() as cursor:
                     cursor.execute("""
-                        UPDATE order_saga_state 
+                        UPDATE orders.order_saga_state 
                         SET current_step = 'failed',
                             compensation_needed = true,
                             updated_at = CURRENT_TIMESTAMP

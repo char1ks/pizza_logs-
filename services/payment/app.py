@@ -351,7 +351,7 @@ class PaymentService(BaseService):
         try:
             # Получаем order_id для трейсинга
             payment = self.get_payment_by_id(payment_id)
-            order_id = payment.get('order_id') if payment else 'unknown'
+            order_id = payment.get('order_id') if payment else None
             
             # Log user-friendly payment start message
             status_message = format_order_status_message(
@@ -491,7 +491,7 @@ class PaymentService(BaseService):
         except Exception as e:
             self.logger.error(
                 "🍕 ЗАКАЗ ПИЦЦЫ: Критическая ошибка при асинхронной обработке платежа",
-                order_id=order_id if 'order_id' in locals() else 'unknown',
+                order_id=order_id if 'order_id' in locals() else None,
                 payment_id=payment_id,
                 stage="payment_processing_error",
                 error=str(e),
@@ -741,7 +741,8 @@ class PaymentService(BaseService):
             }
             # Retry publish with backoff to handle transient Kafka errors
             def _publish():
-                published = self.events.publish_event('payment-events', event_data, str(payment['order_id']))
+                key = str(payment['order_id']) if payment.get('order_id') is not None else None
+                published = self.events.publish_event('payment-events', event_data, key)
                 if not published:
                     raise EventPublishError("Failed to publish payment failure event")
                 return True
