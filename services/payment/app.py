@@ -116,22 +116,7 @@ class PaymentService(BaseService):
         # Initialize database
         self.init_database_with_schema_creation('payments', 'SELECT 1')
         self.db.default_schema = 'payments'
-        try:
-            with self.db.transaction():
-                with self.db.get_cursor() as cursor:
-                    cursor.execute(
-                        """
-                        CREATE TABLE IF NOT EXISTS payments.events_processed (
-                            event_id VARCHAR(100) PRIMARY KEY,
-                            topic VARCHAR(100),
-                            partition INTEGER,
-                            offset BIGINT,
-                            consumed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                        )
-                        """
-                    )
-        except Exception as e:
-            self.logger.error("Failed to create payments.events_processed table", error=str(e))
+        self.create_tables_if_not_exist()
         
         # Start event consumer in background thread
         self.start_event_consumer()
@@ -332,7 +317,64 @@ class PaymentService(BaseService):
                     'success': False,
                     'error': 'Failed to reset circuit breaker'
                 }), 500
-    
+
+    def create_tables_if_not_exist(self):
+        """Create database tables if they don't exist"""
+        try:
+            with self.db.transaction() as conn:
+                with conn.cursor() as cursor:
+                    # Events processed table
+                    cursor.execute(
+                        """
+                        CREATE TABLE IF NOT EXISTS payments.events_processed (
+                            event_id VARCHAR(100) PRIMARY KEY,
+                            topic VARCHAR(100),
+                            partition INTEGER,
+                            offset BIGINT,
+                            consumed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        )
+                        """
+                    )
+                    self.logger.debug("Table payments.events_processed verified/created")
+                    
+                    # Payments table
+                    cursor.execute(
+                        """
+                        CREATE TABLE IF NOT EXISTS payments.payments (
+                            id VARCHAR(50) PRIMARY KEY,
+                            order_id VARCHAR(50) NOT NULL,
+                            amount INTEGER NOT NULL,
+                            payment_method VARCHAR(50) NOT NULL,
+                            status VARCHAR(20) DEFAULT 'PENDING',
+                            idempotency_key VARCHAR(255) UNIQUE,
+                            failure_reason TEXT,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        )
+                        """
+                    )
+                    self.logger.debug("Table payments.payments verified/created")
+                    
+                    # Payment attempts table
+                    cursor.execute(
+                        """
+                        CREATE TABLE IF NOT EXISTS payments.payment_attempts (
+                            id SERIAL PRIMARY KEY,
+                            payment_id VARCHAR(50) REFERENCES payments.payments(id),
+                            attempt_number INTEGER NOT NULL,
+                            success BOOLEAN DEFAULT false,
+                            error_message TEXT,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        )
+                        """
+                    )
+                    self.logger.debug("Table payments.payment_attempts verified/created")
+            self.logger.info("Database tables verified/created successfully")
+        except Exception as e:
+            self.logger.error("Failed to create database tables", error=str(e))
+            # Exit if tables can't be created, as the service is non-functional
+            sys.exit(1)
+
     def generate_idempotency_key(self, order_id: str, amount: int, payment_method: str) -> str:
         """Generate idempotency key for payment"""
         data = f"{order_id}:{amount}:{payment_method}"
