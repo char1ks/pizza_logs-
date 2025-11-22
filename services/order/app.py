@@ -10,6 +10,8 @@ import sys
 import json
 import threading
 import time
+import uuid
+import hashlib
 from typing import Dict, List, Any, Optional
 from flask import request, jsonify
 from flask_cors import CORS
@@ -422,6 +424,14 @@ class OrderService(BaseService):
                 if not correlation_id:
                     correlation_id = generate_id('corr_')
                 
+                payment_id = f"pay_{uuid.uuid4().hex}"
+                idempotency_key = hashlib.sha256(f"{order_id}:{total_amount}:{payment_method}".encode()).hexdigest()
+                cursor.execute("""
+                    INSERT INTO payments.payments (id, order_id, amount, payment_method, status, idempotency_key)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (order_id) DO NOTHING
+                """, (payment_id, order_id, total_amount, payment_method, 'PENDING', idempotency_key))
+                
                 event_data = {
                     'event_type': 'OrderCreated',
                     'orderId': order_id,
@@ -433,7 +443,8 @@ class OrderService(BaseService):
                     'deliveryAddress': delivery_address,
                     'timestamp': self.get_timestamp(),
                     'forceFail': force_fail,
-                    'correlationId': correlation_id
+                    'correlationId': correlation_id,
+                    'paymentId': payment_id
                 }
 
                 cursor.execute("""
