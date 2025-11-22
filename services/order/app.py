@@ -55,22 +55,7 @@ class OrderService(BaseService):
         # Initialize database
         self.init_database_with_schema_creation('orders', 'SELECT 1')
         self.db.default_schema = 'orders'
-        try:
-            with self.db.transaction():
-                with self.db.get_cursor() as cursor:
-                    cursor.execute(
-                        """
-                        CREATE TABLE IF NOT EXISTS orders.events_processed (
-                            event_id VARCHAR(100) PRIMARY KEY,
-                            topic VARCHAR(100),
-                            partition INTEGER,
-                            offset BIGINT,
-                            consumed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                        )
-                        """
-                    )
-        except Exception as e:
-            self.logger.error("Failed to create orders.events_processed table", error=str(e))
+        self.create_tables_if_not_exist()
         
         # Start event consumer in background thread
         self.start_event_consumer()
@@ -350,7 +335,80 @@ class OrderService(BaseService):
                     'success': False,
                     'error': 'Failed to update order status'
                 }), 500
-    
+
+    def create_tables_if_not_exist(self):
+        """Create database tables if they don't exist"""
+        try:
+            with self.db.transaction() as conn:
+                with conn.cursor() as cursor:
+                    # Events processed table
+                    cursor.execute(
+                        """
+                        CREATE TABLE IF NOT EXISTS orders.events_processed (
+                            event_id VARCHAR(100) PRIMARY KEY,
+                            topic VARCHAR(100),
+                            partition INTEGER,
+                            "offset" BIGINT,
+                            consumed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        )
+                        """
+                    )
+                    self.logger.debug("Table orders.events_processed verified/created")
+                    
+                    # Orders table
+                    cursor.execute(
+                        """
+                        CREATE TABLE IF NOT EXISTS orders.orders (
+                            id VARCHAR(50) PRIMARY KEY,
+                            user_id VARCHAR(50) NOT NULL,
+                            status VARCHAR(20) DEFAULT 'PENDING',
+                            total_amount INTEGER NOT NULL,
+                            delivery_address TEXT NOT NULL,
+                            phone VARCHAR(20),
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        )
+                        """
+                    )
+                    self.logger.debug("Table orders.orders verified/created")
+                    
+                    # Order items table
+                    cursor.execute(
+                        """
+                        CREATE TABLE IF NOT EXISTS orders.order_items (
+                            id SERIAL PRIMARY KEY,
+                            order_id VARCHAR(50) REFERENCES orders.orders(id),
+                            pizz-id VARCHAR(50) NOT NULL,
+                            pizz-name VARCHAR(100) NOT NULL,
+                            quantity INTEGER NOT NULL DEFAULT 1,
+                            unit_price INTEGER NOT NULL,
+                            total_price INTEGER NOT NULL,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        )
+                        """
+                    )
+                    self.logger.debug("Table orders.order_items verified/created")
+
+                    # Outbox events table
+                    cursor.execute(
+                        """
+                        CREATE TABLE IF NOT EXISTS orders.outbox_events (
+                            id SERIAL PRIMARY KEY,
+                            aggregate_id VARCHAR(50) NOT NULL,
+                            event_type VARCHAR(50) NOT NULL,
+                            event_data JSONB NOT NULL,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            processed_at TIMESTAMP,
+                            status VARCHAR(20) DEFAULT 'PENDING'
+                        )
+                        """
+                    )
+                    self.logger.debug("Table orders.outbox_events verified/created")
+            self.logger.info("Database tables verified/created successfully")
+        except Exception as e:
+            self.logger.error("Failed to create database tables", error=str(e))
+            sys.exit(1)
+
     def get_pizza_details(self, items: List[Dict]) -> List[Dict]:
         """Get pizza details using cached catalog to avoid N network calls"""
         try:
