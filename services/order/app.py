@@ -584,19 +584,21 @@ class OrderService(BaseService):
         return self.db.execute_query(query, tuple(params), fetch='all')
 
     def update_order_status_internal(self, order_id: str, new_status: str, reason: str = '', correlation_id: Optional[str] = None) -> bool:
-        """Update order status and create outbox event"""
         with self.db.transaction():
             with self.db.get_cursor() as cursor:
-                # Update order status
+                cursor.execute("SELECT status FROM orders.orders WHERE id = %s", (order_id,))
+                row = cursor.fetchone()
+                if not row:
+                    return False
+                current_status = row.get('status') if isinstance(row, dict) else row[0]
+                if current_status == new_status:
+                    return True
                 cursor.execute(
                     "UPDATE orders.orders SET status = %s, updated_at = CURRENT_TIMESTAMP WHERE id = %s",
                     (new_status, order_id)
                 )
-                
                 if cursor.rowcount == 0:
                     return False
-                    
-                # Create outbox event
                 event_data = {
                     'event_type': 'OrderStatusChanged',
                     'orderId': order_id,
@@ -605,12 +607,10 @@ class OrderService(BaseService):
                     'timestamp': self.get_timestamp(),
                     'correlationId': correlation_id
                 }
-
                 cursor.execute("""
                     INSERT INTO orders.outbox_events (aggregate_id, event_type, event_data)
                     VALUES (%s, %s, %s::jsonb)
                 """, (order_id, 'OrderStatusChanged', json.dumps(event_data)))
-                
                 self.logger.debug(
                     "📤 OrderStatusChanged event added to outbox",
                     order_id=order_id,
@@ -619,7 +619,6 @@ class OrderService(BaseService):
                     reason=reason,
                     outbox_event="Status change event queued for publishing"
                 )
-        
         return True
     
     def start_event_consumer(self):
@@ -705,6 +704,14 @@ class OrderService(BaseService):
         """Handle successful payment"""
         try:
             correlation_id = event_data.get('correlationId')
+            current = self.db.execute_query(
+                "SELECT status FROM orders.orders WHERE id = %s",
+                (order_id,),
+                fetch='one'
+            )
+            if current and current.get('status') in ('PAID','COMPLETED'):
+                self.logger.debug("Skipping duplicate OrderPaid for already finalized order", order_id=order_id)
+                return
             self.update_order_status_internal(order_id, 'PAID', 'Payment successful', correlation_id=correlation_id)
             
             # Update saga state
@@ -750,6 +757,14 @@ class OrderService(BaseService):
         try:
             failure_reason = event_data.get('failure_reason', 'Payment processing failed')
             correlation_id = event_data.get('correlationId')
+            current = self.db.execute_query(
+                "SELECT status FROM orders.orders WHERE id = %s",
+                (order_id,),
+                fetch='one'
+            )
+            if current and current.get('status') in ('FAILED','CANCELLED','PAID','COMPLETED'):
+                self.logger.debug("Skipping duplicate PaymentFailed event for order", order_id=order_id, status=current.get('status'))
+                return
             self.update_order_status_internal(order_id, 'FAILED', failure_reason, correlation_id=correlation_id)
             
             # Update saga state for failure

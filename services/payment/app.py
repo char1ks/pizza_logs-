@@ -362,9 +362,10 @@ class PaymentService(BaseService):
                             id SERIAL PRIMARY KEY,
                             payment_id VARCHAR(50) REFERENCES payments.payments(id),
                             attempt_number INTEGER NOT NULL,
-                            success BOOLEAN DEFAULT false,
+                            status VARCHAR(20) DEFAULT 'PENDING',
                             error_message TEXT,
-                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            completed_at TIMESTAMP
                         )
                         """
                     )
