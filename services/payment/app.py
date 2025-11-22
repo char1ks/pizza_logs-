@@ -363,17 +363,23 @@ class PaymentService(BaseService):
         """Process payment asynchronously with retry pattern"""
         try:
             payment = self.get_payment_by_id(payment_id)
-            if not payment:
-                for i in range(3):
-                    time.sleep(0.1 * (i + 1))
-                    payment = self.get_payment_by_id(payment_id)
-                    if payment:
-                        break
             if not payment and order_id_fallback:
                 alt = self.get_payment_by_order_id(order_id_fallback)
                 if alt:
                     payment = alt
                     payment_id = payment.get('id', payment_id)
+            if not payment:
+                for i in range(6):
+                    time.sleep(0.2 * (i + 1))
+                    payment = self.get_payment_by_id(payment_id)
+                    if payment:
+                        break
+                    if not payment and order_id_fallback:
+                        alt = self.get_payment_by_order_id(order_id_fallback)
+                        if alt:
+                            payment = alt
+                            payment_id = payment.get('id', payment_id)
+                            break
             order_id = (payment.get('order_id') if payment else None) or order_id_fallback
             if not payment and order_id:
                 details = self.db.execute_query(
