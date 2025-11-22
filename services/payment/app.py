@@ -929,21 +929,20 @@ class PaymentService(BaseService):
         amount = event_data['totalAmount']
         payment_method = event_data['paymentMethod']
         
-        # Check for existing payment (idempotency)
-        if self.get_payment_by_order_id(order_id):
-            return
-        
-        # Create payment record – use full UUID to avoid collisions
-        payment_id = f"pay_{uuid.uuid4().hex}"
-        idempotency_key = self.generate_idempotency_key(order_id, amount, payment_method)
-        
-        payment_record = self.create_payment_record(
-            payment_id=payment_id,
-            order_id=order_id,
-            amount=amount,
-            payment_method=payment_method,
-            idempotency_key=idempotency_key
-        )
+        existing_payment = self.get_payment_by_order_id(order_id)
+        if existing_payment:
+            payment_id = existing_payment['id']
+        else:
+            payment_id = event_data.get('paymentId') or f"pay_{uuid.uuid4().hex}"
+            idempotency_key = self.generate_idempotency_key(order_id, amount, payment_method)
+            payment_record = self.create_payment_record(
+                payment_id=payment_id,
+                order_id=order_id,
+                amount=amount,
+                payment_method=payment_method,
+                idempotency_key=idempotency_key
+            )
+            payment_id = payment_record['payment_id']
         payment_id = payment_record['payment_id']
         
         # Start async payment processing (for ALL orders, not just crash tests)
