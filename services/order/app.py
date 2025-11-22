@@ -565,7 +565,7 @@ class OrderService(BaseService):
             correlation_id = event_data.get('correlationId')
             
             self.logger.info(
-                "📨 order-service вычитал сообщение из топика",
+                "📨 order-service вычитал сообщение из топика о платеже",
                 order_id=order_id,
                 correlation_id=correlation_id,
                 event_type=event_type,

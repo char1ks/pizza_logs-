@@ -531,8 +531,8 @@ class EventManager:
                 group_id=group_id,
                 value_deserializer=lambda x: json.loads(x.decode('utf-8')),
                 key_deserializer=lambda x: x.decode('utf-8') if x else None,
-                auto_offset_reset='earliest',
-                enable_auto_commit=True,
+                auto_offset_reset='latest',
+                enable_auto_commit=False,
                 consumer_timeout_ms=1000,
                 max_partition_fetch_bytes=52428800,  # 50MB
                 fetch_max_bytes=52428800  # 50MB
@@ -561,6 +561,8 @@ class EventManager:
                     
                     # Call handler function
                     handler_func(message.topic, message.value, message.key)
+                    # Commit offset after successful handling to avoid reprocessing on restart
+                    consumer.commit()
                     
                     self.metrics.record_kafka_message(message.topic, sent=False)
                     max_messages -= 1

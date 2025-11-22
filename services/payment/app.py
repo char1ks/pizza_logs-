@@ -949,6 +949,11 @@ class PaymentService(BaseService):
             )
             payment_id = payment_record['payment_id']
         
+        current = self.get_payment_by_order_id(order_id)
+        if current and current.get('status') != PaymentStatus.PENDING.value:
+            self.logger.debug("Skipping payment initiation; status is not PENDING", order_id=order_id, payment_id=payment_id, status=current.get('status'))
+            return
+        
         # Start async payment processing (for ALL orders, not just crash tests)
         threading.Thread(
             target=self.process_payment_async,
