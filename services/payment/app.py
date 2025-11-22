@@ -356,6 +356,11 @@ class PaymentService(BaseService):
                     payment = self.get_payment_by_id(payment_id)
                     if payment:
                         break
+            if not payment and order_id_fallback:
+                alt = self.get_payment_by_order_id(order_id_fallback)
+                if alt:
+                    payment = alt
+                    payment_id = payment.get('id', payment_id)
             order_id = (payment.get('order_id') if payment else None) or order_id_fallback
             if not payment:
                 self.update_payment_status(payment_id, PaymentStatus.FAILED.value, "Payment record not found")
