@@ -392,16 +392,27 @@ class DatabaseManager:
                     else:
                         self.logger.debug("Query executed", query=query, rows_returned=0)
                         return None
-                elif fetch == 'all':
-                    result = cursor.fetchall()
-                    result_list = [dict(row) for row in result]
-                    self.logger.debug("Query executed", query=query, rows_returned=len(result_list))
-                    return result_list
                 elif fetch:  # For backward compatibility with boolean True
                     result = cursor.fetchall()
                     result_list = [dict(row) for row in result]
                     self.logger.debug("Query executed", query=query, rows_returned=len(result_list))
+                    # Auto-commit for read operations is not strictly required, but we'll
+                    # still commit to release any advisory locks acquired implicitly.
+                    if not cursor.connection.autocommit:
+                        try:
+                            cursor.connection.commit()
+                        except Exception as commit_err:
+                            self.logger.error("Failed to commit after SELECT", error=str(commit_err))
                     return result_list
+
+                # If no fetch requested, assume it may be a write operation; ensure changes are persisted
+                if not cursor.connection.autocommit:
+                    try:
+                        cursor.connection.commit()
+                        self.logger.debug("Implicit commit executed for write query", query=query)
+                    except Exception as commit_err:
+                        self.logger.error("Failed to commit write query", query=query, error=str(commit_err))
+                        raise
                 else:
                     self.logger.debug("Query executed", query=query, rows_affected=cursor.rowcount)
                     return None
