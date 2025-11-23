@@ -790,29 +790,32 @@ def format_currency(cents: int) -> str:
 
 
 def format_order_status_message(order_id: str, status: str, service: str, **kwargs) -> str:
-    """Format user-friendly order status message"""
+    display_id = order_id
+    try:
+        parts = order_id.split('_')
+        if len(parts) >= 3:
+            display_id = f"{parts[0]}_{parts[2][:6]}"
+        else:
+            display_id = order_id[:12]
+    except Exception:
+        display_id = order_id[:12]
     status_messages = {
-        'PENDING': f"📝 Заказ #{order_id[:8]} принят и ожидает обработки",
-        'PROCESSING': f"⚙️ Заказ #{order_id[:8]} обрабатывается",
-        'PAID': f"💳 Заказ #{order_id[:8]} оплачен успешно",
-        'FAILED': f"❌ Заказ #{order_id[:8]} не удался",
-        'COMPLETED': f"✅ Заказ #{order_id[:8]} выполнен",
-        'CANCELLED': f"🚫 Заказ #{order_id[:8]} отменен"
+        'PENDING': f"📝 Заказ #{display_id} принят и ожидает обработки",
+        'PROCESSING': f"⚙️ Заказ #{display_id} обрабатывается",
+        'PAID': f"💳 Заказ #{display_id} оплачен успешно",
+        'FAILED': f"❌ Заказ #{display_id} не удался",
+        'COMPLETED': f"✅ Заказ #{display_id} выполнен",
+        'CANCELLED': f"🚫 Заказ #{display_id} отменен"
     }
-    
-    base_message = status_messages.get(status, f"📋 Заказ #{order_id[:8]} - статус: {status}")
-    
-    # Add additional context based on service and kwargs
+    base_message = status_messages.get(status, f"📋 Заказ #{display_id} - статус: {status}")
     if service == 'payment-service':
         if 'amount' in kwargs:
             amount_str = format_currency(kwargs['amount'])
             base_message += f" (сумма: {amount_str})"
         if 'payment_method' in kwargs:
             base_message += f" (способ оплаты: {kwargs['payment_method']})"
-    
     if 'reason' in kwargs and kwargs['reason']:
         base_message += f" - {kwargs['reason']}"
-    
     return base_message
 
 
