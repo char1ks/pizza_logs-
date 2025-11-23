@@ -321,19 +321,24 @@ class OutboxProcessor:
         return False
     
     def mark_event_processed(self, event_id: int):
-        """Mark event as processed in outbox table"""
+        """Mark event as processed in outbox table and commit the change.
+        Uses a single transactional connection to avoid losing the UPDATE due to
+        missing commit when using a separate pooled cursor.
+        """
         try:
-            with self.db.transaction():
-                with self.db.get_cursor() as cursor:
-                    cursor.execute("""
+            # Acquire a dedicated transaction connection and commit on exit
+            with self.db.transaction() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        """
                         UPDATE orders.outbox_events
                         SET processed = true, processed_at = CURRENT_TIMESTAMP
                         WHERE id = %s
-                    """, (event_id,))
-                    
+                        """,
+                        (event_id,)
+                    )
                     if cursor.rowcount == 0:
                         raise Exception(f"Event {event_id} not found for marking as processed")
-                        
         except Exception as e:
             self.logger.error("Failed to mark event as processed", event_id=event_id, error=str(e))
             raise
