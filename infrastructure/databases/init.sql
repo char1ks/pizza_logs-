@@ -3,6 +3,9 @@
 -- Event-Driven Saga Architecture
 -- ================================================
 
+-- Enable query statistics extension for postgres-exporter slow query metrics
+CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
+
 -- ================================================
 -- FRONTEND SERVICE SCHEMA
 -- ================================================

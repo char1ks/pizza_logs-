@@ -28,6 +28,10 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./infrastructure/databases/init.sql:/docker-entrypoint-initdb.d/init.sql
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_preload_libraries=pg_stat_statements"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U pizza_user -d pizza_system"]
       interval: 10s

@@ -77,9 +77,9 @@ pizza_payments_metrics:
     SELECT
       status,
       COUNT(*) as count,
-      COALESCE(AVG(EXTRACT(EPOCH FROM (completed_at - created_at))), 0) as avg_processing_time_seconds
+      COALESCE(AVG(EXTRACT(EPOCH FROM (completed_at - attempt_at))), 0) as avg_processing_time_seconds
     FROM payments.payment_attempts
-    WHERE created_at >= NOW() - INTERVAL '1 hour'
+    WHERE attempt_at >= NOW() - INTERVAL '1 hour'
     GROUP BY status
   metrics:
     - status:
@@ -153,12 +153,12 @@ pg_slow_queries:
     SELECT
       query,
       calls,
-      total_time,
-      mean_time,
+      total_exec_time as total_time,
+      mean_exec_time as mean_time,
       rows
     FROM pg_stat_statements
-    WHERE mean_time > 100
-    ORDER BY mean_time DESC
+    WHERE mean_exec_time > 100
+    ORDER BY mean_exec_time DESC
     LIMIT 10
   metrics:
     - query:
