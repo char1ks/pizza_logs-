@@ -6,38 +6,24 @@
 
 ## 🏗️ Архитектура системы
 
-```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   👤 User       │───▶│  🚪 Nginx        │───▶│ 🍕 Frontend     │
-│                 │    │  API Gateway     │    │  Service        │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
-                                │                        │
-                                │                        │
-                                ▼                        ▼
-                       ┌─────────────────┐    ┌─────────────────┐
-                       │ 📦 Order        │    │ 🗄️ Frontend DB  │
-                       │  Service        │    │  (Pizzas)       │
-                       └─────────────────┘    └─────────────────┘
-                                │                        
-                                │                        
-                                ▼                        
-                       ┌─────────────────┐              
-                       │ 🔄 Kafka        │              
-                       │  Events         │              
-                       └─────────────────┘              
-                                │                        
-                    ┌───────────┼───────────┐           
-                    ▼           ▼           ▼           
-           ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
-           │ 💳 Payment  │ │ 📧 Notification │ │ ☠️ DLQ      │
-           │  Service    │ │  Service    │ │  Handler    │
-           └─────────────┘ └─────────────┘ └─────────────┘
-                    │              │              
-                    ▼              ▼              
-           ┌─────────────┐ ┌─────────────┐        
-           │ 🏦 Payment  │ │ 📊 Prometheus│        
-           │  Mock       │ │  + Grafana  │        
-           └─────────────┘ └─────────────┘        
+```mermaid
+flowchart TD
+    User["👤 User"] --> Nginx["🔒 Nginx API Gateway"]
+    Nginx --> Frontend["🍕 Frontend Service"]
+    Nginx --> Order["📦 Order Service"]
+    
+    subgraph Frontend_Stack ["Frontend Stack"]
+        Frontend --> DB_Pizzas["🗄️ Pizzas DB"]
+    end
+    
+    Order --> Kafka["🔄 Kafka Event Bus"]
+    
+    Kafka --> Payment["💳 Payment Service"]
+    Kafka --> Notification["🔔 Notification Service"]
+    Kafka --> DLQ["☠️ DLQ Handler"]
+    
+    Payment --> PMock["🏦 Payment Mock"]
+    Notification --> Monitoring["📊 Prometheus + Grafana"]
 ```
 
 ## 🔄 Saga Flow
