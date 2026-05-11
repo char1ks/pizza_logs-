@@ -509,7 +509,7 @@ class NotificationService(BaseService):
     
     def handle_event(self, topic: str, event_data: Dict, key: str):
         """Handle events from Kafka by generating notifications."""
-            event_type = event_data.get('event_type')
+        event_type = event_data.get('event_type')
         order_id = event_data.get('orderId') or event_data.get('order_id')
             
         self.logger.info("Processing event for notification", topic=topic, event_type=event_type, order_id=order_id)
@@ -556,7 +556,7 @@ class NotificationService(BaseService):
     def handle_order_paid(self, event_data: Dict):
         """Handle OrderPaid event (successful payment)."""
         user_id = event_data.get('user_id', 'anonymous')
-            order_id = event_data.get('order_id')
+        order_id = event_data.get('order_id')
         
         if not order_id:
             self.logger.warning("OrderPaid event missing order_id", event_data=event_data)
