@@ -587,8 +587,8 @@ class OrderService(BaseService):
         return self.db.execute_query(query, tuple(params), fetch='all')
 
     def update_order_status_internal(self, order_id: str, new_status: str, reason: str = '', correlation_id: Optional[str] = None) -> bool:
-        with self.db.transaction():
-            with self.db.get_cursor() as cursor:
+        with self.db.transaction() as conn:
+            with conn.cursor() as cursor:
                 cursor.execute("SELECT status FROM orders.orders WHERE id = %s", (order_id,))
                 row = cursor.fetchone()
                 if not row:
@@ -686,8 +686,8 @@ class OrderService(BaseService):
             self.metrics.record_business_event('payment_event_processed', 'success')
             if event_id:
                 try:
-                    with self.db.transaction():
-                        with self.db.get_cursor() as cursor:
+                    with self.db.transaction() as conn:
+                        with conn.cursor() as cursor:
                             cursor.execute(
                                 """
                                 INSERT INTO orders.events_processed (event_id, topic, partition, "offset")
@@ -718,8 +718,8 @@ class OrderService(BaseService):
             self.update_order_status_internal(order_id, 'PAID', 'Payment successful', correlation_id=correlation_id)
             
             # Update saga state
-            with self.db.transaction():
-                with self.db.get_cursor() as cursor:
+            with self.db.transaction() as conn:
+                with conn.cursor() as cursor:
                     cursor.execute("""
                         UPDATE orders.order_saga_state 
                         SET current_step = 'payment_processed',
@@ -771,8 +771,8 @@ class OrderService(BaseService):
             self.update_order_status_internal(order_id, 'FAILED', failure_reason, correlation_id=correlation_id)
             
             # Update saga state for failure
-            with self.db.transaction():
-                with self.db.get_cursor() as cursor:
+            with self.db.transaction() as conn:
+                with conn.cursor() as cursor:
                     cursor.execute("""
                         UPDATE orders.order_saga_state 
                         SET current_step = 'failed',
