@@ -21,14 +21,8 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Установка k6 для нагрузочного тестирования
-RUN apt-get update && \
-    apt-get install -y gnupg ca-certificates curl && \
-    mkdir -p /etc/apt/keyrings && \
-    curl -s https://dl.k6.io/key.gpg | gpg --dearmor -o /etc/apt/keyrings/k6.gpg && \
-    echo "deb [signed-by=/etc/apt/keyrings/k6.gpg] https://dl.k6.io/deb stable main" | tee /etc/apt/sources.list.d/k6.list && \
-    apt-get update && \
-    apt-get install -y k6
+# k6 для нагрузочного тестирования: готовый multi-arch бинарь из официального образа
+COPY --from=grafana/k6:latest /usr/bin/k6 /usr/local/bin/k6
 
 # Копируем requirements.txt из родительской папки
 COPY requirements.txt requirements.txt
