@@ -385,8 +385,8 @@ class PaymentService(BaseService):
                             payment_method: str, idempotency_key: str) -> Dict:
         """Create payment record in database. If a record for the given order_id already exists, return it instead of failing."""
         try:
-            with self.db.transaction():
-                with self.db.get_cursor() as cursor:
+            with self.db.transaction() as conn:
+                with conn.cursor() as cursor:
                     cursor.execute(
                         """
                         INSERT INTO payments.payments (id, order_id, amount, payment_method, status, idempotency_key)
@@ -448,8 +448,8 @@ class PaymentService(BaseService):
                 if details:
                     idem = self.generate_idempotency_key(order_id, details['total'], details['payment_method'])
                     try:
-                        with self.db.transaction():
-                            with self.db.get_cursor() as cursor:
+                        with self.db.transaction() as conn:
+                            with conn.cursor() as cursor:
                                 cursor.execute("""
                                     INSERT INTO payments.payments (id, order_id, amount, payment_method, status, idempotency_key)
                                     VALUES (%s, %s, %s, %s, %s, %s)
@@ -767,8 +767,8 @@ class PaymentService(BaseService):
     def update_payment_status(self, payment_id: str, status: str, failure_reason: str = None):
         """Update payment status"""
         try:
-            with self.db.transaction():
-                with self.db.get_cursor() as cursor:
+            with self.db.transaction() as conn:
+                with conn.cursor() as cursor:
                     cursor.execute("""
                         UPDATE payments.payments
                         SET status = %s, failure_reason = %s, updated_at = CURRENT_TIMESTAMP
@@ -903,16 +903,19 @@ class PaymentService(BaseService):
         """Start Kafka event consumer in background thread"""
         def consume_events():
             self.logger.debug("Starting event consumer for order events")
-            
+
+            batch_size = int(os.getenv('PAYMENT_BATCH_SIZE', '10'))
+            poll_interval = float(os.getenv('PAYMENT_POLL_INTERVAL', '1'))
+
             while True:
                 try:
                     self.events.process_events(
                         topics=['order-events'],
                         group_id='payment-service-group',
                         handler_func=self.handle_order_event,
-                        max_messages=10
+                        max_messages=batch_size
                     )
-                    time.sleep(1)  # Small delay between polling
+                    time.sleep(poll_interval)  # Delay between polling cycles
                 except Exception as e:
                     self.logger.error("Event consumer error", error=str(e))
                     time.sleep(5)  # Wait before retrying
@@ -984,8 +987,8 @@ class PaymentService(BaseService):
                 self.logger.debug("Unknown event type", event_type=event_type)
             if event_id:
                 try:
-                    with self.db.transaction():
-                        with self.db.get_cursor() as cursor:
+                    with self.db.transaction() as conn:
+                        with conn.cursor() as cursor:
                             cursor.execute(
                                 """
                                 INSERT INTO payments.events_processed (event_id, topic, partition, "offset")
