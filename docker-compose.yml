@@ -1,21 +1,4 @@
-networks:
-  pizza-network:
-    driver: bridge
-
-volumes:
-  postgres-data:
-  kafka-data:
-  zookeeper-data:
-  prometheus-data:
-  grafana-data:
-  pgadmin-data:
-
 services:
-  # ========================
-  # INFRASTRUCTURE SERVICES
-  # ========================
-  
-  # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
     container_name: postgres
@@ -37,28 +20,34 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - pizza-network
+      start_period: 10s
+    restart: unless-stopped
 
-  # Zookeeper for Kafka
   zookeeper:
     image: confluentinc/cp-zookeeper:7.4.1
     container_name: zookeeper
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_SYNC_LIMIT: 2
+      ZOOKEEPER_INIT_LIMIT: 5
+      ZOOKEEPER_4LW_COMMANDS_WHITELIST: "*"
+    ports:
+      - "2181:2181"
     volumes:
       - zookeeper-data:/var/lib/zookeeper/data
     healthcheck:
-      test: ["CMD-SHELL", "echo ruok | nc -w 2 localhost 2181 | grep -q imok"]
+      test:
+        [
+          "CMD-SHELL",
+          "cub zk-ready zookeeper:2181 30"
+        ]
       interval: 10s
-      timeout: 5s
+      timeout: 10s
       retries: 10
-      start_period: 10s
-    networks:
-      - pizza-network
+      start_period: 20s
+    restart: unless-stopped
 
-  # Kafka Message Broker
   kafka:
     image: confluentinc/cp-kafka:7.4.1
     container_name: kafka
@@ -70,44 +59,50 @@ services:
       - "29092:29092"
     environment:
       KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ZOOKEEPER_CONNECTION_TIMEOUT_MS: 60000
+      KAFKA_ZOOKEEPER_SESSION_TIMEOUT_MS: 60000
+
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
-      # Message size limits - set to reasonable values
-      KAFKA_MESSAGE_MAX_BYTES: 104857600  # 100MB
-      KAFKA_REPLICA_FETCH_MAX_BYTES: 104857600  # 100MB
-      KAFKA_SOCKET_REQUEST_MAX_BYTES: 104857600  # 100MB
-      # JVM Settings for Kafka - с direct buffer memory
-      KAFKA_HEAP_OPTS: '-Xmx1G -Xms1G -XX:MaxDirectMemorySize=512M'
-      KAFKA_JVM_PERFORMANCE_OPTS: '-server -XX:+UseG1GC -XX:MaxGCPauseMillis=20 -XX:InitiatingHeapOccupancyPercent=35 -XX:+ExplicitGCInvokesConcurrent -Djava.awt.headless=true -XX:+HeapDumpOnOutOfMemoryError -XX:NativeMemoryTracking=summary'
-      # Zookeeper connection timeout settings
-      KAFKA_ZOOKEEPER_CONNECTION_TIMEOUT_MS: 60000
-      KAFKA_ZOOKEEPER_SESSION_TIMEOUT_MS: 60000
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+
+      KAFKA_MESSAGE_MAX_BYTES: 104857600
+      KAFKA_REPLICA_FETCH_MAX_BYTES: 104857600
+      KAFKA_SOCKET_REQUEST_MAX_BYTES: 104857600
+
+      KAFKA_HEAP_OPTS: "-Xmx1G -Xms1G -XX:MaxDirectMemorySize=512M"
+
     volumes:
       - kafka-data:/var/lib/kafka/data
-    networks:
-      - pizza-network
+
     healthcheck:
-      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092"]
-      interval: 30s
-      timeout: 15s
+      test:
+        [
+          "CMD-SHELL",
+          "kafka-broker-api-versions --bootstrap-server localhost:29092 >/dev/null 2>&1"
+        ]
+      interval: 15s
+      timeout: 10s
       retries: 10
       start_period: 60s
 
-  # Kafka UI for monitoring events
+    restart: unless-stopped
+
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: kafka-ui
     depends_on:
       kafka:
-        condition: service_healthy
-      zookeeper:
         condition: service_healthy
     ports:
       - "8080:8080"
@@ -115,14 +110,10 @@ services:
       KAFKA_CLUSTERS_0_NAME: local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
       KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
-      # Connection timeout settings
       KAFKA_CLUSTERS_0_PROPERTIES_CONNECTIONS_MAX_IDLE_MS: 60000
       KAFKA_CLUSTERS_0_PROPERTIES_REQUEST_TIMEOUT_MS: 60000
-    networks:
-      - pizza-network
     restart: unless-stopped
 
-  # Prometheus Monitoring
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
@@ -132,16 +123,14 @@ services:
       - ./infrastructure/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus-data:/prometheus
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/etc/prometheus/console_libraries'
-      - '--web.console.templates=/etc/prometheus/consoles'
-      - '--storage.tsdb.retention.time=200h'
-      - '--web.enable-lifecycle'
-    networks:
-      - pizza-network
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/etc/prometheus/console_libraries"
+      - "--web.console.templates=/etc/prometheus/consoles"
+      - "--storage.tsdb.retention.time=200h"
+      - "--web.enable-lifecycle"
+    restart: unless-stopped
 
-  # Grafana Visualization
   grafana:
     image: grafana/grafana:latest
     container_name: grafana
@@ -154,10 +143,8 @@ services:
       - grafana-data:/var/lib/grafana
       - ./infrastructure/monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
       - ./infrastructure/monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
-    networks:
-      - pizza-network
+    restart: unless-stopped
 
-  # Nginx API Gateway
   nginx:
     image: nginx:alpine
     container_name: nginx
@@ -170,22 +157,18 @@ services:
     depends_on:
       - frontend-service
       - order-service
-    networks:
-      - pizza-network
+    restart: unless-stopped
 
-  # pgAdmin - PostgreSQL Administration Tool
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: pgadmin
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@pizza.app
       PGADMIN_DEFAULT_PASSWORD: admin
-      PGADMIN_CONFIG_SERVER_MODE: 'False'
-      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
-      # Configuration for running behind nginx proxy
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
       PGADMIN_CONFIG_X_FRAME_OPTIONS: '"SAMEORIGIN"'
-      PGADMIN_CONFIG_ENHANCED_COOKIE_PROTECTION: 'False'
-      # Trust a single reverse proxy hop (GitHub Codespaces ingress/nginx)
+      PGADMIN_CONFIG_ENHANCED_COOKIE_PROTECTION: "False"
       PGADMIN_CONFIG_PROXY_X_FOR_COUNT: 1
       PGADMIN_CONFIG_PROXY_X_PROTO_COUNT: 1
       PGADMIN_CONFIG_PROXY_X_HOST_COUNT: 1
@@ -196,11 +179,10 @@ services:
       - pgadmin-data:/var/lib/pgadmin
       - ./infrastructure/databases/pgadmin-servers.json:/pgadmin4/servers.json
     depends_on:
-      - postgres
-    networks:
-      - pizza-network
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
 
-  # Node Exporter - System Metrics
   node-exporter:
     image: prom/node-exporter:latest
     container_name: node-exporter
@@ -208,16 +190,14 @@ services:
       - "9100:9100"
     volumes:
       - /proc:/host/proc:ro
-      - /sys:/host/sys:ro
+      - /sys:/sys:ro
       - /:/rootfs:ro
     command:
-      - '--path.procfs=/host/proc'
-      - '--path.sysfs=/host/sys'
-      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
-    networks:
-      - pizza-network
+      - "--path.procfs=/host/proc"
+      - "--path.sysfs=/host/sys"
+      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
+    restart: unless-stopped
 
-  # PostgreSQL Exporter - Database Metrics
   postgres-exporter:
     image: prometheuscommunity/postgres-exporter:latest
     container_name: postgres-exporter
@@ -231,81 +211,66 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    networks:
-      - pizza-network
+    restart: unless-stopped
 
-  # Kafka Exporter - Message Broker Metrics
   kafka-exporter:
     image: danielqsj/kafka-exporter:latest
     container_name: kafka-exporter
     ports:
       - "9308:9308"
     command:
-      - '--kafka.server=kafka:29092'
-      - '--web.listen-address=:9308'
-      - '--log.level=info'
+      - "--kafka.server=kafka:29092"
+      - "--web.listen-address=:9308"
+      - "--log.level=info"
     depends_on:
       kafka:
         condition: service_healthy
-    networks:
-      - pizza-network
+    restart: unless-stopped
 
-  # cAdvisor - Container Metrics
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.47.0
     container_name: cadvisor
     privileged: true
     ports:
-      - "8083:8080"  # Changed from 8082 to avoid conflict
+      - "8083:8080"
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:rw
       - /sys:/sys:ro
     command:
-      - '--docker_only=true'
-      - '--store_container_labels=false'
-      - '--whitelisted_container_labels=io.kubernetes.pod.namespace,io.kubernetes.pod.name,io.kubernetes.container.name'
-    networks:
-      - pizza-network
+      - "--docker_only=true"
+      - "--store_container_labels=false"
+      - "--whitelisted_container_labels=io.kubernetes.pod.namespace,io.kubernetes.pod.name,io.kubernetes.container.name"
+    restart: unless-stopped
 
-  # Nginx Prometheus Exporter - Nginx Metrics
   nginx-exporter:
     image: nginx/nginx-prometheus-exporter:latest
     container_name: nginx-exporter
     ports:
       - "9113:9113"
     command:
-      - '-nginx.scrape-uri=http://nginx:8082/metrics'
-      - '-web.listen-address=:9113'
+      - "-nginx.scrape-uri=http://nginx:8082/metrics"
+      - "-web.listen-address=:9113"
     depends_on:
       - nginx
-    networks:
-      - pizza-network
+    restart: unless-stopped
 
-  # k6 Load Tester
   k6:
     image: grafana/k6:latest
     container_name: k6
-    profiles: ["tools"]
+    profiles:
+      - tools
     environment:
       FAIL_RATE: "30"
     ports:
-      - "6565:6565" # k6 API server
+      - "6565:6565"
     volumes:
       - ./load-testing:/scripts
-    networks:
-      - pizza-network
     depends_on:
       - nginx
       - order-service
-    # To run the test: docker-compose run --build k6 run /scripts/order-create.js
-    entrypoint: [""] # Disable default entrypoint
+    entrypoint: [""]
 
-  # ========================
-  # MICROSERVICES
-  # ========================
-
-  # Frontend Service (Menu & UI Logic)
   frontend-service:
     build:
       context: ./services
@@ -324,14 +289,11 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
-    networks:
-      - pizza-network
     volumes:
       - ./services/logs:/app/logs
       - ./load-testing:/app/load-testing
     restart: unless-stopped
 
-  # Order Service (Order Management + Outbox)
   order-service:
     build:
       context: ./services
@@ -351,13 +313,10 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
-    networks:
-      - pizza-network
     volumes:
       - ./services/logs:/app/logs
     restart: unless-stopped
 
-  # Payment Service (Payment Processing + Retry Pattern)
   payment-service:
     build:
       context: ./services
@@ -377,38 +336,10 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
-    networks:
-      - pizza-network
     volumes:
       - ./services/logs:/app/logs
     restart: unless-stopped
 
-  # Notification Service (User Notifications)
-  notification-service:
-    build:
-      context: ./services
-      dockerfile: notification/Dockerfile
-    container_name: notification-service
-    ports:
-      - "5004:5004"
-    environment:
-      DATABASE_URL: postgresql://pizza_user:pizza_password@postgres:5432/pizza_system
-      KAFKA_BROKER: kafka:29092
-      SERVICE_NAME: notification-service
-      SERVICE_VERSION: "1.0.0"
-      PORT: "5004"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-    networks:
-      - pizza-network
-    volumes:
-      - ./services/logs:/app/logs
-    restart: unless-stopped
-
-  # Payment Mock (External Payment Provider Simulation)
   payment-mock:
     build:
       context: ./services
@@ -428,17 +359,32 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
-    networks:
-      - pizza-network
     volumes:
       - ./services/logs:/app/logs
     restart: unless-stopped
 
-  # ========================
-  # OUTBOX PROCESSORS
-  # ========================
+  notification-service:
+    build:
+      context: ./services
+      dockerfile: notification/Dockerfile
+    container_name: notification-service
+    ports:
+      - "5004:5004"
+    environment:
+      DATABASE_URL: postgresql://pizza_user:pizza_password@postgres:5432/pizza_system
+      KAFKA_BROKER: kafka:29092
+      SERVICE_NAME: notification-service
+      SERVICE_VERSION: "1.0.0"
+      PORT: "5004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./services/logs:/app/logs
+    restart: unless-stopped
 
-  # Order Outbox Processor (Publishes events from Order Service)
   order-outbox-processor:
     build:
       context: ./services
@@ -454,17 +400,10 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
-    networks:
-      - pizza-network
     volumes:
       - ./services/logs:/app/logs
     restart: unless-stopped
 
-  # ========================
-  # TOOLS & UTILITIES
-  # ========================
-
-  # Initialize Kafka Topics
   kafka-setup:
     image: confluentinc/cp-kafka:7.4.1
     container_name: kafka-setup
@@ -474,15 +413,33 @@ services:
     command: >
       bash -c "
         echo 'Creating Kafka topics...' &&
-        kafka-topics --create --if-not-exists --topic order-events --bootstrap-server kafka:29092 --partitions 1 --replication-factor 1 &&
-        kafka-topics --create --if-not-exists --topic payment-events --bootstrap-server kafka:29092 --partitions 1 --replication-factor 1 &&
-        kafka-topics --create --if-not-exists --topic notification-events --bootstrap-server kafka:29092 --partitions 1 --replication-factor 1 &&
-        kafka-topics --create --if-not-exists --topic dlq-events --bootstrap-server kafka:29092 --partitions 1 --replication-factor 1 &&
+        kafka-topics --create --if-not-exists
+          --topic order-events
+          --bootstrap-server kafka:29092
+          --partitions 1
+          --replication-factor 1 &&
+        kafka-topics --create --if-not-exists
+          --topic payment-events
+          --bootstrap-server kafka:29092
+          --partitions 1
+          --replication-factor 1 &&
+        kafka-topics --create --if-not-exists
+          --topic notification-events
+          --bootstrap-server kafka:29092
+          --partitions 1
+          --replication-factor 1 &&
+        kafka-topics --create --if-not-exists
+          --topic dlq-events
+          --bootstrap-server kafka:29092
+          --partitions 1
+          --replication-factor 1 &&
         echo 'Topics created successfully!'
       "
-    networks:
-      - pizza-network
 
-# ========================
-# TOOLS & UTILITIES
-# ========================
+volumes:
+  postgres-data:
+  kafka-data:
+  zookeeper-data:
+  prometheus-data:
+  grafana-data:
+  pgadmin-data:
