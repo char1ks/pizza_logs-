@@ -1,31 +1,31 @@
 services:
+
   postgres:
     image: postgres:15-alpine
     container_name: postgres
+    restart: unless-stopped
     environment:
       POSTGRES_USER: pizza_user
       POSTGRES_PASSWORD: pizza_password
       POSTGRES_DB: pizza_system
+    ports:
+      - "5433:5432"
     command:
       - postgres
       - -c
       - shared_preload_libraries=pg_stat_statements
-    ports:
-      - "5433:5432"
     volumes:
-      - postgres-data:/var/lib/postgresql/data
-      - ./infrastructure/databases/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U pizza_user -d pizza_system"]
-      interval: 10s
+      interval: 5s
       timeout: 5s
-      retries: 5
-      start_period: 10s
-    restart: unless-stopped
+      retries: 20
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.4.1
     container_name: zookeeper
+    restart: unless-stopped
     network_mode: host
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
@@ -33,30 +33,22 @@ services:
       ZOOKEEPER_SYNC_LIMIT: 2
       ZOOKEEPER_INIT_LIMIT: 5
       ZOOKEEPER_4LW_COMMANDS_WHITELIST: "*"
-    volumes:
-      - zookeeper-data:/var/lib/zookeeper/data
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "cub zk-ready 127.0.0.1:2181 30"
-        ]
+      test: ["CMD-SHELL", "cub zk-ready 127.0.0.1:2181 30"]
       interval: 10s
       timeout: 10s
       retries: 10
-      start_period: 20s
-    restart: unless-stopped
 
   kafka:
     image: confluentinc/cp-kafka:7.4.1
     container_name: kafka
+    restart: unless-stopped
     network_mode: host
     depends_on:
       zookeeper:
         condition: service_healthy
     environment:
       KAFKA_BROKER_ID: 1
-
       KAFKA_ZOOKEEPER_CONNECT: 127.0.0.1:2181
       KAFKA_ZOOKEEPER_CONNECTION_TIMEOUT_MS: 60000
       KAFKA_ZOOKEEPER_SESSION_TIMEOUT_MS: 60000
@@ -70,7 +62,6 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
-
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
 
       KAFKA_MESSAGE_MAX_BYTES: 104857600
@@ -79,385 +70,278 @@ services:
 
       KAFKA_HEAP_OPTS: "-Xmx1G -Xms1G -XX:MaxDirectMemorySize=512M"
 
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-
-    volumes:
-      - kafka-data:/var/lib/kafka/data
-
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "kafka-broker-api-versions --bootstrap-server localhost:29092 >/dev/null 2>&1"
-        ]
-      interval: 15s
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:29092"]
+      interval: 10s
       timeout: 10s
-      retries: 10
-      start_period: 60s
-
-    restart: unless-stopped
+      retries: 20
 
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: kafka-ui
-    depends_on:
-      kafka:
-        condition: service_healthy
+    restart: unless-stopped
     ports:
       - "8082:8080"
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    depends_on:
+      kafka:
+        condition: service_healthy
     environment:
       KAFKA_CLUSTERS_0_NAME: local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: host.docker.internal:29092
       KAFKA_CLUSTERS_0_ZOOKEEPER: host.docker.internal:2181
-      KAFKA_CLUSTERS_0_PROPERTIES_CONNECTIONS_MAX_IDLE_MS: 60000
-      KAFKA_CLUSTERS_0_PROPERTIES_REQUEST_TIMEOUT_MS: 60000
-    restart: unless-stopped
 
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: prometheus
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./infrastructure/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus-data:/prometheus
-    command:
-      - "--config.file=/etc/prometheus/prometheus.yml"
-      - "--storage.tsdb.path=/prometheus"
-      - "--web.console.libraries=/etc/prometheus/console_libraries"
-      - "--web.console.templates=/etc/prometheus/consoles"
-      - "--storage.tsdb.retention.time=200h"
-      - "--web.enable-lifecycle"
+  frontend-service:
+    build:
+      context: ./services/frontend-service
+    container_name: frontend-service
     restart: unless-stopped
-
-  grafana:
-    image: grafana/grafana:latest
-    container_name: grafana
     ports:
-      - "3000:3000"
+      - "5000:5000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: admin
-    volumes:
-      - grafana-data:/var/lib/grafana
-      - ./infrastructure/monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
-      - ./infrastructure/monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+      DATABASE_URL: postgresql://pizza_user:pizza_password@host.docker.internal:5433/pizza_system
+      KAFKA_BROKER: host.docker.internal:29092
+      PORT: 5000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  order-service:
+    build:
+      context: ./services/order-service
+    container_name: order-service
     restart: unless-stopped
+    ports:
+      - "5001:5001"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      DATABASE_URL: postgresql://pizza_user:pizza_password@host.docker.internal:5433/pizza_system
+      KAFKA_BROKER: host.docker.internal:29092
+      FRONTEND_SERVICE_URL: http://host.docker.internal:5000
+      PORT: 5001
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      frontend-service:
+        condition: service_started
+
+  payment-service:
+    build:
+      context: ./services/payment-service
+    container_name: payment-service
+    restart: unless-stopped
+    ports:
+      - "5002:5002"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      DATABASE_URL: postgresql://pizza_user:pizza_password@host.docker.internal:5433/pizza_system
+      KAFKA_BROKER: host.docker.internal:29092
+      PAYMENT_MOCK_URL: http://host.docker.internal:5003
+      PORT: 5002
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      payment-mock:
+        condition: service_started
+
+  payment-mock:
+    build:
+      context: ./services/payment-mock
+    container_name: payment-mock
+    restart: unless-stopped
+    ports:
+      - "5003:5003"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      DATABASE_URL: postgresql://pizza_user:pizza_password@host.docker.internal:5433/pizza_system
+      KAFKA_BROKER: host.docker.internal:29092
+      FAILURE_RATE: "0.0"
+      PORT: 5003
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  notification-service:
+    build:
+      context: ./services/notification-service
+    container_name: notification-service
+    restart: unless-stopped
+    ports:
+      - "5004:5004"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      DATABASE_URL: postgresql://pizza_user:pizza_password@host.docker.internal:5433/pizza_system
+      KAFKA_BROKER: host.docker.internal:29092
+      PORT: 5004
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  order-outbox-processor:
+    build:
+      context: ./services/order-outbox-processor
+    container_name: order-outbox-processor
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      DATABASE_URL: postgresql://pizza_user:pizza_password@host.docker.internal:5433/pizza_system
+      KAFKA_BROKER: host.docker.internal:29092
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
 
   nginx:
     image: nginx:alpine
     container_name: nginx
+    restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
-      - ./infrastructure/nginx/nginx.conf:/etc/nginx/nginx.conf
-      - ./ui:/usr/share/nginx/html
+      - ./infrastructure/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./infrastructure/nginx/logs:/var/log/nginx
     depends_on:
-      - frontend-service
-      - order-service
+      frontend-service:
+        condition: service_started
+      order-service:
+        condition: service_started
+      payment-service:
+        condition: service_started
+      notification-service:
+        condition: service_started
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
     restart: unless-stopped
+    ports:
+      - "9090:9090"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./infrastructure/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
 
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: pgadmin
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@pizza.app
-      PGADMIN_DEFAULT_PASSWORD: admin
-      PGADMIN_CONFIG_SERVER_MODE: "False"
-      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
-      PGADMIN_CONFIG_X_FRAME_OPTIONS: '"SAMEORIGIN"'
-      PGADMIN_CONFIG_ENHANCED_COOKIE_PROTECTION: "False"
-      PGADMIN_CONFIG_PROXY_X_FOR_COUNT: 1
-      PGADMIN_CONFIG_PROXY_X_PROTO_COUNT: 1
-      PGADMIN_CONFIG_PROXY_X_HOST_COUNT: 1
-      PGADMIN_CONFIG_PROXY_X_PORT_COUNT: 1
+    restart: unless-stopped
     ports:
       - "8081:80"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: pgadmin@pgadmin.org
+      PGADMIN_DEFAULT_PASSWORD: admin
     volumes:
-      - pgadmin-data:/var/lib/pgadmin
-      - ./infrastructure/databases/pgadmin-servers.json:/pgadmin4/servers.json
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: unless-stopped
-
-  node-exporter:
-    image: prom/node-exporter:latest
-    container_name: node-exporter
-    ports:
-      - "9100:9100"
-    volumes:
-      - /proc:/host/proc:ro
-      - /sys:/sys:ro
-      - /:/rootfs:ro
-    command:
-      - "--path.procfs=/host/proc"
-      - "--path.sysfs=/host/sys"
-      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
-    restart: unless-stopped
+      - pgadmin_data:/var/lib/pgadmin
 
   postgres-exporter:
     image: prometheuscommunity/postgres-exporter:latest
     container_name: postgres-exporter
+    restart: unless-stopped
     ports:
       - "9187:9187"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
-      DATA_SOURCE_NAME: "postgresql://pizza_user:pizza_password@postgres:5432/pizza_system?sslmode=disable"
-      PG_EXPORTER_EXTEND_QUERY_PATH: /etc/postgres_exporter/queries.yaml
-    volumes:
-      - ./infrastructure/monitoring/postgres-queries.yaml:/etc/postgres_exporter/queries.yaml
+      DATA_SOURCE_NAME: postgresql://pizza_user:pizza_password@host.docker.internal:5433/pizza_system?sslmode=disable
     depends_on:
       postgres:
         condition: service_healthy
-    restart: unless-stopped
 
   kafka-exporter:
     image: danielqsj/kafka-exporter:latest
     container_name: kafka-exporter
+    restart: unless-stopped
     ports:
       - "9308:9308"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     command:
       - "--kafka.server=host.docker.internal:29092"
-      - "--web.listen-address=:9308"
-      - "--log.level=info"
     depends_on:
       kafka:
         condition: service_healthy
-    restart: unless-stopped
-
-  cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.47.0
-    container_name: cadvisor
-    privileged: true
-    ports:
-      - "8083:8080"
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:rw
-      - /sys:/sys:ro
-    command:
-      - "--docker_only=true"
-      - "--store_container_labels=false"
-      - "--whitelisted_container_labels=io.kubernetes.pod.namespace,io.kubernetes.pod.name,io.kubernetes.container.name"
-    restart: unless-stopped
 
   nginx-exporter:
     image: nginx/nginx-prometheus-exporter:latest
     container_name: nginx-exporter
+    restart: unless-stopped
     ports:
       - "9113:9113"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     command:
-      - "-nginx.scrape-uri=http://nginx:8082/metrics"
-      - "-web.listen-address=:9113"
+      - "-nginx.scrape-uri=http://host.docker.internal:80/stub_status"
     depends_on:
-      - nginx
-    restart: unless-stopped
+      nginx:
+        condition: service_started
 
-  k6:
-    image: grafana/k6:latest
-    container_name: k6
-    profiles:
-      - tools
-    environment:
-      FAIL_RATE: "30"
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    restart: unless-stopped
     ports:
-      - "6565:6565"
+      - "9100:9100"
     volumes:
-      - ./load-testing:/scripts
-    depends_on:
-      - nginx
-      - order-service
-    entrypoint: [""]
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - "--path.procfs=/host/proc"
+      - "--path.sysfs=/host/sys"
+      - "--path.rootfs=/rootfs"
+      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
 
-  frontend-service:
-    build:
-      context: ./services
-      dockerfile: frontend/Dockerfile
-    container_name: frontend-service
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.47.0
+    container_name: cadvisor
+    restart: unless-stopped
     ports:
-      - "5000:5000"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    environment:
-      DATABASE_URL: postgresql://pizza_user:pizza_password@postgres:5432/pizza_system
-      KAFKA_BROKER: host.docker.internal:29092
-      SERVICE_NAME: frontend-service
-      SERVICE_VERSION: "1.0.0"
-      PORT: "5000"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
+      - "8083:8080"
     volumes:
-      - ./services/logs:/app/logs
-      - ./load-testing:/app/load-testing
-    restart: unless-stopped
-
-  order-service:
-    build:
-      context: ./services
-      dockerfile: order/Dockerfile
-    container_name: order-service
-    ports:
-      - "5001:5001"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    environment:
-      DATABASE_URL: postgresql://pizza_user:pizza_password@postgres:5432/pizza_system
-      KAFKA_BROKER: host.docker.internal:29092
-      FRONTEND_SERVICE_URL: http://frontend-service:5000
-      SERVICE_NAME: order-service
-      SERVICE_VERSION: "1.0.0"
-      PORT: "5001"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-    volumes:
-      - ./services/logs:/app/logs
-    restart: unless-stopped
-
-  payment-service:
-    build:
-      context: ./services
-      dockerfile: payment/Dockerfile
-    container_name: payment-service
-    ports:
-      - "5002:5002"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    environment:
-      DATABASE_URL: postgresql://pizza_user:pizza_password@postgres:5432/pizza_system
-      KAFKA_BROKER: host.docker.internal:29092
-      PAYMENT_MOCK_URL: http://payment-mock:5003
-      SERVICE_NAME: payment-service
-      SERVICE_VERSION: "1.0.0"
-      PORT: "5002"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-    volumes:
-      - ./services/logs:/app/logs
-    restart: unless-stopped
-
-  payment-mock:
-    build:
-      context: ./services
-      dockerfile: payment-mock/Dockerfile
-    container_name: payment-mock
-    ports:
-      - "5003:5003"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    environment:
-      DATABASE_URL: postgresql://pizza_user:pizza_password@postgres:5432/pizza_system
-      KAFKA_BROKER: host.docker.internal:29092
-      FAILURE_RATE: "0.0"
-      SERVICE_NAME: payment-mock
-      SERVICE_VERSION: "1.0.0"
-      PORT: "5003"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-    volumes:
-      - ./services/logs:/app/logs
-    restart: unless-stopped
-
-  notification-service:
-    build:
-      context: ./services
-      dockerfile: notification/Dockerfile
-    container_name: notification-service
-    ports:
-      - "5004:5004"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    environment:
-      DATABASE_URL: postgresql://pizza_user:pizza_password@postgres:5432/pizza_system
-      KAFKA_BROKER: host.docker.internal:29092
-      SERVICE_NAME: notification-service
-      SERVICE_VERSION: "1.0.0"
-      PORT: "5004"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-    volumes:
-      - ./services/logs:/app/logs
-    restart: unless-stopped
-
-  order-outbox-processor:
-    build:
-      context: ./services
-      dockerfile: order/Dockerfile.outbox
-    container_name: order-outbox-processor
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    environment:
-      DATABASE_URL: postgresql://pizza_user:pizza_password@postgres:5432/pizza_system
-      KAFKA_BROKER: host.docker.internal:29092
-      SERVICE_NAME: order-outbox-processor
-      SERVICE_VERSION: "1.0.0"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-    volumes:
-      - ./services/logs:/app/logs
-    restart: unless-stopped
-
-  kafka-setup:
-    image: confluentinc/cp-kafka:7.4.1
-    container_name: kafka-setup
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    depends_on:
-      kafka:
-        condition: service_healthy
-    command: >
-      bash -c "
-        echo 'Creating Kafka topics...' &&
-        kafka-topics --create --if-not-exists
-          --topic order-events
-          --bootstrap-server host.docker.internal:29092
-          --partitions 1
-          --replication-factor 1 &&
-        kafka-topics --create --if-not-exists
-          --topic payment-events
-          --bootstrap-server host.docker.internal:29092
-          --partitions 1
-          --replication-factor 1 &&
-        kafka-topics --create --if-not-exists
-          --topic notification-events
-          --bootstrap-server host.docker.internal:29092
-          --partitions 1
-          --replication-factor 1 &&
-        kafka-topics --create --if-not-exists
-          --topic dlq-events
-          --bootstrap-server host.docker.internal:29092
-          --partitions 1
-          --replication-factor 1 &&
-        echo 'Topics created successfully!'
-      "
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
 
 volumes:
-  postgres-data:
-  kafka-data:
-  zookeeper-data:
-  prometheus-data:
-  grafana-data:
-  pgadmin-data:
+  postgres_data:
+  prometheus_data:
+  grafana_data:
+  pgadmin_data:
