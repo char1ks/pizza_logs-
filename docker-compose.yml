@@ -26,21 +26,20 @@ services:
   zookeeper:
     image: confluentinc/cp-zookeeper:7.4.1
     container_name: zookeeper
+    network_mode: host
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
       ZOOKEEPER_SYNC_LIMIT: 2
       ZOOKEEPER_INIT_LIMIT: 5
       ZOOKEEPER_4LW_COMMANDS_WHITELIST: "*"
-    ports:
-      - "2181:2181"
     volumes:
       - zookeeper-data:/var/lib/zookeeper/data
     healthcheck:
       test:
         [
           "CMD-SHELL",
-          "cub zk-ready zookeeper:2181 30"
+          "cub zk-ready 127.0.0.1:2181 30"
         ]
       interval: 10s
       timeout: 10s
@@ -51,21 +50,19 @@ services:
   kafka:
     image: confluentinc/cp-kafka:7.4.1
     container_name: kafka
+    network_mode: host
     depends_on:
       zookeeper:
         condition: service_healthy
-    ports:
-      - "9092:9092"
-      - "29092:29092"
     environment:
       KAFKA_BROKER_ID: 1
 
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ZOOKEEPER_CONNECT: 127.0.0.1:2181
       KAFKA_ZOOKEEPER_CONNECTION_TIMEOUT_MS: 60000
       KAFKA_ZOOKEEPER_SESSION_TIMEOUT_MS: 60000
 
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://host.docker.internal:29092,PLAINTEXT_HOST://localhost:9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
 
@@ -81,6 +78,9 @@ services:
       KAFKA_SOCKET_REQUEST_MAX_BYTES: 104857600
 
       KAFKA_HEAP_OPTS: "-Xmx1G -Xms1G -XX:MaxDirectMemorySize=512M"
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
     volumes:
       - kafka-data:/var/lib/kafka/data
@@ -106,10 +106,12 @@ services:
         condition: service_healthy
     ports:
       - "8080:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       KAFKA_CLUSTERS_0_NAME: local
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
-      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: host.docker.internal:29092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: host.docker.internal:2181
       KAFKA_CLUSTERS_0_PROPERTIES_CONNECTIONS_MAX_IDLE_MS: 60000
       KAFKA_CLUSTERS_0_PROPERTIES_REQUEST_TIMEOUT_MS: 60000
     restart: unless-stopped
@@ -218,8 +220,10 @@ services:
     container_name: kafka-exporter
     ports:
       - "9308:9308"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     command:
-      - "--kafka.server=kafka:29092"
+      - "--kafka.server=host.docker.internal:29092"
       - "--web.listen-address=:9308"
       - "--log.level=info"
     depends_on:
@@ -278,9 +282,11 @@ services:
     container_name: frontend-service
     ports:
       - "5000:5000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       DATABASE_URL: postgresql://pizza_user:pizza_password@postgres:5432/pizza_system
-      KAFKA_BROKER: kafka:29092
+      KAFKA_BROKER: host.docker.internal:29092
       SERVICE_NAME: frontend-service
       SERVICE_VERSION: "1.0.0"
       PORT: "5000"
@@ -301,9 +307,11 @@ services:
     container_name: order-service
     ports:
       - "5001:5001"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       DATABASE_URL: postgresql://pizza_user:pizza_password@postgres:5432/pizza_system
-      KAFKA_BROKER: kafka:29092
+      KAFKA_BROKER: host.docker.internal:29092
       FRONTEND_SERVICE_URL: http://frontend-service:5000
       SERVICE_NAME: order-service
       SERVICE_VERSION: "1.0.0"
@@ -324,9 +332,11 @@ services:
     container_name: payment-service
     ports:
       - "5002:5002"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       DATABASE_URL: postgresql://pizza_user:pizza_password@postgres:5432/pizza_system
-      KAFKA_BROKER: kafka:29092
+      KAFKA_BROKER: host.docker.internal:29092
       PAYMENT_MOCK_URL: http://payment-mock:5003
       SERVICE_NAME: payment-service
       SERVICE_VERSION: "1.0.0"
@@ -347,9 +357,11 @@ services:
     container_name: payment-mock
     ports:
       - "5003:5003"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       DATABASE_URL: postgresql://pizza_user:pizza_password@postgres:5432/pizza_system
-      KAFKA_BROKER: kafka:29092
+      KAFKA_BROKER: host.docker.internal:29092
       FAILURE_RATE: "0.0"
       SERVICE_NAME: payment-mock
       SERVICE_VERSION: "1.0.0"
@@ -358,7 +370,7 @@ services:
       postgres:
         condition: service_healthy
       kafka:
-        condition: service_healthy
+        condition: service.healthy
     volumes:
       - ./services/logs:/app/logs
     restart: unless-stopped
@@ -370,9 +382,11 @@ services:
     container_name: notification-service
     ports:
       - "5004:5004"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       DATABASE_URL: postgresql://pizza_user:pizza_password@postgres:5432/pizza_system
-      KAFKA_BROKER: kafka:29092
+      KAFKA_BROKER: host.docker.internal:29092
       SERVICE_NAME: notification-service
       SERVICE_VERSION: "1.0.0"
       PORT: "5004"
@@ -390,9 +404,11 @@ services:
       context: ./services
       dockerfile: order/Dockerfile.outbox
     container_name: order-outbox-processor
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       DATABASE_URL: postgresql://pizza_user:pizza_password@postgres:5432/pizza_system
-      KAFKA_BROKER: kafka:29092
+      KAFKA_BROKER: host.docker.internal:29092
       SERVICE_NAME: order-outbox-processor
       SERVICE_VERSION: "1.0.0"
     depends_on:
@@ -407,6 +423,8 @@ services:
   kafka-setup:
     image: confluentinc/cp-kafka:7.4.1
     container_name: kafka-setup
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       kafka:
         condition: service_healthy
@@ -415,22 +433,22 @@ services:
         echo 'Creating Kafka topics...' &&
         kafka-topics --create --if-not-exists
           --topic order-events
-          --bootstrap-server kafka:29092
+          --bootstrap-server host.docker.internal:29092
           --partitions 1
           --replication-factor 1 &&
         kafka-topics --create --if-not-exists
           --topic payment-events
-          --bootstrap-server kafka:29092
+          --bootstrap-server host.docker.internal:29092
           --partitions 1
           --replication-factor 1 &&
         kafka-topics --create --if-not-exists
           --topic notification-events
-          --bootstrap-server kafka:29092
+          --bootstrap-server host.docker.internal:29092
           --partitions 1
           --replication-factor 1 &&
         kafka-topics --create --if-not-exists
           --topic dlq-events
-          --bootstrap-server kafka:29092
+          --bootstrap-server host.docker.internal:29092
           --partitions 1
           --replication-factor 1 &&
         echo 'Topics created successfully!'
