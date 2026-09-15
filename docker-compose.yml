@@ -94,7 +94,8 @@ services:
 
   frontend-service:
     build:
-      context: ./services/frontend-service
+      context: .
+      dockerfile: services/frontend/Dockerfile
     container_name: frontend-service
     restart: unless-stopped
     ports:
@@ -113,7 +114,8 @@ services:
 
   order-service:
     build:
-      context: ./services/order-service
+      context: .
+      dockerfile: services/order/Dockerfile
     container_name: order-service
     restart: unless-stopped
     ports:
@@ -135,7 +137,8 @@ services:
 
   payment-service:
     build:
-      context: ./services/payment-service
+      context: .
+      dockerfile: services/payment/Dockerfile
     container_name: payment-service
     restart: unless-stopped
     ports:
@@ -157,7 +160,8 @@ services:
 
   payment-mock:
     build:
-      context: ./services/payment-mock
+      context: .
+      dockerfile: services/payment-mock/Dockerfile
     container_name: payment-mock
     restart: unless-stopped
     ports:
@@ -177,7 +181,8 @@ services:
 
   notification-service:
     build:
-      context: ./services/notification-service
+      context: .
+      dockerfile: services/notification/Dockerfile
     container_name: notification-service
     restart: unless-stopped
     ports:
@@ -196,7 +201,8 @@ services:
 
   order-outbox-processor:
     build:
-      context: ./services/order-outbox-processor
+      context: .
+      dockerfile: services/order/Dockerfile.outbox
     container_name: order-outbox-processor
     restart: unless-stopped
     extra_hosts:
