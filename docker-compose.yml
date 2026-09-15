@@ -26,7 +26,8 @@ services:
     image: confluentinc/cp-zookeeper:7.4.1
     container_name: zookeeper
     restart: unless-stopped
-    network_mode: host
+    ports:
+      - "2181:2181"
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
@@ -34,7 +35,7 @@ services:
       ZOOKEEPER_INIT_LIMIT: 5
       ZOOKEEPER_4LW_COMMANDS_WHITELIST: "*"
     healthcheck:
-      test: ["CMD-SHELL", "cub zk-ready 127.0.0.1:2181 30"]
+      test: ["CMD-SHELL", "cub zk-ready localhost:2181 30"]
       interval: 10s
       timeout: 10s
       retries: 10
@@ -43,20 +44,28 @@ services:
     image: confluentinc/cp-kafka:7.4.1
     container_name: kafka
     restart: unless-stopped
-    network_mode: host
+    ports:
+      - "29092:29092"
+      - "9092:9092"
     depends_on:
       zookeeper:
         condition: service_healthy
     environment:
       KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: 127.0.0.1:2181
+
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_ZOOKEEPER_CONNECTION_TIMEOUT_MS: 60000
       KAFKA_ZOOKEEPER_SESSION_TIMEOUT_MS: 60000
 
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://host.docker.internal:29092,PLAINTEXT_HOST://localhost:9092
+
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://host.docker.internal:29092,PLAINTEXT_HOST://127.0.0.1:9092
+
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+
+      # Kafka сама подключается к себе через localhost,
+      # поэтому host.docker.internal здесь использовать нельзя.
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_HOST
 
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
@@ -71,7 +80,11 @@ services:
       KAFKA_HEAP_OPTS: "-Xmx1G -Xms1G -XX:MaxDirectMemorySize=512M"
 
     healthcheck:
-      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:29092"]
+      test:
+        [
+          "CMD-SHELL",
+          "kafka-broker-api-versions --bootstrap-server 127.0.0.1:29092"
+        ]
       interval: 10s
       timeout: 10s
       retries: 20
@@ -94,8 +107,8 @@ services:
 
   frontend-service:
     build:
-      context: .
-      dockerfile: services/frontend/Dockerfile
+      context: ./services
+      dockerfile: frontend/Dockerfile
     container_name: frontend-service
     restart: unless-stopped
     ports:
@@ -114,8 +127,8 @@ services:
 
   order-service:
     build:
-      context: .
-      dockerfile: services/order/Dockerfile
+      context: ./services
+      dockerfile: order/Dockerfile
     container_name: order-service
     restart: unless-stopped
     ports:
@@ -137,8 +150,8 @@ services:
 
   payment-service:
     build:
-      context: .
-      dockerfile: services/payment/Dockerfile
+      context: ./services
+      dockerfile: payment/Dockerfile
     container_name: payment-service
     restart: unless-stopped
     ports:
@@ -160,8 +173,8 @@ services:
 
   payment-mock:
     build:
-      context: .
-      dockerfile: services/payment-mock/Dockerfile
+      context: ./services
+      dockerfile: payment-mock/Dockerfile
     container_name: payment-mock
     restart: unless-stopped
     ports:
@@ -181,8 +194,8 @@ services:
 
   notification-service:
     build:
-      context: .
-      dockerfile: services/notification/Dockerfile
+      context: ./services
+      dockerfile: notification/Dockerfile
     container_name: notification-service
     restart: unless-stopped
     ports:
@@ -201,8 +214,8 @@ services:
 
   order-outbox-processor:
     build:
-      context: .
-      dockerfile: services/order/Dockerfile.outbox
+      context: ./services
+      dockerfile: order/Dockerfile.outbox
     container_name: order-outbox-processor
     restart: unless-stopped
     extra_hosts:
@@ -247,7 +260,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - ./infrastructure/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infrastructure/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
 
   grafana:
