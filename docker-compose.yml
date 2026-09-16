@@ -91,7 +91,7 @@ services:
     container_name: kafka-ui
     restart: unless-stopped
     ports:
-      - "8082:8080"
+      - "8080:8080"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
