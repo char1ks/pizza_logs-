@@ -130,6 +130,8 @@ class OutboxProcessor:
             # Parse event data with error handling
             try:
                 event_data = json.loads(event['event_data']) if isinstance(event['event_data'], str) else event['event_data']
+            event_data = dict(event_data)
+            event_data.setdefault('event_id', f'outbox-{event_id}')
             except (json.JSONDecodeError, KeyError) as e:
                 self.logger.error(
                     "Failed to parse event data",
