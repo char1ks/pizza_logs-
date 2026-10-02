@@ -164,6 +164,27 @@ class ServiceMetrics:
             ['service', 'topic']
         )
         
+        self.kafka_messages_processed = Counter(
+            'kafka_messages_processed_total',
+            'Total Kafka messages successfully processed',
+            ['service', 'topic']
+        )
+        self.kafka_processing_failures = Counter(
+            'kafka_message_processing_failures_total',
+            'Total Kafka message handler failures',
+            ['service', 'topic']
+        )
+        self.kafka_publish_failures = Counter(
+            'kafka_publish_failures_total',
+            'Total Kafka publish failures',
+            ['service', 'topic']
+        )
+        self.kafka_consumer_errors = Counter(
+            'kafka_consumer_errors_total',
+            'Total Kafka consumer errors',
+            ['service', 'group']
+        )
+
         # Business metrics
         self.business_events = Counter(
             'business_events_total',
@@ -199,6 +220,12 @@ class ServiceMetrics:
                 topic=topic
             ).inc()
     
+    def record_kafka_message_failure(self, topic: str):
+        self.kafka_publish_failures.labels(
+            service=self.service_name,
+            topic=topic
+        ).inc()
+
     def record_business_event(self, event_type: str, status: str = 'success'):
         """Record business event metrics"""
         self.business_events.labels(
@@ -337,7 +364,9 @@ class EventManager:
                 acks='all',
                 compression_type='gzip',
                 max_request_size=104857600,  # 100MB
-                buffer_memory=33554432  # 32MB
+                buffer_memory=33554432,  # 32MB
+                request_timeout_ms=30000,
+                delivery_timeout_ms=60000
             )
             self.logger.info("Kafka producer initialized")
         return self._producer
@@ -381,7 +410,7 @@ class EventManager:
             future = producer.send(topic, value=enriched_event, key=key)
             
             # Wait for send to complete
-            record_metadata = future.get(timeout=10)
+            record_metadata = future.get(timeout=15)
             
             self.logger.info(
                 "Event published",
@@ -394,9 +423,16 @@ class EventManager:
             self.metrics.record_kafka_message(topic, sent=True)
             return True
             
-        except KafkaError as e:
-            self.logger.error("Failed to publish event", topic=topic, error=str(e))
+        except Exception as e:
+            self.logger.error("Failed to publish event", topic=topic, error=str(e), exc_info=True)
+            self.metrics.record_kafka_message_failure(topic)
             self.metrics.record_business_event('event_publish', 'failed')
+            if self._producer is not None:
+                try:
+                    self._producer.close(timeout=5)
+                except Exception:
+                    pass
+                self._producer = None
             return False
     
     def get_consumer(self, topics: List[str], group_id: str) -> KafkaConsumer:
