@@ -492,6 +492,9 @@ class EventManager:
                                 TopicPartition(message.topic, message.partition):
                                     OffsetAndMetadata(message.offset + 1, None)
                             })
+                            self._handler_failures.pop(
+                                (message.topic, message.partition, message.offset), None
+                            )
                             self.metrics.kafka_messages_processed.labels(
                                 service=self.config.SERVICE_NAME, topic=message.topic
                             ).inc()
