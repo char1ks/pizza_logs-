@@ -390,7 +390,7 @@ class EventManager:
                 'service_name': self.config.SERVICE_NAME,
                 'service_version': self.config.SERVICE_VERSION,
                 'timestamp': datetime.now(timezone.utc).isoformat(),
-                'event_id': str(uuid.uuid4())
+                'event_id': event_data.get('event_id') or str(uuid.uuid4())
             }
             
             # Проверяем размер сообщения
