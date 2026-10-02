@@ -337,15 +337,17 @@ class DatabaseManager:
             pass
     
     @contextmanager
-    def get_cursor(self):
+    def get_cursor(self, commit: bool = False):
         """Context manager for database cursor (pooled)"""
         connection = self._acquire()
         cursor = connection.cursor()
         try:
             yield cursor
+            if commit:
+                connection.commit()
         except Exception as e:
             connection.rollback()
-            self.logger.error("Database operation failed", error=str(e))
+            self.logger.error("Database operation failed", error=str(e), exc_info=True)
             raise
         finally:
             try:
