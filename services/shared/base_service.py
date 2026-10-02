@@ -48,6 +48,8 @@ class Config:
         # Retry Configuration
         self.RETRY_ATTEMPTS = int(os.getenv('RETRY_ATTEMPTS', '3'))
         self.RETRY_DELAY = int(os.getenv('RETRY_DELAY', '2'))
+        self.KAFKA_HANDLER_MAX_RETRIES = int(os.getenv('KAFKA_HANDLER_MAX_RETRIES', '3'))
+        self.KAFKA_HANDLER_RETRY_DELAY = float(os.getenv('KAFKA_HANDLER_RETRY_DELAY', '2'))
         
         # Monitoring Configuration
         self.ENABLE_METRICS = os.getenv('ENABLE_METRICS', 'true').lower() == 'true'
@@ -178,6 +180,11 @@ class ServiceMetrics:
             'kafka_publish_failures_total',
             'Total Kafka publish failures',
             ['service', 'topic']
+        )
+        self.kafka_dlq_messages = Counter(
+            'kafka_dlq_messages_total',
+            'Total Kafka messages moved to the dead-letter topic',
+            ['service', 'source_topic']
         )
         self.kafka_consumer_errors = Counter(
             'kafka_consumer_errors_total',
@@ -353,6 +360,7 @@ class EventManager:
         self.metrics = metrics
         self._producer = None
         self._consumers = {}
+        self._handler_failures = {}
     
     def get_producer(self) -> KafkaProducer:
         """Get Kafka producer with retry logic"""
@@ -492,15 +500,49 @@ class EventManager:
                             self.metrics.kafka_processing_failures.labels(
                                 service=self.config.SERVICE_NAME, topic=message.topic
                             ).inc()
+                            failure_key = (message.topic, message.partition, message.offset)
+                            attempts = self._handler_failures.get(failure_key, 0) + 1
+                            self._handler_failures[failure_key] = attempts
+
                             self.logger.error(
                                 "Error processing event; offset was NOT committed",
                                 topic=message.topic,
                                 partition=message.partition,
                                 offset=message.offset,
+                                attempt=attempts,
+                                max_attempts=self.config.KAFKA_HANDLER_MAX_RETRIES,
                                 error=str(e),
                                 event_data=message.value,
                                 exc_info=True
                             )
+
+                            if attempts >= self.config.KAFKA_HANDLER_MAX_RETRIES and message.topic != 'dlq-events':
+                                dlq_event = {
+                                    'event_type': 'DeadLetterEvent',
+                                    'original_topic': message.topic,
+                                    'original_partition': message.partition,
+                                    'original_offset': message.offset,
+                                    'original_key': message.key,
+                                    'original_event': message.value,
+                                    'error': str(e),
+                                    'failed_attempts': attempts,
+                                    'failed_at': datetime.now(timezone.utc).isoformat()
+                                }
+                                if self.publish_event('dlq-events', dlq_event, message.key):
+                                    consumer.commit({
+                                        TopicPartition(message.topic, message.partition):
+                                            OffsetAndMetadata(message.offset + 1, None)
+                                    })
+                                    self.metrics.kafka_dlq_messages.labels(
+                                        service=self.config.SERVICE_NAME,
+                                        source_topic=message.topic
+                                    ).inc()
+                                    self.metrics.record_business_event('kafka_dlq', 'success')
+                                    self._handler_failures.pop(failure_key, None)
+                                    processed += 1
+                                    continue
+
+                            time.sleep(self.config.KAFKA_HANDLER_RETRY_DELAY)
                             consumer.seek(
                                 TopicPartition(message.topic, message.partition),
                                 message.offset
