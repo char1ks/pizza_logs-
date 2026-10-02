@@ -478,7 +478,7 @@ class EventManager:
                 'service_name': self.config.SERVICE_NAME,
                 'service_version': self.config.SERVICE_VERSION,
                 'timestamp': datetime.now(timezone.utc).isoformat(),
-                'event_id': str(uuid.uuid4())
+                'event_id': event_data.get('event_id') or str(uuid.uuid4())
             }
             
             # Проверяем размер сообщения
@@ -508,7 +508,7 @@ class EventManager:
             future = producer.send(topic, value=enriched_event, key=key)
             
             # Wait for send to complete
-            record_metadata = future.get(timeout=10)
+            record_metadata = future.get(timeout=15)
             
             self.logger.debug(
                 "Event published",
@@ -527,8 +527,14 @@ class EventManager:
             return False
         except Exception as e:
             # Catch any unexpected errors (serialization, timeout, etc.)
-            self.logger.error("Unexpected error during event publish", topic=topic, error=str(e))
+            self.logger.error("Unexpected error during event publish", topic=topic, error=str(e), exc_info=True)
             self.metrics.record_business_event('event_publish', 'failed')
+            try:
+                if self._producer is not None:
+                    self._producer.close(timeout=5)
+            except Exception:
+                pass
+            self._producer = None
             return False
     
     def get_consumer(self, topics: List[str], group_id: str) -> KafkaConsumer:
@@ -553,14 +559,20 @@ class EventManager:
         return self._consumers[consumer_key]
     
     def process_events(self, topics: List[str], group_id: str, handler_func, max_messages: int = 100):
-        """Process events from Kafka topics"""
+        """Process Kafka events with at-least-once delivery semantics."""
         consumer = self.get_consumer(topics, group_id)
-        
+
         try:
-            for message in consumer:
-                if max_messages <= 0:
+            messages_processed = 0
+            while messages_processed < max_messages:
+                records = consumer.poll(timeout_ms=1000, max_records=1)
+                if not records:
                     break
-                
+
+                message = next(iter(next(iter(records.values()))), None)
+                if message is None:
+                    continue
+
                 try:
                     self.logger.debug(
                         "Processing event",
@@ -569,25 +581,36 @@ class EventManager:
                         offset=message.offset,
                         key=message.key
                     )
-                    
-                    # Call handler function
+
                     handler_func(message.topic, message.value, message.key)
-                    # Commit offset after successful handling to avoid reprocessing on restart
-                    consumer.commit()
-                    
+
+                    # Commit only AFTER the handler succeeds.
+                    from kafka.structs import OffsetAndMetadata, TopicPartition
+                    tp = TopicPartition(message.topic, message.partition)
+                    consumer.commit({tp: OffsetAndMetadata(message.offset + 1, None)})
+
                     self.metrics.record_kafka_message(message.topic, sent=False)
-                    max_messages -= 1
-                    
+                    messages_processed += 1
+
                 except Exception as e:
                     self.logger.error(
-                        "Error processing event",
+                        "Error processing Kafka event; offset will be retried",
                         topic=message.topic,
+                        partition=message.partition,
+                        offset=message.offset,
                         error=str(e),
-                        event_data=message.value
+                        event_data=message.value,
+                        exc_info=True
                     )
-                    
+                    try:
+                        from kafka.structs import TopicPartition
+                        consumer.seek(TopicPartition(message.topic, message.partition), message.offset)
+                    except Exception:
+                        pass
+                    return
+
         except Exception as e:
-            self.logger.error("Consumer error", error=str(e))
+            self.logger.error("Consumer error", error=str(e), exc_info=True)
 
 
 # ========================================
