@@ -127,7 +127,9 @@ class OutboxProcessor:
         
         try:
             # Parse event data
-            event_data = json.loads(event['event_data']) if isinstance(event['event_data'], str) else event['event_data']
+            event_data = json.loads(event['event_data']) if isinstance(event['event_data'], str) else dict(event['event_data'])
+            # Keep the same event identity across every outbox retry/restart.
+            event_data.setdefault('event_id', f"outbox-{event_id}")
             
             # Проверяем размер данных события из базы
             raw_event_size = len(str(event['event_data']).encode('utf-8'))

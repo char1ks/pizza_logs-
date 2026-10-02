@@ -1,0 +1,65 @@
+groups:
+  - name: pizza-system
+    rules:
+      - alert: ServiceDown
+        expr: up{job=~"frontend-service|order-service|payment-service|notification-service|payment-mock"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Pizza service is down"
+          description: "Prometheus cannot scrape {{ $labels.job }}."
+
+      - alert: KafkaExporterDown
+        expr: up{job="kafka-exporter"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Kafka monitoring is unavailable"
+          description: "kafka-exporter is not reachable."
+
+      - alert: KafkaConsumerLagHigh
+        expr: max by (consumergroup, topic) (kafka_consumergroup_lag_sum{topic=~"order-events|payment-events|notification-events"}) > 100
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kafka consumer lag is high"
+          description: "Consumer group {{ $labels.consumergroup }} has lag {{ $value }} on {{ $labels.topic }}."
+
+      - alert: KafkaMessageProcessingFailures
+        expr: increase(kafka_message_processing_failures_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kafka message handler failures detected"
+          description: "{{ $labels.service }} failed to process messages from {{ $labels.topic }}."
+
+      - alert: KafkaPublishFailures
+        expr: increase(kafka_publish_failures_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Kafka publish failures detected"
+          description: "{{ $labels.service }} failed to publish to {{ $labels.topic }}."
+
+      - alert: OutboxPublishFailures
+        expr: increase(business_events_total{event_type="outbox_event_processed",status="failed"}[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Outbox events are failing to publish"
+          description: "The order outbox processor has failed event publication attempts."
+
+      - alert: PrometheusTargetMissing
+        expr: count(up) < 10
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Prometheus is missing monitoring targets"
+          description: "Expected monitoring targets are not all present."

@@ -48,6 +48,8 @@ class Config:
         # Retry Configuration
         self.RETRY_ATTEMPTS = int(os.getenv('RETRY_ATTEMPTS', '3'))
         self.RETRY_DELAY = int(os.getenv('RETRY_DELAY', '2'))
+        self.KAFKA_HANDLER_MAX_RETRIES = int(os.getenv('KAFKA_HANDLER_MAX_RETRIES', '3'))
+        self.KAFKA_HANDLER_RETRY_DELAY = float(os.getenv('KAFKA_HANDLER_RETRY_DELAY', '2'))
         
         # Monitoring Configuration
         self.ENABLE_METRICS = os.getenv('ENABLE_METRICS', 'true').lower() == 'true'
@@ -63,9 +65,33 @@ class Config:
 # ========================================
 
 def setup_logging(service_name: str, log_level: str = 'INFO') -> structlog.BoundLogger:
-    """Setup structured logging for the service"""
-    
-    # Configure structlog
+    """Configure JSON logging to stdout and a durable shared file."""
+    log_dir = os.getenv('LOG_DIR', '/app/logs')
+    os.makedirs(log_dir, exist_ok=True)
+    log_file = os.path.join(log_dir, f'{service_name}.log')
+
+    formatter = logging.Formatter('%(message)s')
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+    file_handler = RotatingFileHandler(
+        log_file,
+        maxBytes=int(os.getenv('LOG_MAX_BYTES', str(20 * 1024 * 1024))),
+        backupCount=int(os.getenv('LOG_BACKUP_COUNT', '5')),
+        encoding='utf-8',
+    )
+    file_handler.setFormatter(formatter)
+
+    root_logger = logging.getLogger()
+    root_logger.setLevel(getattr(logging, log_level.upper(), logging.INFO))
+    for handler in list(root_logger.handlers):
+        root_logger.removeHandler(handler)
+        try:
+            handler.close()
+        except Exception:
+            pass
+    root_logger.addHandler(stream_handler)
+    root_logger.addHandler(file_handler)
+
     structlog.configure(
         processors=[
             structlog.stdlib.filter_by_level,
@@ -83,27 +109,12 @@ def setup_logging(service_name: str, log_level: str = 'INFO') -> structlog.Bound
         wrapper_class=structlog.stdlib.BoundLogger,
         cache_logger_on_first_use=True,
     )
-    
-    # Configure standard library logging
-    logging.basicConfig(
-        level=getattr(logging, log_level.upper()),
-        format="%(message)s",
-    )
-    
-    # Create logger for service with service metadata
-    logger = structlog.get_logger(service_name)
-    
-    # Bind service metadata to all log messages
-    service_version = os.getenv('SERVICE_VERSION', '1.0.0')
-    container_id = os.getenv('HOSTNAME', 'unknown')  # Docker container hostname
-    
-    logger = logger.bind(
+
+    return structlog.get_logger(service_name).bind(
         service=service_name,
-        version=service_version,
-        container_id=container_id
+        version=os.getenv('SERVICE_VERSION', '1.0.0'),
+        container_id=os.getenv('HOSTNAME', 'unknown')
     )
-    
-    return logger
 
 
 # ========================================
@@ -155,6 +166,32 @@ class ServiceMetrics:
             ['service', 'topic']
         )
         
+        self.kafka_messages_processed = Counter(
+            'kafka_messages_processed_total',
+            'Total Kafka messages successfully processed',
+            ['service', 'topic']
+        )
+        self.kafka_processing_failures = Counter(
+            'kafka_message_processing_failures_total',
+            'Total Kafka message handler failures',
+            ['service', 'topic']
+        )
+        self.kafka_publish_failures = Counter(
+            'kafka_publish_failures_total',
+            'Total Kafka publish failures',
+            ['service', 'topic']
+        )
+        self.kafka_dlq_messages = Counter(
+            'kafka_dlq_messages_total',
+            'Total Kafka messages moved to the dead-letter topic',
+            ['service', 'source_topic']
+        )
+        self.kafka_consumer_errors = Counter(
+            'kafka_consumer_errors_total',
+            'Total Kafka consumer errors',
+            ['service', 'group']
+        )
+
         # Business metrics
         self.business_events = Counter(
             'business_events_total',
@@ -190,6 +227,12 @@ class ServiceMetrics:
                 topic=topic
             ).inc()
     
+    def record_kafka_message_failure(self, topic: str):
+        self.kafka_publish_failures.labels(
+            service=self.service_name,
+            topic=topic
+        ).inc()
+
     def record_business_event(self, event_type: str, status: str = 'success'):
         """Record business event metrics"""
         self.business_events.labels(
@@ -233,15 +276,17 @@ class DatabaseManager:
             raise
     
     @contextmanager
-    def get_cursor(self):
+    def get_cursor(self, commit: bool = False):
         """Context manager for database cursor"""
         connection = self.get_connection()
         cursor = connection.cursor()
         try:
             yield cursor
+            if commit:
+                connection.commit()
         except Exception as e:
             connection.rollback()
-            self.logger.error("Database operation failed", error=str(e))
+            self.logger.error("Database operation failed", error=str(e), exc_info=True)
             raise
         finally:
             cursor.close()
@@ -315,6 +360,7 @@ class EventManager:
         self.metrics = metrics
         self._producer = None
         self._consumers = {}
+        self._handler_failures = {}
     
     def get_producer(self) -> KafkaProducer:
         """Get Kafka producer with retry logic"""
@@ -328,7 +374,9 @@ class EventManager:
                 acks='all',
                 compression_type='gzip',
                 max_request_size=104857600,  # 100MB
-                buffer_memory=33554432  # 32MB
+                buffer_memory=33554432,  # 32MB
+                request_timeout_ms=30000,
+                delivery_timeout_ms=60000
             )
             self.logger.info("Kafka producer initialized")
         return self._producer
@@ -342,7 +390,7 @@ class EventManager:
                 'service_name': self.config.SERVICE_NAME,
                 'service_version': self.config.SERVICE_VERSION,
                 'timestamp': datetime.now(timezone.utc).isoformat(),
-                'event_id': str(uuid.uuid4())
+                'event_id': event_data.get('event_id') or str(uuid.uuid4())
             }
             
             # Проверяем размер сообщения
@@ -372,7 +420,7 @@ class EventManager:
             future = producer.send(topic, value=enriched_event, key=key)
             
             # Wait for send to complete
-            record_metadata = future.get(timeout=10)
+            record_metadata = future.get(timeout=15)
             
             self.logger.info(
                 "Event published",
@@ -385,9 +433,16 @@ class EventManager:
             self.metrics.record_kafka_message(topic, sent=True)
             return True
             
-        except KafkaError as e:
-            self.logger.error("Failed to publish event", topic=topic, error=str(e))
+        except Exception as e:
+            self.logger.error("Failed to publish event", topic=topic, error=str(e), exc_info=True)
+            self.metrics.record_kafka_message_failure(topic)
             self.metrics.record_business_event('event_publish', 'failed')
+            if self._producer is not None:
+                try:
+                    self._producer.close(timeout=5)
+                except Exception:
+                    pass
+                self._producer = None
             return False
     
     def get_consumer(self, topics: List[str], group_id: str) -> KafkaConsumer:
@@ -402,8 +457,9 @@ class EventManager:
                 value_deserializer=lambda x: json.loads(x.decode('utf-8')),
                 key_deserializer=lambda x: x.decode('utf-8') if x else None,
                 auto_offset_reset='earliest',
-                enable_auto_commit=True,
+                enable_auto_commit=False,
                 consumer_timeout_ms=1000,
+                max_poll_interval_ms=300000,
                 max_partition_fetch_bytes=52428800,  # 50MB
                 fetch_max_bytes=52428800  # 50MB
             )
@@ -412,39 +468,102 @@ class EventManager:
         return self._consumers[consumer_key]
     
     def process_events(self, topics: List[str], group_id: str, handler_func, max_messages: int = 100):
-        """Process events from Kafka topics"""
+        """Process Kafka messages with at-least-once delivery semantics."""
         consumer = self.get_consumer(topics, group_id)
-        
+        processed = 0
         try:
-            for message in consumer:
-                if max_messages <= 0:
+            while processed < max_messages:
+                records = consumer.poll(timeout_ms=1000, max_records=min(50, max_messages - processed))
+                if not records:
                     break
-                
-                try:
-                    self.logger.debug(
-                        "Processing event",
-                        topic=message.topic,
-                        partition=message.partition,
-                        offset=message.offset,
-                        key=message.key
-                    )
-                    
-                    # Call handler function
-                    handler_func(message.topic, message.value, message.key)
-                    
-                    self.metrics.record_kafka_message(message.topic, sent=False)
-                    max_messages -= 1
-                    
-                except Exception as e:
-                    self.logger.error(
-                        "Error processing event",
-                        topic=message.topic,
-                        error=str(e),
-                        event_data=message.value
-                    )
-                    
+                for _tp, messages in records.items():
+                    for message in messages:
+                        self.metrics.record_kafka_message(message.topic, sent=False)
+                        try:
+                            self.logger.debug(
+                                "Processing event",
+                                topic=message.topic,
+                                partition=message.partition,
+                                offset=message.offset,
+                                key=message.key
+                            )
+                            handler_func(message.topic, message.value, message.key)
+                            consumer.commit({
+                                TopicPartition(message.topic, message.partition):
+                                    OffsetAndMetadata(message.offset + 1, None)
+                            })
+                            self._handler_failures.pop(
+                                (message.topic, message.partition, message.offset), None
+                            )
+                            self.metrics.kafka_messages_processed.labels(
+                                service=self.config.SERVICE_NAME, topic=message.topic
+                            ).inc()
+                            processed += 1
+                        except Exception as e:
+                            self.metrics.kafka_processing_failures.labels(
+                                service=self.config.SERVICE_NAME, topic=message.topic
+                            ).inc()
+                            failure_key = (message.topic, message.partition, message.offset)
+                            attempts = self._handler_failures.get(failure_key, 0) + 1
+                            self._handler_failures[failure_key] = attempts
+
+                            self.logger.error(
+                                "Error processing event; offset was NOT committed",
+                                topic=message.topic,
+                                partition=message.partition,
+                                offset=message.offset,
+                                attempt=attempts,
+                                max_attempts=self.config.KAFKA_HANDLER_MAX_RETRIES,
+                                error=str(e),
+                                event_data=message.value,
+                                exc_info=True
+                            )
+
+                            if attempts >= self.config.KAFKA_HANDLER_MAX_RETRIES and message.topic != 'dlq-events':
+                                dlq_event = {
+                                    'event_type': 'DeadLetterEvent',
+                                    'original_topic': message.topic,
+                                    'original_partition': message.partition,
+                                    'original_offset': message.offset,
+                                    'original_key': message.key,
+                                    'original_event': message.value,
+                                    'error': str(e),
+                                    'failed_attempts': attempts,
+                                    'failed_at': datetime.now(timezone.utc).isoformat()
+                                }
+                                if self.publish_event('dlq-events', dlq_event, message.key):
+                                    consumer.commit({
+                                        TopicPartition(message.topic, message.partition):
+                                            OffsetAndMetadata(message.offset + 1, None)
+                                    })
+                                    self.metrics.kafka_dlq_messages.labels(
+                                        service=self.config.SERVICE_NAME,
+                                        source_topic=message.topic
+                                    ).inc()
+                                    self.metrics.record_business_event('kafka_dlq', 'success')
+                                    self._handler_failures.pop(failure_key, None)
+                                    processed += 1
+                                    continue
+
+                            time.sleep(self.config.KAFKA_HANDLER_RETRY_DELAY)
+                            consumer.seek(
+                                TopicPartition(message.topic, message.partition),
+                                message.offset
+                            )
+                            return processed
         except Exception as e:
-            self.logger.error("Consumer error", error=str(e))
+            self.metrics.kafka_consumer_errors.labels(
+                service=self.config.SERVICE_NAME, group=group_id
+            ).inc()
+            self.logger.error(
+                "Consumer error",
+                group_id=group_id,
+                topics=topics,
+                error=str(e),
+                exc_info=True
+            )
+            raise
+        return processed
 
 
 # ========================================

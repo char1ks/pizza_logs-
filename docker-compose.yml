@@ -9,6 +9,7 @@ volumes:
   prometheus-data:
   grafana-data:
   pgadmin-data:
+  logs-data:
 
 services:
   # ========================
@@ -120,6 +121,7 @@ services:
       - "9090:9090"
     volumes:
       - ./infrastructure/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./infrastructure/monitoring/alert_rules.yml:/etc/prometheus/alert_rules.yml
       - prometheus-data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -298,7 +300,7 @@ services:
     networks:
       - pizza-network
     volumes:
-      - ./services/frontend/logs:/app/logs
+      - logs-data:/app/logs
     restart: unless-stopped
 
   # Order Service (Order Management + Outbox)
@@ -324,7 +326,7 @@ services:
     networks:
       - pizza-network
     volumes:
-      - ./services/order/logs:/app/logs
+      - logs-data:/app/logs
     restart: unless-stopped
 
   # Payment Service (Payment Processing + Retry Pattern)
@@ -350,7 +352,7 @@ services:
     networks:
       - pizza-network
     volumes:
-      - ./services/payment/logs:/app/logs
+      - logs-data:/app/logs
     restart: unless-stopped
 
   # Notification Service (User Notifications)
@@ -375,7 +377,7 @@ services:
     networks:
       - pizza-network
     volumes:
-      - ./services/notification/logs:/app/logs
+      - logs-data:/app/logs
     restart: unless-stopped
 
   # Payment Mock (External Payment Provider Simulation)
@@ -401,7 +403,7 @@ services:
     networks:
       - pizza-network
     volumes:
-      - ./services/payment-mock/logs:/app/logs
+      - logs-data:/app/logs
     restart: unless-stopped
 
   # ========================
@@ -427,7 +429,7 @@ services:
     networks:
       - pizza-network
     volumes:
-      - ./services/order/logs:/app/logs
+      - logs-data:/app/logs
     restart: unless-stopped
 
   # ========================
