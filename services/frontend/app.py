@@ -402,7 +402,8 @@ class FrontendService(BaseService):
                 'order-service',
                 'payment-service',
                 'notification-service',
-                'payment-mock'
+                'payment-mock',
+                'order-outbox-processor'
             ]
             
             all_logs = {}
