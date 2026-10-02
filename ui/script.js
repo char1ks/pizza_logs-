@@ -933,7 +933,7 @@ function setupMonitoringUrls() {
         
         // Update monitoring links for Codespaces
         const monitoringLinks = [
-            { id: 'kafka-ui-link', port: '8080' },
+            { id: 'kafka-ui-link', port: '18080' },
             { id: 'grafana-link', port: '3000' },
             { id: 'prometheus-link', port: '9090' },
             { id: 'pgadmin-link', port: '80', path: '/pgadmin/' },  // Use nginx proxy
@@ -965,7 +965,7 @@ function setupMonitoringUrls() {
     } else {
         // Local development - use localhost
         const localLinks = [
-            { id: 'kafka-ui-link', url: 'http://localhost:8080' },
+            { id: 'kafka-ui-link', url: 'http://localhost:18080' },
             { id: 'grafana-link', url: 'http://localhost:3000' },
             { id: 'prometheus-link', url: 'http://localhost:9090' },
             { id: 'pgadmin-link', url: 'http://localhost/pgadmin/' },  // Use nginx proxy
