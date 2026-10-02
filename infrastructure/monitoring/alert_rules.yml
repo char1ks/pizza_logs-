@@ -1,0 +1,47 @@
+groups:
+  - name: pizza-monitoring
+    rules:
+      - alert: ServiceDown
+        expr: up{job=~"frontend-service|order-service|payment-service|notification-service|payment-mock"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Pizza service is down"
+          description: "A monitored application service has been unavailable for more than 2 minutes."
+
+      - alert: KafkaExporterDown
+        expr: up{job="kafka-exporter"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Kafka exporter is down"
+          description: "Kafka lag and broker monitoring is unavailable."
+
+      - alert: KafkaConsumerLagHigh
+        expr: max by (consumergroup, topic) (kafka_consumergroup_lag_sum{topic=~"order-events|payment-events|notification-events"}) > 100
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kafka consumer lag is high"
+          description: "A consumer group has more than 100 unprocessed messages."
+
+      - alert: KafkaProcessingFailures
+        expr: increase(kafka_messages_received_total[5m]) > 0 and increase(business_events_total{event_type=~"event_publish|kafka_event_published",status="failed"}[5m]) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kafka event processing or publishing failures detected"
+          description: "Kafka-related failures were recorded during the last 5 minutes."
+
+      - alert: PrometheusTargetMissing
+        expr: count(up) < 10
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Prometheus has fewer targets than expected"
+          description: "One or more monitoring targets may have disappeared."
