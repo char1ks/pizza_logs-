@@ -225,6 +225,8 @@ services:
       dockerfile: order/Dockerfile.outbox
     container_name: order-outbox-processor
     restart: unless-stopped
+    volumes:
+      - logs_data:/app/logs
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
@@ -269,6 +271,7 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       - ./infrastructure/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infrastructure/monitoring/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
       - prometheus_data:/prometheus
 
   grafana:
