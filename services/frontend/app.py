@@ -578,6 +578,14 @@ class FrontendService(BaseService):
                 lines = f.readlines()
                 # Разрешаем только ключевые события процесса заказа/оплаты (whitelist)
                 allowed_substrings = [
+                    'order-outbox-processor',
+                    'Failed to publish event',
+                    'Failed to publish payment failure event',
+                    'PaymentFailed routed to DLQ',
+                    'Failed to publish PaymentFailed to DLQ',
+                    'DLQ fallback failed',
+                    'Error processing Kafka event',
+                    'Consumer error',
                     # Order Service: приём заказа
                     '📥 Received order request',
                     'Новый заказ принят',
