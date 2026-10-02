@@ -63,9 +63,33 @@ class Config:
 # ========================================
 
 def setup_logging(service_name: str, log_level: str = 'INFO') -> structlog.BoundLogger:
-    """Setup structured logging for the service"""
-    
-    # Configure structlog
+    """Configure JSON logging to stdout and a durable shared file."""
+    log_dir = os.getenv('LOG_DIR', '/app/logs')
+    os.makedirs(log_dir, exist_ok=True)
+    log_file = os.path.join(log_dir, f'{service_name}.log')
+
+    formatter = logging.Formatter('%(message)s')
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+    file_handler = RotatingFileHandler(
+        log_file,
+        maxBytes=int(os.getenv('LOG_MAX_BYTES', str(20 * 1024 * 1024))),
+        backupCount=int(os.getenv('LOG_BACKUP_COUNT', '5')),
+        encoding='utf-8',
+    )
+    file_handler.setFormatter(formatter)
+
+    root_logger = logging.getLogger()
+    root_logger.setLevel(getattr(logging, log_level.upper(), logging.INFO))
+    for handler in list(root_logger.handlers):
+        root_logger.removeHandler(handler)
+        try:
+            handler.close()
+        except Exception:
+            pass
+    root_logger.addHandler(stream_handler)
+    root_logger.addHandler(file_handler)
+
     structlog.configure(
         processors=[
             structlog.stdlib.filter_by_level,
@@ -83,27 +107,12 @@ def setup_logging(service_name: str, log_level: str = 'INFO') -> structlog.Bound
         wrapper_class=structlog.stdlib.BoundLogger,
         cache_logger_on_first_use=True,
     )
-    
-    # Configure standard library logging
-    logging.basicConfig(
-        level=getattr(logging, log_level.upper()),
-        format="%(message)s",
-    )
-    
-    # Create logger for service with service metadata
-    logger = structlog.get_logger(service_name)
-    
-    # Bind service metadata to all log messages
-    service_version = os.getenv('SERVICE_VERSION', '1.0.0')
-    container_id = os.getenv('HOSTNAME', 'unknown')  # Docker container hostname
-    
-    logger = logger.bind(
+
+    return structlog.get_logger(service_name).bind(
         service=service_name,
-        version=service_version,
-        container_id=container_id
+        version=os.getenv('SERVICE_VERSION', '1.0.0'),
+        container_id=os.getenv('HOSTNAME', 'unknown')
     )
-    
-    return logger
 
 
 # ========================================
