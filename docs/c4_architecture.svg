@@ -1,204 +1,200 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1120" viewBox="0 0 1600 1120">
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="1380" viewBox="0 0 1500 1380">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#f8fbff"/>
-      <stop offset="1" stop-color="#eef4fb"/>
-    </linearGradient>
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="5" stdDeviation="7" flood-color="#16324f" flood-opacity="0.12"/>
-    </filter>
-    <marker id="arrow" markerWidth="11" markerHeight="11" refX="9" refY="5.5" orient="auto">
-      <path d="M0,0 L11,5.5 L0,11 Z" fill="#2f5f8f"/>
-    </marker>
-    <marker id="arrowDark" markerWidth="11" markerHeight="11" refX="9" refY="5.5" orient="auto">
-      <path d="M0,0 L11,5.5 L0,11 Z" fill="#1d4268"/>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#4f6b82"/>
     </marker>
     <style>
-      text { font-family: Arial, Helvetica, sans-serif; }
-      .title { font-size: 30px; font-weight: 700; fill:#17324d; }
-      .subtitle { font-size: 15px; fill:#5b7187; }
-      .section { font-size: 20px; font-weight:700; fill:#1e4f7a; }
-      .card-title { font-size: 17px; font-weight:700; fill:#17324d; }
-      .card-body { font-size: 13px; fill:#49657d; }
-      .tag { font-size: 11px; font-weight:700; fill:#2d5a83; }
-      .label { font-size: 12px; font-weight:700; fill:#355a78; }
-      .small { font-size: 11px; fill:#647d93; }
-      .event { font-size: 12px; font-weight:700; fill:#8a4b16; }
+      text{font-family:Arial,Helvetica,sans-serif}
+      .title{font-size:27px;font-weight:700;fill:#263746}
+      .subtitle{font-size:14px;fill:#5f7282}
+      .level{font-size:19px;font-weight:700;fill:#355b7a}
+      .section{fill:#fff;stroke:#b9c8d3;stroke-width:1.5}
+      .person{fill:#3f6f96;stroke:#315974;stroke-width:1.5}
+      .system{fill:#2f5d82;stroke:#244964;stroke-width:1.5}
+      .container{fill:#6f97b4;stroke:#567a94;stroke-width:1.5}
+      .database{fill:#dce8f0;stroke:#8da7ba;stroke-width:1.5}
+      .external{fill:#e9ecef;stroke:#9aa5ad;stroke-width:1.5}
+      .component{fill:#8aabc0;stroke:#6b899d;stroke-width:1.5}
+      .cardTitle{font-size:16px;font-weight:700;fill:#fff}
+      .cardBody{font-size:12px;fill:#eef5f9}
+      .darkBody{font-size:12px;fill:#435d70}
+      .tech{font-size:11px;font-style:italic;fill:#edf4f8}
+      .label{font-size:11px;fill:#415769}
+      .event{font-size:11px;font-weight:700;fill:#415769}
+      .flowStep{fill:#f7f9fb;stroke:#aebdca;stroke-width:1.5}
+      .flowText{font-size:12px;font-weight:700;fill:#31495a}
+      .note{font-size:11px;fill:#637685}
+      .line{stroke:#4f6b82;stroke-width:2;fill:none;marker-end:url(#arrow)}
+      .dashed{stroke:#8397a7;stroke-width:1.6;stroke-dasharray:7 6;fill:none;marker-end:url(#arrow)}
     </style>
   </defs>
 
-  <rect width="1600" height="1120" fill="url(#bg)"/>
+  <rect width="1500" height="1380" fill="#f4f6f8"/>
+  <text x="750" y="42" text-anchor="middle" class="title">Pizza Order System — C4 Architecture</text>
+  <text x="750" y="68" text-anchor="middle" class="subtitle">Event-Driven Architecture • Kafka • Outbox Pattern • Eventual Consistency</text>
 
-  <text x="800" y="52" text-anchor="middle" class="title">Pizza Order System — C4 Architecture</text>
-  <text x="800" y="80" text-anchor="middle" class="subtitle">Event-Driven Architecture • Kafka • Outbox Pattern • Eventual Consistency</text>
+  <!-- LEVEL 1 -->
+  <text x="55" y="112" class="level">Level 1 — System Context</text>
+  <rect x="40" y="130" width="1420" height="205" rx="8" class="section"/>
 
-  <!-- Level 1 -->
-  <text x="80" y="125" class="section">Level 1 — System Context</text>
-  <rect x="60" y="145" width="1480" height="220" rx="18" fill="#ffffff" stroke="#c9d8e6" stroke-width="2"/>
+  <rect x="90" y="195" width="240" height="90" rx="7" class="person"/>
+  <text x="210" y="228" text-anchor="middle" class="cardTitle">Customer</text>
+  <text x="210" y="251" text-anchor="middle" class="cardBody">Создаёт и отслеживает</text>
+  <text x="210" y="269" text-anchor="middle" class="cardBody">заказ пиццы</text>
 
-  <!-- Context nodes -->
-  <g filter="url(#shadow)">
-    <rect x="105" y="205" width="240" height="100" rx="14" fill="#285b88"/>
-    <text x="225" y="238" text-anchor="middle" fill="#fff" class="card-title">👤 Пользователь</text>
-    <text x="225" y="262" text-anchor="middle" fill="#e9f2fb" class="card-body">Создаёт и отслеживает</text>
-    <text x="225" y="281" text-anchor="middle" fill="#e9f2fb" class="card-body">заказ пиццы</text>
-  </g>
+  <rect x="610" y="180" width="320" height="120" rx="7" class="system"/>
+  <text x="770" y="218" text-anchor="middle" class="cardTitle">Pizza Order System</text>
+  <text x="770" y="242" text-anchor="middle" class="cardBody">Распределённая система</text>
+  <text x="770" y="262" text-anchor="middle" class="cardBody">с Event-Driven Architecture</text>
+  <text x="770" y="282" text-anchor="middle" class="cardBody">Kafka • PostgreSQL • Microservices</text>
 
-  <g filter="url(#shadow)">
-    <rect x="680" y="190" width="300" height="130" rx="16" fill="#1769aa"/>
-    <text x="830" y="230" text-anchor="middle" fill="#fff" class="card-title">🍕 Pizza Order System</text>
-    <text x="830" y="255" text-anchor="middle" fill="#edf6ff" class="card-body">Распределённая система</text>
-    <text x="830" y="276" text-anchor="middle" fill="#edf6ff" class="card-body">с Event-Driven Architecture</text>
-    <text x="830" y="301" text-anchor="middle" fill="#d8ebfb" class="tag">EDA / Kafka / PostgreSQL</text>
-  </g>
+  <rect x="1165" y="195" width="245" height="90" rx="7" class="external"/>
+  <text x="1287" y="228" text-anchor="middle" class="darkBody" font-weight="700">Payment Provider</text>
+  <text x="1287" y="251" text-anchor="middle" class="darkBody">Внешняя платёжная</text>
+  <text x="1287" y="269" text-anchor="middle" class="darkBody">система / mock</text>
 
-  <g filter="url(#shadow)">
-    <rect x="1245" y="205" width="240" height="100" rx="14" fill="#6f7d8a"/>
-    <text x="1365" y="238" text-anchor="middle" fill="#fff" class="card-title">💳 Payment Provider</text>
-    <text x="1365" y="263" text-anchor="middle" fill="#edf1f4" class="card-body">Внешняя платёжная</text>
-    <text x="1365" y="282" text-anchor="middle" fill="#edf1f4" class="card-body">система / mock</text>
-  </g>
+  <path d="M330 240 L610 240" class="line"/>
+  <text x="470" y="226" text-anchor="middle" class="label">создаёт заказ</text>
 
-  <!-- Context relationships: lines separated from text -->
-  <path d="M345 255 L680 255" stroke="#2f5f8f" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
-  <rect x="430" y="224" width="175" height="25" rx="8" fill="#fff"/>
-  <text x="517" y="241" text-anchor="middle" class="label">создаёт заказ</text>
+  <path d="M930 255 L1165 255" class="line"/>
+  <text x="1047" y="242" text-anchor="middle" class="label">обрабатывает платежи</text>
 
-  <path d="M980 275 L1245 275" stroke="#2f5f8f" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
-  <rect x="1025" y="286" width="175" height="25" rx="8" fill="#fff"/>
-  <text x="1112" y="303" text-anchor="middle" class="label">обрабатывает платежи</text>
+  <!-- LEVEL 2 -->
+  <text x="55" y="380" class="level">Level 2 — Container Diagram</text>
+  <text x="55" y="403" class="subtitle">Основные приложения и инфраструктура EDA-системы</text>
+  <rect x="40" y="420" width="1420" height="315" rx="8" class="section"/>
 
-  <!-- Level 2 -->
-  <text x="80" y="410" class="section">Level 2 — Container Diagram</text>
-  <text x="80" y="435" class="subtitle">Основная EDA-архитектура: сервисы взаимодействуют через события Kafka</text>
+  <rect x="75" y="505" width="180" height="95" rx="7" class="external"/>
+  <text x="165" y="538" text-anchor="middle" class="darkBody" font-weight="700">Web UI</text>
+  <text x="165" y="561" text-anchor="middle" class="darkBody">Каталог и оформление</text>
+  <text x="165" y="582" text-anchor="middle" class="darkBody">HTML / JavaScript</text>
 
-  <rect x="60" y="455" width="1480" height="560" rx="18" fill="#ffffff" stroke="#c9d8e6" stroke-width="2"/>
+  <rect x="300" y="485" width="220" height="135" rx="7" class="container"/>
+  <text x="410" y="520" text-anchor="middle" class="cardTitle">Order Service</text>
+  <text x="410" y="544" text-anchor="middle" class="cardBody">Заказы и состояние</text>
+  <text x="410" y="564" text-anchor="middle" class="cardBody">бизнес-события</text>
+  <text x="410" y="590" text-anchor="middle" class="tech">Python / Flask</text>
 
-  <!-- Browser -->
-  <g filter="url(#shadow)">
-    <rect x="95" y="650" width="185" height="105" rx="14" fill="#6f7d8a"/>
-    <text x="187" y="684" text-anchor="middle" fill="#fff" class="card-title">Web UI</text>
-    <text x="187" y="709" text-anchor="middle" fill="#eef3f6" class="card-body">Каталог и оформление</text>
-    <text x="187" y="730" text-anchor="middle" fill="#dce6ed" class="tag">HTML / JavaScript</text>
-  </g>
+  <rect x="585" y="485" width="220" height="135" rx="7" class="container"/>
+  <text x="695" y="520" text-anchor="middle" class="cardTitle">Payment Service</text>
+  <text x="695" y="544" text-anchor="middle" class="cardBody">Обработка платежей</text>
+  <text x="695" y="568" text-anchor="middle" class="tech">Python / Flask</text>
 
-  <!-- Order -->
-  <g filter="url(#shadow)">
-    <rect x="365" y="610" width="230" height="150" rx="16" fill="#2f73ad"/>
-    <text x="480" y="645" text-anchor="middle" fill="#fff" class="card-title">📦 Order Service</text>
-    <text x="480" y="671" text-anchor="middle" fill="#edf6ff" class="card-body">Заказы и их состояние</text>
-    <text x="480" y="694" text-anchor="middle" fill="#dcefff" class="card-body">создаёт бизнес-события</text>
-    <rect x="405" y="716" width="150" height="25" rx="8" fill="#d9ecfb"/>
-    <text x="480" y="733" text-anchor="middle" class="tag">Python / Flask</text>
-  </g>
+  <rect x="870" y="485" width="220" height="135" rx="7" class="container"/>
+  <text x="980" y="520" text-anchor="middle" class="cardTitle">Notification Service</text>
+  <text x="980" y="544" text-anchor="middle" class="cardBody">Уведомления</text>
+  <text x="980" y="568" text-anchor="middle" class="tech">Python / Flask</text>
 
-  <!-- Outbox -->
-  <g filter="url(#shadow)">
-    <rect x="365" y="830" width="230" height="105" rx="16" fill="#2b6a8d"/>
-    <text x="480" y="862" text-anchor="middle" fill="#fff" class="card-title">Outbox Processor</text>
-    <text x="480" y="887" text-anchor="middle" fill="#edf8ff" class="card-body">Публикует события</text>
-    <text x="480" y="907" text-anchor="middle" fill="#d5eaf7" class="tag">PostgreSQL → Kafka</text>
-  </g>
+  <rect x="1135" y="470" width="255" height="165" rx="7" class="system"/>
+  <text x="1262" y="510" text-anchor="middle" class="cardTitle">Apache Kafka</text>
+  <text x="1262" y="533" text-anchor="middle" class="cardBody">Центральная шина событий</text>
+  <text x="1262" y="565" text-anchor="middle" class="cardBody">order-events</text>
+  <text x="1262" y="586" text-anchor="middle" class="cardBody">payment-events</text>
+  <text x="1262" y="607" text-anchor="middle" class="cardBody">notification-events • dlq-events</text>
 
-  <!-- Kafka -->
-  <g filter="url(#shadow)">
-    <rect x="735" y="600" width="260" height="180" rx="18" fill="#b56b22"/>
-    <text x="865" y="640" text-anchor="middle" fill="#fff" class="card-title">🔄 Apache Kafka</text>
-    <text x="865" y="666" text-anchor="middle" fill="#fff4e8" class="card-body">Центральная шина событий</text>
-    <rect x="770" y="695" width="190" height="27" rx="9" fill="#ffe6c9"/>
-    <text x="865" y="713" text-anchor="middle" class="event">order-events</text>
-    <rect x="770" y="730" width="190" height="27" rx="9" fill="#ffe6c9"/>
-    <text x="865" y="748" text-anchor="middle" class="event">payment-events</text>
-  </g>
+  <rect x="300" y="655" width="790" height="55" rx="7" class="database"/>
+  <text x="695" y="679" text-anchor="middle" class="darkBody" font-weight="700">PostgreSQL — orders • payments • notifications • outbox_events</text>
+  <text x="695" y="698" text-anchor="middle" class="note">общая БД стенда с отдельными схемами</text>
 
-  <!-- Payment -->
-  <g filter="url(#shadow)">
-    <rect x="1130" y="530" width="240" height="135" rx="16" fill="#3c7d63"/>
-    <text x="1250" y="566" text-anchor="middle" fill="#fff" class="card-title">💳 Payment Service</text>
-    <text x="1250" y="592" text-anchor="middle" fill="#eefaf4" class="card-body">Обработка оплаты</text>
-    <text x="1250" y="616" text-anchor="middle" fill="#dff2e8" class="tag">Kafka Consumer</text>
-  </g>
+  <path d="M255 552 L300 552" class="line"/>
+  <text x="277" y="537" text-anchor="middle" class="label">HTTP</text>
 
-  <!-- Notification -->
-  <g filter="url(#shadow)">
-    <rect x="1130" y="730" width="240" height="135" rx="16" fill="#5566a1"/>
-    <text x="1250" y="766" text-anchor="middle" fill="#fff" class="card-title">📧 Notification Service</text>
-    <text x="1250" y="792" text-anchor="middle" fill="#eef1ff" class="card-body">Обработка уведомлений</text>
-    <text x="1250" y="816" text-anchor="middle" fill="#e0e6ff" class="tag">Kafka Consumer</text>
-  </g>
+  <path d="M520 552 L585 552" class="line"/>
+  <text x="552" y="537" text-anchor="middle" class="label">события</text>
 
-  <!-- PostgreSQL -->
-  <g filter="url(#shadow)">
-    <rect x="670" y="835" width="330" height="105" rx="16" fill="#527a9f"/>
-    <text x="835" y="867" text-anchor="middle" fill="#fff" class="card-title">🗄 PostgreSQL</text>
-    <text x="835" y="892" text-anchor="middle" fill="#edf5fb" class="card-body">orders • payments • notifications</text>
-    <text x="835" y="915" text-anchor="middle" fill="#dbeaf6" class="tag">Бизнес-данные + Outbox</text>
-  </g>
+  <path d="M805 552 L870 552" class="line"/>
+  <text x="837" y="537" text-anchor="middle" class="label">события</text>
 
-  <!-- Main arrows -->
-  <path d="M280 702 L365 702" stroke="#2f5f8f" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
-  <rect x="292" y="670" width="62" height="24" rx="7" fill="#fff"/>
-  <text x="323" y="687" text-anchor="middle" class="label">HTTP</text>
+  <path d="M520 598 C740 650 990 650 1135 575" class="line"/>
+  <text x="845" y="644" text-anchor="middle" class="label">publish / subscribe</text>
 
-  <path d="M480 760 L480 830" stroke="#1d4268" stroke-width="3" fill="none" marker-end="url(#arrowDark)"/>
-  <rect x="498" y="778" width="68" height="24" rx="7" fill="#fff"/>
-  <text x="532" y="795" text-anchor="middle" class="label">Outbox</text>
+  <path d="M410 620 L410 655" class="line"/>
+  <text x="430" y="642" class="label">SQL</text>
 
-  <path d="M595 882 L670 882" stroke="#1d4268" stroke-width="3" fill="none" marker-end="url(#arrowDark)"/>
-  <rect x="605" y="850" width="58" height="24" rx="7" fill="#fff"/>
-  <text x="634" y="867" text-anchor="middle" class="label">SQL</text>
+  <path d="M695 620 L695 655" class="line"/>
+  <text x="715" y="642" class="label">SQL</text>
 
-  <path d="M595 702 L735 702" stroke="#a45f1d" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
-  <rect x="616" y="669" width="91" height="24" rx="7" fill="#fff"/>
-  <text x="662" y="686" text-anchor="middle" class="event">events</text>
+  <path d="M980 620 L980 655" class="line"/>
+  <text x="1000" y="642" class="label">SQL</text>
 
-  <path d="M995 650 C1050 630 1080 600 1130 598" stroke="#a45f1d" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
-  <rect x="1015" y="602" width="92" height="24" rx="7" fill="#fff"/>
-  <text x="1061" y="619" text-anchor="middle" class="event">OrderCreated</text>
+  <path d="M1135 500 C1045 455 900 455 805 500" class="dashed"/>
+  <text x="972" y="463" text-anchor="middle" class="label">consumes</text>
 
-  <path d="M995 730 C1050 750 1085 780 1130 790" stroke="#a45f1d" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
-  <rect x="1005" y="755" width="100" height="24" rx="7" fill="#fff"/>
-  <text x="1055" y="772" text-anchor="middle" class="event">events</text>
+  <!-- LEVEL 3 -->
+  <text x="55" y="780" class="level">Level 3 — Component Diagram: Order Service</text>
+  <text x="55" y="803" class="subtitle">Внутреннее устройство сервиса, отвечающего за заказы и публикацию событий</text>
+  <rect x="40" y="820" width="1420" height="220" rx="8" class="section"/>
 
-  <path d="M1130 635 C1075 660 1045 686 995 690" stroke="#3c7d63" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
-  <rect x="1015" y="660" width="120" height="24" rx="7" fill="#fff"/>
-  <text x="1075" y="677" text-anchor="middle" class="event">PaymentCompleted</text>
+  <rect x="90" y="875" width="235" height="100" rx="7" class="component"/>
+  <text x="207" y="910" text-anchor="middle" class="cardTitle">Order Controller</text>
+  <text x="207" y="934" text-anchor="middle" class="cardBody">REST API</text>
+  <text x="207" y="954" text-anchor="middle" class="tech">Flask Routes</text>
 
-  <path d="M1250 665 L1250 730" stroke="#5566a1" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
-  <rect x="1265" y="682" width="74" height="24" rx="7" fill="#fff"/>
-  <text x="1302" y="699" text-anchor="middle" class="event">notify</text>
+  <rect x="380" y="875" width="235" height="100" rx="7" class="component"/>
+  <text x="497" y="910" text-anchor="middle" class="cardTitle">Order Service</text>
+  <text x="497" y="934" text-anchor="middle" class="cardBody">Бизнес-логика заказа</text>
+  <text x="497" y="954" text-anchor="middle" class="tech">Python</text>
 
-  <path d="M1130 815 C1075 850 1050 875 1000 885" stroke="#5566a1" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
-  <rect x="1010" y="838" width="74" height="24" rx="7" fill="#fff"/>
-  <text x="1047" y="855" text-anchor="middle" class="label">SQL</text>
+  <rect x="670" y="875" width="235" height="100" rx="7" class="component"/>
+  <text x="787" y="910" text-anchor="middle" class="cardTitle">Outbox Processor</text>
+  <text x="787" y="934" text-anchor="middle" class="cardBody">Публикация событий</text>
+  <text x="787" y="954" text-anchor="middle" class="tech">Background process</text>
 
-  <!-- External payment provider -->
-  <g filter="url(#shadow)">
-    <rect x="1350" y="905" width="145" height="80" rx="14" fill="#7c8792"/>
-    <text x="1422" y="935" text-anchor="middle" fill="#fff" class="card-title" style="font-size:14px">Payment Mock</text>
-    <text x="1422" y="958" text-anchor="middle" fill="#edf1f4" class="small">внешний сервис</text>
-  </g>
-  <path d="M1370 625 C1430 660 1435 800 1425 905" stroke="#6f7d8a" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
-  <rect x="1410" y="770" width="100" height="24" rx="7" fill="#fff"/>
-  <text x="1460" y="787" text-anchor="middle" class="label">HTTP</text>
+  <rect x="960" y="875" width="235" height="100" rx="7" class="component"/>
+  <text x="1077" y="910" text-anchor="middle" class="cardTitle">Event Consumer</text>
+  <text x="1077" y="934" text-anchor="middle" class="cardBody">Обработка Kafka events</text>
+  <text x="1077" y="954" text-anchor="middle" class="tech">Kafka Consumer</text>
 
-  <!-- Supporting note -->
-  <rect x="95" y="805" width="185" height="170" rx="14" fill="#f4f8fc" stroke="#c8d8e7"/>
-  <text x="187" y="835" text-anchor="middle" class="card-title" style="font-size:15px">EDA-идея</text>
-  <text x="187" y="862" text-anchor="middle" class="small">Сервисы не образуют</text>
-  <text x="187" y="880" text-anchor="middle" class="small">длинную синхронную</text>
-  <text x="187" y="898" text-anchor="middle" class="small">цепочку.</text>
-  <text x="187" y="928" text-anchor="middle" class="small">Они публикуют и</text>
-  <text x="187" y="946" text-anchor="middle" class="small">обрабатывают события</text>
-  <text x="187" y="964" text-anchor="middle" class="small">асинхронно.</text>
+  <rect x="1250" y="875" width="155" height="100" rx="7" class="database"/>
+  <text x="1327" y="910" text-anchor="middle" class="darkBody" font-weight="700">Repository</text>
+  <text x="1327" y="934" text-anchor="middle" class="darkBody">PostgreSQL</text>
+  <text x="1327" y="954" text-anchor="middle" class="darkBody">orders / outbox</text>
 
-  <!-- Legend -->
-  <rect x="1010" y="945" width="320" height="55" rx="12" fill="#f9fbfd" stroke="#c8d8e7"/>
-  <text x="1030" y="968" class="small">Синие — сервисы</text>
-  <text x="1150" y="968" class="small">Оранжевый — Kafka</text>
-  <text x="1280" y="968" class="small">Серый — внешние системы</text>
-  <text x="1030" y="989" class="small">Стрелки показывают направление взаимодействия</text>
+  <path d="M325 925 L380 925" class="line"/>
+  <path d="M615 925 L670 925" class="line"/>
+  <path d="M905 925 L960 925" class="line"/>
+  <path d="M497 975 L497 1015 L1327 1015 L1327 975" class="dashed"/>
+  <text x="910" y="1032" text-anchor="middle" class="label">доступ к данным</text>
 
-  <!-- Footer -->
-  <text x="800" y="1065" text-anchor="middle" class="subtitle">C4 overview • Level 1 + Level 2 • фокус на Event-Driven Architecture</text>
+  <!-- EVENT FLOW -->
+  <text x="55" y="1090" class="level">Event Flow — обработка заказа</text>
+  <text x="55" y="1113" class="subtitle">Последовательность ключевых событий EDA</text>
+  <rect x="40" y="1130" width="1420" height="185" rx="8" class="section"/>
+
+  <rect x="70" y="1185" width="160" height="70" rx="7" class="flowStep"/>
+  <text x="150" y="1212" text-anchor="middle" class="flowText">1. Создание заказа</text>
+  <text x="150" y="1233" text-anchor="middle" class="note">Order Service</text>
+
+  <rect x="270" y="1185" width="160" height="70" rx="7" class="flowStep"/>
+  <text x="350" y="1212" text-anchor="middle" class="flowText">2. OrderCreated</text>
+  <text x="350" y="1233" text-anchor="middle" class="note">order-events</text>
+
+  <rect x="470" y="1185" width="160" height="70" rx="7" class="flowStep"/>
+  <text x="550" y="1212" text-anchor="middle" class="flowText">3. Payment</text>
+  <text x="550" y="1233" text-anchor="middle" class="note">Payment Service</text>
+
+  <rect x="670" y="1185" width="160" height="70" rx="7" class="flowStep"/>
+  <text x="750" y="1212" text-anchor="middle" class="flowText">4. PaymentCompleted</text>
+  <text x="750" y="1233" text-anchor="middle" class="note">payment-events</text>
+
+  <rect x="870" y="1185" width="160" height="70" rx="7" class="flowStep"/>
+  <text x="950" y="1212" text-anchor="middle" class="flowText">5. OrderPaid</text>
+  <text x="950" y="1233" text-anchor="middle" class="note">Order Service</text>
+
+  <rect x="1070" y="1185" width="160" height="70" rx="7" class="flowStep"/>
+  <text x="1150" y="1212" text-anchor="middle" class="flowText">6. Notification</text>
+  <text x="1150" y="1233" text-anchor="middle" class="note">Notification Service</text>
+
+  <rect x="1270" y="1185" width="160" height="70" rx="7" class="flowStep"/>
+  <text x="1350" y="1212" text-anchor="middle" class="flowText">7. Persist state</text>
+  <text x="1350" y="1233" text-anchor="middle" class="note">PostgreSQL</text>
+
+  <path d="M230 1220 L270 1220" class="line"/>
+  <path d="M430 1220 L470 1220" class="line"/>
+  <path d="M630 1220 L670 1220" class="line"/>
+  <path d="M830 1220 L870 1220" class="line"/>
+  <path d="M1030 1220 L1070 1220" class="line"/>
+  <path d="M1230 1220 L1270 1220" class="line"/>
+
+  <text x="750" y="1285" text-anchor="middle" class="subtitle">Ключевой принцип: бизнес-изменения распространяются через события, а не через длинную цепочку синхронных вызовов.</text>
 </svg>
