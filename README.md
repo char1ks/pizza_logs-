@@ -10,7 +10,7 @@
 
 ## 1. Что вы изучаете
 
-![C4 Architecture](docs/c4_architecture.svg)
+![C4 Architecture](docs/c4_architecture_latest.svg)
 
 На практике вы разберёте:
 
