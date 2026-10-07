@@ -1,396 +1,1179 @@
-# Pizza Order System - Event-Driven Architecture Demo
+# 🍕 Pizza Order System — Monitoring Lab
 
-## Обзор проекта
+Учебный стенд для изучения **мониторинга, наблюдаемости и поведения распределённой системы** под нагрузкой.
 
-Данный проект представляет собой демонстрационный стенд системы заказа пиццы, построенной на принципах **Event-Driven Architecture** с использованием паттерна **Outbox** для обеспечения консистентности данных.
+Студенту не нужно разбираться в исходном коде сервисов или вручную вызывать API. Основной сценарий работы:
 
-## Архитектурные принципы
-
-### Event-Driven Architecture (EDA)
-- **Асинхронное взаимодействие** между сервисами через события
-- **Слабая связанность** компонентов системы
-- **Eventual Consistency** для обеспечения целостности данных
-- **Горизонтальная масштабируемость** каждого сервиса
-
-### Outbox Pattern
-- **Транзакционная безопасность** при публикации событий
-- **Гарантированная доставка** событий в брокер сообщений
-- **Идемпотентность** обработки событий
-
-## Структура системы
-
-### Микросервисы
-
-1. **Frontend Service** (`/services/frontend/`)
-   - Управление каталогом пицц
-   - REST API для клиентских приложений
-   - Технологии: Python, Flask, PostgreSQL
-
-2. **Order Service** (`/services/orders/`)
-   - Управление жизненным циклом заказов
-   - Реализация Outbox Pattern
-   - Технологии: Python, Flask, PostgreSQL, Kafka
-
-3. **Payment Service** (`/services/payments/`)
-   - Обработка платежей через внешние провайдеры
-   - Управление статусами платежей
-   - Технологии: Python, Flask, PostgreSQL, Kafka
-
-4. **Notification Service** (`/services/notification/`)
-   - Отправка уведомлений (Email, SMS, Push)
-   - Управление шаблонами уведомлений
-   - Технологии: Python, Flask, PostgreSQL, Kafka
-
-### Инфраструктура
-
-- **Apache Kafka**: Брокер сообщений для event streaming
-- **PostgreSQL**: Основная база данных для всех сервисов
-- **Docker**: Контейнеризация сервисов
-
-## Документация
-
-### 📊 Диаграммы и схемы
-
-1. **[Модели данных](docs/data_models.md)**
-   - Схемы баз данных всех сервисов
-   - Описание таблиц, индексов и триггеров
-   - Структуры событий и перечислений
-
-2. **[ER-диаграмма](docs/er_diagram.svg)**
-   - Визуализация взаимосвязей между сущностями
-   - Схемы баз данных: frontend, orders, payments, notifications
-   - Связи между таблицами (1:1, 1:N)
-
-3. **[C4 Architecture Diagram](docs/c4_architecture.svg)**
-   - Многоуровневая архитектурная диаграмма
-   - Level 1: System Context
-   - Level 2: Container Diagram
-   - Level 3: Component Diagram
-   - Event Flow Visualization
-
-4. **[Message Flow Documentation](docs/message_flow.md)**
-   - Детальное описание потока сообщений
-   - Диаграмма последовательности
-   - Обработка ошибок и retry логика
-   - Мониторинг и метрики
-
-### 🔄 Процесс заказа (End-to-End)
-
-```
-1. Customer создает заказ → Frontend Service
-2. Frontend Service → Order Service (создание заказа)
-3. Order Service → Kafka (событие OrderCreated)
-4. Payment Service ← Kafka (обработка платежа)
-5. Payment Service → External Payment Provider
-6. Payment Service → Kafka (событие PaymentCompleted)
-7. Order Service ← Kafka (обновление статуса заказа)
-8. Notification Service ← Kafka (отправка уведомлений)
-9. Customer получает уведомления (Email/SMS)
-```
-
-## Ключевые особенности реализации
-
-### Outbox Pattern Implementation
-
-```sql
--- Атомарная транзакция в Order Service
-BEGIN;
-  INSERT INTO orders (...) VALUES (...);
-  INSERT INTO order_items (...) VALUES (...);
-  INSERT INTO outbox_events (event_type, event_data, ...) VALUES ('OrderCreated', '...', ...);
-COMMIT;
-```
-
-### Event Publishing
-
-```python
-# Фоновый процесс публикации событий
-while True:
-    unpublished_events = get_unpublished_events()
-    for event in unpublished_events:
-        kafka_producer.send(topic, event)
-        mark_as_published(event.id)
-    time.sleep(5)
-```
-
-### Error Handling
-
-- **Retry Logic**: Экспоненциальная задержка при ошибках
-- **Dead Letter Queue**: Для сообщений, которые не удалось обработать
-- **Circuit Breaker**: Защита от каскадных отказов
-- **Health Checks**: Мониторинг состояния сервисов
-
-## Запуск системы
-
-### Предварительные требования
-
-- Docker и Docker Compose
-- Python 3.9+
-- PostgreSQL 15+
-- Apache Kafka 2.8+
-
-### Локальный запуск
-
-```bash
-# Клонирование репозитория
-git clone <repository-url>
-cd pizza_logs
-
-# Запуск инфраструктуры
-docker-compose up -d kafka postgres
-
-# Запуск сервисов
-cd services/orders && python app.py &
-cd services/payments && python app.py &
-cd services/notification && python app.py &
-cd services/frontend && python app.py &
-```
-
-### API Endpoints
-
-#### Frontend Service (Port 5001)
-```
-GET  /api/v1/menu           # Получить каталог пицц
-POST /api/v1/menu           # Добавить пиццу
-GET  /api/v1/menu/{id}      # Получить пиццу по ID
-```
-
-#### Order Service (Port 5002)
-```
-POST /api/v1/orders         # Создать заказ
-GET  /api/v1/orders/{id}    # Получить заказ по ID
-GET  /api/v1/orders         # Получить список заказов
-```
-
-#### Payment Service (Port 5003)
-```
-POST /api/v1/payments       # Обработать платеж
-GET  /api/v1/payments/{id}  # Получить статус платежа
-```
-
-#### Notification Service (Port 5004)
-```
-POST /api/v1/notifications  # Отправить уведомление
-GET  /api/v1/notifications  # Получить историю уведомлений
-```
-
-## Мониторинг и наблюдаемость
-
-Мониторинг в стенде разделён по принципу «один вопрос — один экран». Начинать работу нужно с **«Обзора системы»**, затем переходить к компоненту, в котором обнаружена проблема.
-
-### Обзор системы — Grafana
-
-Главный экран для быстрой диагностики:
-- доступны ли все микросервисы;
-- сколько HTTP-запросов проходит;
-- есть ли ошибки 5xx;
-- выросла ли задержка P95;
-- есть ли сообщения в Kafka и consumer lag;
-- сколько заказов и платежей прошло за последний час.
-
-### Kafka — Grafana + Kafka UI
-
-**Grafana «Kafka»** показывает:
-- количество брокеров и топиков;
-- consumer groups;
-- consumer lag по топикам и группам;
-- количество партиций;
-- under-replicated partitions;
-- поток отправленных и полученных событий.
-
-**Kafka UI** нужен для просмотра самих топиков, сообщений, партиций, offsets и consumer groups.
-
-### Сервисы — Grafana
-
-Экран отвечает на вопрос: **какой микросервис тормозит или отдаёт ошибки?**
-
-Здесь видны:
-- HTTP-трафик по сервисам;
-- 5xx по сервисам;
-- P95 по сервисам;
-- бизнес-события и их статусы;
-- CPU и память Docker-контейнеров.
-
-### PostgreSQL — Grafana + pgAdmin
-
-**Grafana «PostgreSQL»** показывает:
-- количество заказов и платежей;
-- активные подключения;
-- cache hit ratio;
-- последовательные и индексные сканирования;
-- медленные SQL-запросы.
-
-**pgAdmin** нужен, чтобы открыть реальные таблицы и данные: заказы, платежи, Outbox, уведомления и связи между ними.
-
-### Сервер — Grafana
-
-Экран отвечает на вопрос: **не перегружен ли сам хост?**
-
-Показывает:
-- CPU;
-- RAM;
-- Load Average;
-- диск;
-- сеть;
-- OOM kills;
-- нагрузку Docker-контейнеров.
-
-### Prometheus
-
-Prometheus — технический уровень мониторинга. Здесь студент может проверить:
-- какие Targets доступны;
-- какие метрики реально собираются;
-- значения метрик;
-- PromQL-запросы.
-
-### cAdvisor
-
-cAdvisor показывает низкоуровневое состояние Docker-контейнеров: CPU, память и другие container metrics.
-
-### Node Exporter
-
-Node Exporter отдаёт Prometheus системные метрики самого хоста: CPU, RAM, диска, сети и загрузки.
-
-### Как выполнять диагностику
-
-Рекомендуемый порядок:
-
-`Обзор → проблемный компонент → Prometheus для проверки исходной метрики → логи / Kafka UI / pgAdmin для поиска причины`
-
-Например, после нагрузочного теста:
-1. В «Обзоре» увидеть рост HTTP-трафика.
-2. В «Сервисах» определить сервис с высоким P95 или 5xx.
-3. В «CPU сервисов» посмотреть, выросла ли его нагрузка.
-4. В «Kafka» проверить lag.
-5. В «PostgreSQL» проверить подключения и медленные SQL.
-6. В Prometheus подтвердить конкретной метрикой, где находится проблема.
-
-## Логирование
-
-```python
-# Структурированное логирование
-logger.info(
-    "Order created",
-    extra={
-        'order_id': order.id,
-        'customer_email': order.customer_email,
-        'total_amount': order.total_amount,
-        'timestamp': datetime.utcnow().isoformat()
-    }
-)
-```
-
-## Тестирование
-
-### Unit Tests
-```bash
-# Запуск тестов для каждого сервиса
-cd services/orders && python -m pytest tests/
-cd services/payments && python -m pytest tests/
-cd services/notification && python -m pytest tests/
-```
-
-### Integration Tests
-```bash
-# End-to-end тестирование
-python tests/integration/test_order_flow.py
-```
-
-### Load Testing
-```bash
-# Нагрузочное тестирование с помощью Apache Bench
-ab -n 1000 -c 10 -H "Content-Type: application/json" \
-   -p order_payload.json http://localhost:5002/api/v1/orders
-```
-
-## Масштабирование
-
-### Горизонтальное масштабирование
-
-- **Stateless Services**: Все сервисы не хранят состояние
-- **Database Sharding**: Разделение данных по ключам
-- **Kafka Partitioning**: Распределение нагрузки по партициям
-- **Load Balancing**: Распределение запросов между инстансами
-
-### Вертикальное масштабирование
-
-- **Database Optimization**: Индексы, query optimization
-- **Connection Pooling**: Эффективное использование соединений
-- **Caching**: Redis для кэширования частых запросов
-
-## Безопасность
-
-### Аутентификация и авторизация
-- JWT токены для API аутентификации
-- Role-based access control (RBAC)
-- API Rate Limiting
-
-### Защита данных
-- Шифрование данных в покое и в движении
-- PII (Personally Identifiable Information) protection
-- Audit logging для критических операций
-
-## Развертывание
-
-### Production Environment
-
-```yaml
-# docker-compose.prod.yml
-version: '3.8'
-services:
-  order-service:
-    image: pizza-order-service:latest
-    replicas: 3
-    environment:
-      - DATABASE_URL=postgresql://...
-      - KAFKA_BROKERS=kafka1:9092,kafka2:9092,kafka3:9092
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: '0.5'
-```
-
-### CI/CD Pipeline
-
-```yaml
-# .github/workflows/deploy.yml
-name: Deploy to Production
-on:
-  push:
-    branches: [main]
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Run tests
-        run: python -m pytest
-  
-  deploy:
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Deploy to Kubernetes
-        run: kubectl apply -f k8s/
-```
-
-## Заключение
-
-Данный стенд демонстрирует современные подходы к построению распределенных систем:
-
-✅ **Event-Driven Architecture** для слабой связанности сервисов  
-✅ **Outbox Pattern** для гарантированной доставки событий  
-✅ **Microservices** для независимого развертывания и масштабирования  
-✅ **Observability** для мониторинга и отладки  
-✅ **Fault Tolerance** для обработки ошибок и отказов  
-
-Система готова к production использованию и может служить основой для реальных e-commerce проектов.
+**запустить стенд → открыть главную страницу → запустить нагрузочный тест → наблюдать изменения в Kafka, PostgreSQL, Prometheus, Grafana, cAdvisor и Node Exporter.**
 
 ---
 
-## Контакты и поддержка
+## 1. Что изучает студент
 
-Для вопросов по архитектуре и реализации обращайтесь к документации в папке `/docs/` или создавайте issues в репозитории.
+Стенд показывает, как одна нагрузка проходит через несколько компонентов распределённой системы и как это отражается в разных системах мониторинга.
 
-**Документация обновлена**: January 2024
+Во время работы можно увидеть:
+
+- HTTP-трафик и задержки;
+- ошибки 5xx;
+- загрузку CPU и памяти;
+- Load Average;
+- работу Docker-контейнеров;
+- работу PostgreSQL;
+- сообщения и consumer lag в Kafka;
+- бизнес-события заказов и платежей;
+- связь между нагрузкой, метриками и фактическими событиями.
+
+Главная идея:
+
+> **Не просто увидеть, что система работает медленно, а определить, где именно появилась проблема и чем она вызвана.**
+
+---
+
+# 2. Архитектура стенда
+
+Система состоит из нескольких сервисов и инфраструктурных компонентов.
+
+```text
+                         ┌─────────────────────┐
+                         │   Главная страница  │
+                         │      Pizza Saga     │
+                         └──────────┬──────────┘
+                                    │
+                                    ▼
+                              ┌───────────┐
+                              │   Nginx   │
+                              │   :80     │
+                              └─────┬─────┘
+                                    │
+                         ┌──────────┴──────────┐
+                         ▼                     ▼
+                ┌────────────────┐     ┌───────────────┐
+                │ Frontend       │     │ Order Service │
+                │ :5000          │     │ :5001         │
+                └────────────────┘     └───────┬───────┘
+                                               │
+                                               ▼
+                                          ┌─────────┐
+                                          │  Kafka  │
+                                          │ :29092  │
+                                          └────┬────┘
+                                               │
+                             ┌─────────────────┼─────────────────┐
+                             ▼                 ▼                 ▼
+                       Payment Service   Order Service    Notification
+                           :5002             :5001           :5004
+                             │
+                             ▼
+                       Payment Mock
+                           :5003
+
+                ┌────────────────────────────────────┐
+                │           PostgreSQL :5433         │
+                └────────────────────────────────────┘
+
+                ┌────────────────────────────────────┐
+                │          Monitoring Stack           │
+                │                                    │
+                │ Prometheus :9090                   │
+                │ Grafana :3000                      │
+                │ cAdvisor :8083                     │
+                │ Node Exporter :9100                │
+                │ PostgreSQL Exporter :9187          │
+                │ Kafka Exporter :9308               │
+                │ Nginx Exporter :9113               │
+                └────────────────────────────────────┘
+
+                ┌────────────────────────────────────┐
+                │ Kafka UI :18080                    │
+                │ pgAdmin :8081                      │
+                └────────────────────────────────────┘
+```
+
+---
+
+# 3. Основной сценарий работы
+
+Студент работает по следующему сценарию:
+
+1. Запускает Docker Compose.
+2. Открывает главную страницу Pizza Saga.
+3. Проверяет, что сервисы запущены.
+4. Запускает **«Нагрузочный тест 1000 RPS»**.
+5. Открывает Kafka UI и смотрит события.
+6. Открывает Grafana и наблюдает изменение метрик.
+7. При необходимости открывает Prometheus и проверяет исходные метрики.
+8. В pgAdmin смотрит реальные данные PostgreSQL.
+9. В cAdvisor и Node Exporter смотрит использование ресурсов.
+
+Нагрузочный тест запускается на **1000 запросов в секунду примерно на 1 минуту**.
+
+Параметр процента ошибок можно изменить в настройках тестирования на главной странице.
+
+---
+
+# 4. Запуск стенда
+
+## Требования
+
+Нужны:
+
+- Docker
+- Docker Compose
+- Git
+
+## Запуск
+
+Клонировать репозиторий:
+
+```bash
+git clone https://github.com/char1ks/pizza_logs-.git
+cd pizza_logs-
+```
+
+Запустить весь стенд:
+
+```bash
+docker compose up -d
+```
+
+Проверить состояние:
+
+```bash
+docker compose ps
+```
+
+Все основные контейнеры должны находиться в состоянии `Up`, а сервисы с healthcheck — в состоянии `healthy`.
+
+Для просмотра логов:
+
+```bash
+docker compose logs -f
+```
+
+---
+
+# 5. Главная страница
+
+Локально:
+
+**http://localhost/**
+
+На главной странице находятся ссылки на все инструменты мониторинга.
+
+Главная страница также содержит кнопку:
+
+**⚡ Нагрузочный тест 1000 RPS**
+
+Именно её следует использовать для создания контролируемой нагрузки.
+
+Во время теста один и тот же поток нагрузки должен отражаться сразу в нескольких системах.
+
+---
+
+# 6. Доступы и учётные данные
+
+## Grafana
+
+Адрес:
+
+**http://localhost:3000**
+
+Логин:
+
+```text
+admin
+```
+
+Пароль:
+
+```text
+admin
+```
+
+Grafana используется для анализа готовых дашбордов.
+
+---
+
+## Prometheus
+
+Адрес:
+
+**http://localhost:9090**
+
+Авторизация не требуется.
+
+Prometheus используется для проверки исходных метрик и выполнения PromQL-запросов.
+
+---
+
+## Kafka UI
+
+Адрес:
+
+**http://localhost:18080**
+
+Авторизация не требуется.
+
+Kafka UI используется для просмотра:
+
+- топиков;
+- сообщений;
+- partition;
+- offsets;
+- consumer groups.
+
+---
+
+## pgAdmin
+
+Открывать через:
+
+**http://localhost/pgadmin/**
+
+Логин:
+
+```text
+pgadmin@pgadmin.org
+```
+
+Пароль:
+
+```text
+admin
+```
+
+В pgAdmin автоматически должен быть доступен сервер:
+
+**Pizza System Database**
+
+Для подключения к PostgreSQL используется:
+
+```text
+Host: host.docker.internal
+Port: 5433
+Database: pizza_system
+User: pizza_user
+Password: pizza_password
+```
+
+---
+
+## PostgreSQL
+
+Параметры подключения:
+
+```text
+Host: localhost
+Port: 5433
+Database: pizza_system
+User: pizza_user
+Password: pizza_password
+```
+
+Внутри pgAdmin используется host gateway:
+
+```text
+host.docker.internal:5433
+```
+
+---
+
+# 7. Порты стенда
+
+| Компонент | Порт | Назначение |
+|---|---:|---|
+| Главная страница / Nginx | 80 | Основной вход |
+| Frontend Service | 5000 | Сервис каталога и запуска нагрузки |
+| Order Service | 5001 | Работа с заказами |
+| Payment Service | 5002 | Обработка платежей |
+| Payment Mock | 5003 | Тестовый платёжный провайдер |
+| Notification Service | 5004 | Уведомления |
+| PostgreSQL | 5433 | База данных |
+| Prometheus | 9090 | Сбор и хранение метрик |
+| Grafana | 3000 | Визуализация метрик |
+| pgAdmin | 8081 | Администрирование PostgreSQL |
+| Kafka UI | 18080 | Просмотр Kafka |
+| Node Exporter | 9100 | Метрики хоста |
+| cAdvisor | 8083 | Метрики Docker-контейнеров |
+| PostgreSQL Exporter | 9187 | Метрики PostgreSQL |
+| Kafka Exporter | 9308 | Метрики Kafka |
+| Nginx Exporter | 9113 | Метрики Nginx |
+
+---
+
+# 8. Grafana
+
+Grafana — основной инструмент для визуального анализа.
+
+В стенде используются несколько специализированных экранов.
+
+## Overview — обзор системы
+
+UID:
+
+`overview`
+
+Используется как первая точка диагностики.
+
+Здесь можно увидеть:
+
+- доступность сервисов;
+- HTTP-трафик;
+- долю 5xx;
+- P95 latency;
+- Kafka traffic;
+- consumer lag;
+- количество заказов;
+- количество платежей.
+
+Рекомендуемый вопрос:
+
+> **В системе вообще есть проблема или всё работает нормально?**
+
+---
+
+## Kafka
+
+UID:
+
+`kafka`
+
+Показывает:
+
+- состояние Kafka;
+- количество брокеров;
+- топики;
+- partition;
+- consumer groups;
+- consumer lag;
+- поток сообщений;
+- under-replicated partitions.
+
+После запуска нагрузки здесь должен быть заметен рост Kafka activity.
+
+Основные топики:
+
+```text
+order-events
+payment-events
+notification-events
+dlq-events
+```
+
+---
+
+## Services
+
+UID:
+
+`services`
+
+Используется для поиска конкретного проблемного микросервиса.
+
+Показывает:
+
+- Rate;
+- 5xx;
+- P95;
+- бизнес-события;
+- CPU;
+- память контейнеров.
+
+Основной вопрос:
+
+> **Какой сервис стал узким местом?**
+
+---
+
+## PostgreSQL
+
+UID:
+
+`database`
+
+Показывает состояние базы данных:
+
+- активные подключения;
+- cache hit ratio;
+- sequential scans;
+- index scans;
+- медленные SQL-запросы;
+- бизнес-метрики заказов и платежей.
+
+Основной вопрос:
+
+> **Не стала ли база данных причиной деградации системы?**
+
+---
+
+## Infrastructure / Server
+
+UID:
+
+`infrastructure`
+
+Показывает состояние самого хоста и инфраструктуры:
+
+- CPU;
+- RAM;
+- disk;
+- network;
+- Load Average;
+- Docker resources.
+
+Основной вопрос:
+
+> **Не упёрлась ли вся машина в ресурсы?**
+
+---
+
+# 9. USE Dashboard
+
+UID:
+
+`use-metrics`
+
+USE означает:
+
+**Utilization — Saturation — Errors**
+
+На экране находятся:
+
+### CPU Utilization
+
+Показывает, насколько загружен CPU.
+
+PromQL:
+
+```promql
+100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
+```
+
+### CPU Saturation
+
+Показывает Load Average:
+
+```promql
+node_load1
+```
+
+```promql
+node_load5
+```
+
+```promql
+node_load15
+```
+
+### CPU Errors
+
+Показывает IO Wait:
+
+```promql
+rate(node_cpu_seconds_total{mode="iowait"}[5m]) * 100
+```
+
+### Memory Utilization
+
+Показывает использование оперативной памяти:
+
+```promql
+(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100
+```
+
+### Memory Saturation
+
+Показывает paging:
+
+```promql
+rate(node_vmstat_pgpgin[5m])
+```
+
+```promql
+rate(node_vmstat_pgpgout[5m])
+```
+
+### Memory Errors
+
+Показывает OOM kills:
+
+```promql
+rate(node_vmstat_oom_kill[5m])
+```
+
+---
+
+# 10. RED Dashboard
+
+UID:
+
+`red-metrics`
+
+RED означает:
+
+**Rate — Errors — Duration**
+
+Это основной подход для анализа сервисов.
+
+### Rate
+
+Сколько запросов проходит через сервис.
+
+### Errors
+
+Сколько запросов завершилось ошибкой.
+
+### Duration
+
+Сколько времени занимает обработка.
+
+Во время нагрузки студент может наблюдать:
+
+```text
+1000 RPS
+   ↓
+Rate увеличивается
+   ↓
+CPU и DB activity увеличиваются
+   ↓
+Latency может увеличиваться
+   ↓
+при перегрузке могут появиться 5xx
+```
+
+---
+
+# 11. LTES Dashboard
+
+UID:
+
+`ltes-metrics`
+
+Используется для анализа:
+
+- Latency;
+- Traffic;
+- Errors;
+- Saturation.
+
+Этот экран помогает связать пользовательский трафик с поведением внутренних компонентов системы.
+
+---
+
+# 12. CPU по сервисам
+
+UID:
+
+`cpu-by-service`
+
+Этот экран нужен для сравнения контейнеров.
+
+Можно увидеть, какой сервис потребляет больше CPU:
+
+- frontend;
+- order;
+- payment;
+- notification;
+- другие контейнеры.
+
+Основной вопрос:
+
+> **Какой конкретно контейнер получает основную нагрузку?**
+
+---
+
+# 13. cAdvisor
+
+Адрес:
+
+**http://localhost:8083**
+
+cAdvisor собирает метрики Docker-контейнеров.
+
+Особенно полезен для анализа:
+
+- CPU контейнера;
+- памяти контейнера;
+- количества контейнеров;
+- поведения контейнеров под нагрузкой.
+
+Связка выглядит так:
+
+```text
+Нагрузка
+   ↓
+Order Service CPU ↑
+   ↓
+cAdvisor фиксирует рост
+   ↓
+Prometheus собирает метрику
+   ↓
+Grafana показывает график
+```
+
+---
+
+# 14. Node Exporter
+
+Адрес:
+
+**http://localhost:9100**
+
+Node Exporter предоставляет Prometheus системные метрики хоста.
+
+Основные группы:
+
+- CPU;
+- memory;
+- load average;
+- filesystem;
+- network;
+- VM statistics;
+- kernel/system metrics.
+
+Node Exporter отвечает именно за **машину**, а cAdvisor — за **Docker-контейнеры**.
+
+---
+
+# 15. Prometheus
+
+Адрес:
+
+**http://localhost:9090**
+
+Prometheus — это технический источник метрик.
+
+Grafana показывает данные, а Prometheus их собирает и хранит.
+
+Удобные запросы для студента:
+
+### Проверить доступность targets
+
+```promql
+up
+```
+
+### Проверить Node Exporter
+
+```promql
+up{job="node-exporter"}
+```
+
+Ожидаемое значение:
+
+```text
+1
+```
+
+### Проверить Load Average
+
+```promql
+node_load1
+```
+
+### Проверить CPU
+
+```promql
+node_cpu_seconds_total
+```
+
+### Проверить память
+
+```promql
+node_memory_MemTotal_bytes
+```
+
+### Проверить HTTP-трафик сервисов
+
+```promql
+sum(rate(http_requests_total{service!=""}[5m]))
+```
+
+### Проверить Kafka traffic
+
+```promql
+sum(rate(kafka_messages_sent_total[5m]))
+```
+
+### Проверить Kafka lag
+
+```promql
+sum(kafka_consumergroup_lag_sum)
+```
+
+---
+
+# 16. Почему Prometheus важен студенту
+
+Prometheus позволяет проверить **реальное состояние системы**, а не только то, что показывает интерфейс.
+
+Например:
+
+Grafana показывает рост CPU.
+
+Студент может открыть Prometheus и проверить исходную метрику:
+
+```promql
+node_load1
+```
+
+или:
+
+```promql
+node_memory_MemAvailable_bytes
+```
+
+Это позволяет отличить реальную проблему от ошибки самого дашборда.
+
+---
+
+# 17. Kafka UI
+
+Адрес:
+
+**http://localhost:18080**
+
+Kafka UI нужен, когда нужно посмотреть не агрегированную метрику, а **сами сообщения**.
+
+Основные объекты:
+
+### order-events
+
+События жизненного цикла заказа.
+
+### payment-events
+
+События оплаты.
+
+### notification-events
+
+События для Notification Service.
+
+### dlq-events
+
+Сообщения, которые были направлены в Dead Letter Queue.
+
+После запуска нагрузочного теста основное внимание следует обратить на:
+
+- количество сообщений;
+- скорость появления сообщений;
+- offsets;
+- consumer groups;
+- lag.
+
+---
+
+# 18. PostgreSQL и pgAdmin
+
+pgAdmin нужен не для графиков, а для просмотра **реальных данных базы**.
+
+После подключения к:
+
+```text
+Pizza System Database
+```
+
+можно исследовать созданные схемы и таблицы.
+
+В базе хранятся данные, необходимые для работы:
+
+- заказов;
+- позиций заказа;
+- платежей;
+- уведомлений;
+- Outbox событий.
+
+Таким образом:
+
+**Grafana показывает состояние БД, а pgAdmin позволяет посмотреть, что физически находится в базе.**
+
+---
+
+# 19. Как одна нагрузка отображается во всех мониторингах
+
+Когда студент нажимает:
+
+**«Нагрузочный тест 1000 RPS»**
+
+начинается реальный поток запросов.
+
+Упрощённо:
+
+```text
+k6
+ ↓
+Nginx
+ ↓
+Order Service
+ ↓
+PostgreSQL
+ ↓
+Outbox
+ ↓
+Kafka
+ ↓
+Payment Service
+ ↓
+Kafka
+ ↓
+Notification Service
+```
+
+И параллельно мониторинг фиксирует изменения:
+
+```text
+HTTP запросы
+   ↓
+Prometheus
+   ↓
+Grafana RED / Overview
+
+CPU и RAM
+   ↓
+Node Exporter / cAdvisor
+   ↓
+Prometheus
+   ↓
+Grafana USE / Infrastructure
+
+Kafka messages
+   ↓
+Kafka Exporter / application metrics
+   ↓
+Prometheus
+   ↓
+Grafana Kafka
+
+PostgreSQL activity
+   ↓
+PostgreSQL Exporter
+   ↓
+Prometheus
+   ↓
+Grafana PostgreSQL
+
+Реальные Kafka events
+   ↓
+Kafka UI
+
+Реальные записи БД
+   ↓
+pgAdmin
+```
+
+Поэтому во время теста студент должен видеть взаимосвязанную картину, а не один отдельный график.
+
+---
+
+# 20. Правильный порядок диагностики
+
+Не нужно хаотично открывать все экраны.
+
+Используйте последовательность:
+
+### Шаг 1. Overview
+
+Посмотреть:
+
+- живы ли сервисы;
+- есть ли трафик;
+- появились ли 5xx;
+- выросла ли latency;
+- есть ли Kafka lag.
+
+### Шаг 2. Services / RED
+
+Определить:
+
+- какой сервис получает нагрузку;
+- какой сервис увеличил latency;
+- какой сервис начал отдавать ошибки.
+
+### Шаг 3. CPU / USE / Infrastructure
+
+Проверить:
+
+- не перегружен ли CPU;
+- хватает ли RAM;
+- вырос ли Load Average;
+- есть ли paging или OOM.
+
+### Шаг 4. Kafka
+
+Проверить:
+
+- появляются ли события;
+- не растёт ли consumer lag;
+- нет ли проблем с partitions;
+- не появились ли DLQ события.
+
+### Шаг 5. PostgreSQL
+
+Проверить:
+
+- подключения;
+- запросы;
+- cache hit ratio;
+- scans;
+- медленные запросы.
+
+### Шаг 6. Prometheus
+
+Проверить конкретную исходную метрику через PromQL.
+
+### Шаг 7. Kafka UI / pgAdmin
+
+Посмотреть фактические сообщения и данные.
+
+---
+
+# 21. Что должен уметь студент после работы со стендом
+
+После прохождения задания студент должен уметь ответить на вопросы:
+
+**Где находится нагрузка?**
+
+**Какой сервис является узким местом?**
+
+**Увеличился ли CPU?**
+
+**Хватает ли памяти?**
+
+**Появился ли Kafka lag?**
+
+**Есть ли ошибки 5xx?**
+
+**Увеличилась ли latency?**
+
+**Не стала ли PostgreSQL узким местом?**
+
+**Есть ли проблемы непосредственно на сервере?**
+
+**Подтверждается ли проблема исходными метриками Prometheus?**
+
+---
+
+# 22. Полезные команды
+
+Проверка всех контейнеров:
+
+```bash
+docker compose ps
+```
+
+Логи конкретного сервиса:
+
+```bash
+docker logs order-service --tail 100
+```
+
+Логи Kafka:
+
+```bash
+docker logs kafka --tail 100
+```
+
+Логи PostgreSQL:
+
+```bash
+docker logs postgres --tail 100
+```
+
+Логи Prometheus:
+
+```bash
+docker logs prometheus --tail 100
+```
+
+Логи Grafana:
+
+```bash
+docker logs grafana --tail 100
+```
+
+Проверка PostgreSQL:
+
+```bash
+docker exec postgres pg_isready -U pizza_user -d pizza_system
+```
+
+Проверка Node Exporter:
+
+```bash
+curl http://localhost:9100/metrics
+```
+
+Проверка Prometheus:
+
+```text
+http://localhost:9090
+```
+
+---
+
+# 23. GitHub Codespaces
+
+Стенд также рассчитан на запуск в GitHub Codespaces.
+
+В Codespaces основная страница и инструменты мониторинга доступны через опубликованные Ports.
+
+Используются порты:
+
+```text
+80      → главная страница
+3000    → Grafana
+9090    → Prometheus
+18080   → Kafka UI
+8081    → pgAdmin
+8083    → cAdvisor
+9100    → Node Exporter
+```
+
+Главная страница автоматически формирует ссылки на инструменты мониторинга для Codespaces.
+
+---
+
+# 24. Что делать, если Grafana показывает No data
+
+Сначала открой Prometheus:
+
+**http://localhost:9090**
+
+Проверь:
+
+```promql
+up
+```
+
+Затем:
+
+```promql
+up{job="node-exporter"}
+```
+
+И:
+
+```promql
+node_load1
+```
+
+Если `node_load1` возвращает данные, Node Exporter и Prometheus работают, и проблему нужно искать в Grafana/datasource/dashboard.
+
+Если данных нет уже в Prometheus, проблема находится раньше:
+
+```text
+Exporter → Prometheus
+```
+
+---
+
+# 25. Главное правило лабораторной работы
+
+Не делайте вывод только по одному экрану.
+
+Например:
+
+> «CPU высокий, значит виноват Order Service»
+
+— это только гипотеза.
+
+Нужно подтвердить её несколькими источниками:
+
+```text
+Grafana CPU
+      +
+cAdvisor
+      +
+Prometheus
+      +
+Services / RED
+      +
+Kafka
+      +
+PostgreSQL
+```
+
+Только после этого можно уверенно определить причину деградации.
+
+---
+
+# 26. Короткая схема инструментов
+
+| Инструмент | Главный вопрос |
+|---|---|
+| **Grafana Overview** | Что сейчас происходит с системой? |
+| **Grafana RED** | Как работают сервисы? |
+| **Grafana USE** | Не перегружен ли сервер? |
+| **Grafana Kafka** | Что происходит с Kafka? |
+| **Grafana PostgreSQL** | Не тормозит ли база? |
+| **Grafana CPU by Service** | Какой контейнер потребляет CPU? |
+| **Prometheus** | Какие метрики реально собраны? |
+| **Kafka UI** | Какие сообщения реально существуют? |
+| **pgAdmin** | Какие данные реально лежат в БД? |
+| **cAdvisor** | Какие ресурсы потребляют контейнеры? |
+| **Node Exporter** | Что происходит с самим хостом? |
+
+---
+
+# 27. Итог
+
+Этот стенд предназначен прежде всего для изучения **observability**.
+
+Студент видит полный путь:
+
+```text
+Нагрузка
+   ↓
+Приложение
+   ↓
+HTTP
+   ↓
+PostgreSQL
+   ↓
+Outbox
+   ↓
+Kafka
+   ↓
+Другие сервисы
+   ↓
+Метрики
+   ↓
+Prometheus
+   ↓
+Grafana
+```
+
+И получает возможность посмотреть на одну и ту же проблему с разных уровней:
+
+**сервисы → контейнеры → сервер → БД → Kafka → метрики → реальные данные.**
+
+Это позволяет перейти от подхода **«система тормозит»** к подходу:
+
+> **«Я вижу, где возникла деградация, какой компонент является причиной и какими метриками это подтверждается».**
+
+---
+
+## Документация проекта
+
+Дополнительные материалы находятся в:
+
+- `docs/data_models.md`
+- `docs/message_flow.md`
+- `docs/pizza-system-architecture.mmd`
+- `docs/c4_architecture.svg`
+- `docs/er_diagram.svg`
+
+Исходный код сервисов находится в:
+
+- `services/frontend/`
+- `services/order/`
+- `services/payment/`
+- `services/payment-mock/`
+- `services/notification/`
+
+Мониторинг:
+
+- `infrastructure/monitoring/prometheus.yml`
+- `infrastructure/monitoring/alert_rules.yml`
+- `infrastructure/monitoring/grafana/`
