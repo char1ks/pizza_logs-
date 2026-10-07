@@ -1,237 +1,64 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="1380" viewBox="0 0 1500 1380">
-  <defs>
-    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
-      <path d="M0,0 L10,5 L0,10 Z" fill="#4f6b82"/>
-    </marker>
-    <style>
-      text{font-family:Arial,Helvetica,sans-serif}
-      .title{font-size:27px;font-weight:700;fill:#263746}
-      .subtitle{font-size:14px;fill:#5f7282}
-      .level{font-size:19px;font-weight:700;fill:#355b7a}
-      .section{fill:#fff;stroke:#b9c8d3;stroke-width:1.5}
-      .person{fill:#3f6f96;stroke:#315974;stroke-width:1.5}
-      .system{fill:#2f5d82;stroke:#244964;stroke-width:1.5}
-      .container{fill:#6f97b4;stroke:#567a94;stroke-width:1.5}
-      .database{fill:#dce8f0;stroke:#8da7ba;stroke-width:1.5}
-      .external{fill:#e9ecef;stroke:#9aa5ad;stroke-width:1.5}
-      .component{fill:#8aabc0;stroke:#6b899d;stroke-width:1.5}
-      .cardTitle{font-size:16px;font-weight:700;fill:#fff}
-      .cardBody{font-size:12px;fill:#eef5f9}
-      .darkBody{font-size:12px;fill:#435d70}
-      .tech{font-size:11px;font-style:italic;fill:#edf4f8}
-      .label{font-size:11px;fill:#415769}
-      .event{font-size:11px;font-weight:700;fill:#415769}
-      .flowStep{fill:#f7f9fb;stroke:#aebdca;stroke-width:1.5}
-      .flowText{font-size:12px;font-weight:700;fill:#31495a}
-      .note{font-size:11px;fill:#637685}
-      .line{stroke:#4f6b82;stroke-width:2;fill:none;marker-end:url(#arrow)}
-      .dashed{stroke:#8397a7;stroke-width:1.6;stroke-dasharray:7 6;fill:none;marker-end:url(#arrow)}
-    </style>
-  </defs>
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1180" viewBox="0 0 1400 1180">
+<defs><style>
+text{font-family:Arial,Helvetica,sans-serif}.title{font-size:26px;font-weight:700;fill:#263746}.level{font-size:18px;font-weight:700;fill:#355b7a}.sub{font-size:13px;fill:#647887}.box{fill:#fff;stroke:#b9c8d3;stroke-width:1.5}.sys{fill:#2f5d82;stroke:#244964}.svc{fill:#6f97b4;stroke:#587a93}.db{fill:#dce8f0;stroke:#8da7ba}.ext{fill:#e9ecef;stroke:#9aa5ad}.comp{fill:#eef3f6;stroke:#9cafbd}.wt{font-size:14px;font-weight:700;fill:#fff}.dt{font-size:13px;font-weight:700;fill:#31495a}.w{font-size:11px;fill:#eef5f9}.d{font-size:11px;fill:#516878}.lab{font-size:10px;fill:#506675}.line{stroke:#4f6b82;stroke-width:2;fill:none;marker-end:url(#a)}
+</style><marker id="a" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0L9 4.5L0 9Z" fill="#4f6b82"/></marker></defs>
+<rect width="1400" height="1180" fill="#f4f6f8"/>
+<text x="700" y="38" text-anchor="middle" class="title">Pizza Order System — C4 Architecture</text>
+<text x="700" y="63" text-anchor="middle" class="sub">EDA • Kafka • Outbox Pattern • Eventual Consistency</text>
 
-  <rect width="1500" height="1380" fill="#f4f6f8"/>
-  <text x="750" y="42" text-anchor="middle" class="title">Pizza Order System — C4 Architecture</text>
-  <text x="750" y="68" text-anchor="middle" class="subtitle">Event-Driven Architecture • Kafka • Outbox Pattern • Eventual Consistency</text>
+<text x="45" y="105" class="level">Level 1 — System Context</text>
+<rect x="35" y="120" width="1330" height="175" rx="8" class="box"/>
+<rect x="80" y="175" width="210" height="75" rx="7" class="ext"/><text x="185" y="204" text-anchor="middle" class="dt">Customer</text><text x="185" y="226" text-anchor="middle" class="d">Создаёт заказ</text>
+<rect x="545" y="160" width="310" height="105" rx="7" class="sys"/><text x="700" y="195" text-anchor="middle" class="wt">Pizza Order System</text><text x="700" y="218" text-anchor="middle" class="w">Распределённая EDA-система</text><text x="700" y="240" text-anchor="middle" class="w">Kafka • PostgreSQL • Microservices</text>
+<rect x="1110" y="175" width="210" height="75" rx="7" class="ext"/><text x="1215" y="204" text-anchor="middle" class="dt">Payment Provider</text><text x="1215" y="226" text-anchor="middle" class="d">Внешняя система</text>
+<path d="M290 212L545 212" class="line"/><text x="418" y="200" text-anchor="middle" class="lab">заказ</text>
+<path d="M855 230L1110 230" class="line"/><text x="982" y="218" text-anchor="middle" class="lab">платёж</text>
 
-  <!-- LEVEL 1 -->
-  <text x="55" y="112" class="level">Level 1 — System Context</text>
-  <rect x="40" y="130" width="1420" height="205" rx="8" class="section"/>
+<text x="45" y="340" class="level">Level 2 — Container Diagram</text>
+<text x="45" y="362" class="sub">Сервисы и инфраструктура EDA-системы</text>
+<rect x="35" y="375" width="1330" height="305" rx="8" class="box"/>
+<rect x="65" y="490" width="120" height="75" rx="7" class="ext"/><text x="125" y="520" text-anchor="middle" class="dt">Web UI</text><text x="125" y="542" text-anchor="middle" class="d">Каталог / заказ</text>
+<rect x="210" y="475" width="110" height="105" rx="7" class="ext"/><text x="265" y="507" text-anchor="middle" class="dt">Nginx</text><text x="265" y="529" text-anchor="middle" class="d">API Gateway</text><text x="265" y="549" text-anchor="middle" class="d">routing</text>
+<rect x="345" y="455" width="180" height="110" rx="7" class="svc"/><text x="435" y="489" text-anchor="middle" class="wt">Frontend Service</text><text x="435" y="512" text-anchor="middle" class="w">Каталог пицц</text><text x="435" y="532" text-anchor="middle" class="w">и запуск нагрузки</text><text x="435" y="552" text-anchor="middle" class="w">Python / Flask</text>
+<rect x="555" y="455" width="180" height="110" rx="7" class="svc"/><text x="645" y="489" text-anchor="middle" class="wt">Order Service</text><text x="645" y="512" text-anchor="middle" class="w">Заказы</text><text x="645" y="532" text-anchor="middle" class="w">бизнес-события</text><text x="645" y="552" text-anchor="middle" class="w">Python / Flask</text>
+<rect x="765" y="440" width="250" height="145" rx="7" class="sys"/><text x="890" y="476" text-anchor="middle" class="wt">Apache Kafka</text><text x="890" y="500" text-anchor="middle" class="w">центральная шина событий</text><text x="890" y="527" text-anchor="middle" class="w">order-events</text><text x="890" y="549" text-anchor="middle" class="w">payment-events</text><text x="890" y="571" text-anchor="middle" class="w">notification-events</text>
+<rect x="1050" y="450" width="220" height="75" rx="7" class="svc"/><text x="1160" y="482" text-anchor="middle" class="wt">Payment Service</text><text x="1160" y="504" text-anchor="middle" class="w">Kafka Consumer</text>
+<rect x="1050" y="550" width="220" height="75" rx="7" class="svc"/><text x="1160" y="582" text-anchor="middle" class="wt">Notification Service</text><text x="1160" y="604" text-anchor="middle" class="w">Kafka Consumer</text>
+<rect x="345" y="610" width="390" height="55" rx="7" class="db"/><text x="540" y="632" text-anchor="middle" class="dt">PostgreSQL</text><text x="540" y="651" text-anchor="middle" class="d">frontend • orders • payments • notifications • outbox_events</text>
+<rect x="785" y="610" width="230" height="55" rx="7" class="comp"/><text x="900" y="632" text-anchor="middle" class="dt">Outbox Processor</text><text x="900" y="651" text-anchor="middle" class="d">PostgreSQL → Kafka</text>
 
-  <rect x="90" y="195" width="240" height="90" rx="7" class="person"/>
-  <text x="210" y="228" text-anchor="middle" class="cardTitle">Customer</text>
-  <text x="210" y="251" text-anchor="middle" class="cardBody">Создаёт и отслеживает</text>
-  <text x="210" y="269" text-anchor="middle" class="cardBody">заказ пиццы</text>
+<path d="M185 528L210 528" class="line"/>
+<path d="M320 515L345 515" class="line"/><text x="357" y="500" text-anchor="middle" class="lab">/menu</text>
+<path d="M320 535L355 535L355 430L645 430L645 455" class="line"/><text x="505" y="422" text-anchor="middle" class="lab">/orders</text>
+<path d="M735 475L765 475" class="line"/><text x="750" y="461" text-anchor="middle" class="lab">OrderCreated</text>
+<path d="M735 535L785 535L785 610" class="line"/><text x="760" y="585" text-anchor="middle" class="lab">Outbox</text>
+<path d="M900 610L900 585" class="line"/>
+<path d="M1015 480L1050 487" class="line"/>
+<path d="M1015 550L1050 575" class="line"/>
+<path d="M735 575L760 575L760 695L735 695" class="line"/>
+<path d="M645 565L645 610" class="line"/><text x="663" y="592" class="lab">SQL</text>
+<path d="M435 565L435 610" class="line"/>
+<text x="65" y="688" class="d">Frontend Service отвечает за каталог и служебные API; EDA-цепочка начинается в Order Service.</text>
 
-  <rect x="610" y="180" width="320" height="120" rx="7" class="system"/>
-  <text x="770" y="218" text-anchor="middle" class="cardTitle">Pizza Order System</text>
-  <text x="770" y="242" text-anchor="middle" class="cardBody">Распределённая система</text>
-  <text x="770" y="262" text-anchor="middle" class="cardBody">с Event-Driven Architecture</text>
-  <text x="770" y="282" text-anchor="middle" class="cardBody">Kafka • PostgreSQL • Microservices</text>
+<text x="45" y="725" class="level">Level 3 — Component Diagram: Order Service</text>
+<text x="45" y="747" class="sub">Внутренние компоненты Order Service</text>
+<rect x="35" y="760" width="1330" height="170" rx="8" class="box"/>
+<rect x="70" y="810" width="215" height="75" rx="7" class="comp"/><text x="177" y="839" text-anchor="middle" class="dt">Order Controller</text><text x="177" y="860" text-anchor="middle" class="d">REST API</text>
+<rect x="345" y="810" width="215" height="75" rx="7" class="comp"/><text x="452" y="839" text-anchor="middle" class="dt">Order Service</text><text x="452" y="860" text-anchor="middle" class="d">Бизнес-логика</text>
+<rect x="620" y="810" width="215" height="75" rx="7" class="comp"/><text x="727" y="839" text-anchor="middle" class="dt">Outbox Processor</text><text x="727" y="860" text-anchor="middle" class="d">Публикация событий</text>
+<rect x="895" y="810" width="215" height="75" rx="7" class="comp"/><text x="1002" y="839" text-anchor="middle" class="dt">Event Consumer</text><text x="1002" y="860" text-anchor="middle" class="d">Kafka events</text>
+<rect x="1170" y="810" width="170" height="75" rx="7" class="db"/><text x="1255" y="839" text-anchor="middle" class="dt">Repository</text><text x="1255" y="860" text-anchor="middle" class="d">PostgreSQL</text>
+<path d="M285 847L345 847" class="line"/><path d="M560 847L620 847" class="line"/><path d="M835 847L895 847" class="line"/>
+<path d="M452 885L452 900L1255 900L1255 885" class="line"/>
 
-  <rect x="1165" y="195" width="245" height="90" rx="7" class="external"/>
-  <text x="1287" y="228" text-anchor="middle" class="darkBody" font-weight="700">Payment Provider</text>
-  <text x="1287" y="251" text-anchor="middle" class="darkBody">Внешняя платёжная</text>
-  <text x="1287" y="269" text-anchor="middle" class="darkBody">система / mock</text>
-
-  <path d="M330 240 L610 240" class="line"/>
-  <text x="470" y="226" text-anchor="middle" class="label">создаёт заказ</text>
-
-  <path d="M930 255 L1165 255" class="line"/>
-  <text x="1047" y="242" text-anchor="middle" class="label">обрабатывает платежи</text>
-
-  <!-- LEVEL 2 -->
-  <text x="55" y="380" class="level">Level 2 — Container Diagram</text>
-  <text x="55" y="403" class="subtitle">Основные контейнеры и связи EDA-системы</text>
-  <rect x="40" y="420" width="1420" height="335" rx="8" class="section"/>
-
-  <!-- Web UI -->
-  <rect x="70" y="500" width="140" height="80" rx="7" class="external"/>
-  <text x="140" y="531" text-anchor="middle" class="darkBody" font-weight="700">Web UI</text>
-  <text x="140" y="553" text-anchor="middle" class="darkBody">Каталог и заказ</text>
-  <text x="140" y="572" text-anchor="middle" class="darkBody">HTML / JavaScript</text>
-
-  <!-- Nginx -->
-  <rect x="235" y="485" width="125" height="110" rx="7" class="external"/>
-  <text x="297" y="521" text-anchor="middle" class="darkBody" font-weight="700">Nginx</text>
-  <text x="297" y="544" text-anchor="middle" class="darkBody">API Gateway</text>
-  <text x="297" y="567" text-anchor="middle" class="darkBody">HTTP routing</text>
-
-  <!-- Frontend Service -->
-  <rect x="395" y="470" width="190" height="105" rx="7" class="container"/>
-  <text x="490" y="504" text-anchor="middle" class="cardTitle">Frontend Service</text>
-  <text x="490" y="527" text-anchor="middle" class="cardBody">Каталог пицц</text>
-  <text x="490" y="547" text-anchor="middle" class="cardBody">и запуск нагрузки</text>
-  <text x="490" y="567" text-anchor="middle" class="tech">Python / Flask</text>
-
-  <!-- Order Service -->
-  <rect x="620" y="470" width="190" height="105" rx="7" class="container"/>
-  <text x="715" y="504" text-anchor="middle" class="cardTitle">Order Service</text>
-  <text x="715" y="527" text-anchor="middle" class="cardBody">Заказы и состояние</text>
-  <text x="715" y="547" text-anchor="middle" class="cardBody">бизнес-события</text>
-  <text x="715" y="567" text-anchor="middle" class="tech">Python / Flask</text>
-
-  <!-- Kafka -->
-  <rect x="900" y="450" width="270" height="150" rx="7" class="system"/>
-  <text x="1035" y="488" text-anchor="middle" class="cardTitle">Apache Kafka</text>
-  <text x="1035" y="512" text-anchor="middle" class="cardBody">Центральная шина событий</text>
-  <text x="1035" y="542" text-anchor="middle" class="cardBody">order-events</text>
-  <text x="1035" y="563" text-anchor="middle" class="cardBody">payment-events</text>
-  <text x="1035" y="584" text-anchor="middle" class="cardBody">notification-events • dlq-events</text>
-
-  <!-- Payment Service -->
-  <rect x="1215" y="455" width="200" height="80" rx="7" class="container"/>
-  <text x="1315" y="488" text-anchor="middle" class="cardTitle">Payment Service</text>
-  <text x="1315" y="511" text-anchor="middle" class="cardBody">Обработка платежей</text>
-  <text x="1315" y="530" text-anchor="middle" class="tech">Kafka Consumer</text>
-
-  <!-- Notification Service -->
-  <rect x="1215" y="555" width="200" height="80" rx="7" class="container"/>
-  <text x="1315" y="588" text-anchor="middle" class="cardTitle">Notification Service</text>
-  <text x="1315" y="611" text-anchor="middle" class="cardBody">Уведомления</text>
-  <text x="1315" y="630" text-anchor="middle" class="tech">Kafka Consumer</text>
-
-  <!-- Outbox Processor -->
-  <rect x="900" y="625" width="270" height="55" rx="7" class="component"/>
-  <text x="1035" y="648" text-anchor="middle" class="cardTitle">Outbox Processor</text>
-  <text x="1035" y="667" text-anchor="middle" class="body">публикует события из PostgreSQL в Kafka</text>
-
-  <!-- PostgreSQL -->
-  <rect x="395" y="685" width="775" height="45" rx="7" class="database"/>
-  <text x="782" y="705" text-anchor="middle" class="darkBody" font-weight="700">PostgreSQL — frontend • orders • payments • notifications • outbox_events</text>
-  <text x="782" y="721" text-anchor="middle" class="note">единая БД стенда с отдельными схемами</text>
-
-  <!-- Request relationships -->
-  <path d="M210 540 L235 540" class="line"/>
-  <text x="222" y="526" text-anchor="middle" class="label">HTTP</text>
-
-  <path d="M360 535 L395 535" class="line"/>
-  <text x="378" y="521" text-anchor="middle" class="label">/menu</text>
-
-  <path d="M360 505 L380 505 L380 445 L715 445 L715 470" class="line"/>
-  <text x="545" y="437" text-anchor="middle" class="label">/orders</text>
-
-  <!-- Database relationships -->
-  <path d="M490 575 L490 685" class="line"/>
-  <text x="508" y="635" class="label">SQL</text>
-
-  <path d="M690 575 L690 685" class="line"/>
-  <text x="708" y="640" class="label">SQL</text>
-
-  <!-- Outbox relationship -->
-  <path d="M760 575 L760 650 L900 650" class="line"/>
-  <text x="815" y="638" text-anchor="middle" class="label">Outbox event</text>
-
-  <path d="M1035 625 L1035 600" class="line"/>
-
-  <!-- Kafka consumers -->
-  <path d="M1170 495 L1215 495" class="line"/>
-  <text x="1192" y="481" text-anchor="middle" class="label">OrderCreated</text>
-
-  <path d="M1170 595 L1215 595" class="line"/>
-  <text x="1192" y="581" text-anchor="middle" class="label">events</text>
-
-  <!-- PaymentCompleted back to Order Service -->
-  <path d="M900 555 L850 555 L850 555 L810 555" class="line"/>
-  <text x="855" y="545" text-anchor="middle" class="label">PaymentCompleted</text>
-
-  <!-- Frontend role -->
-  <text x="65" y="625" class="note">Frontend Service — каталог и API для запуска нагрузочного теста.</text>
-
-  <!-- LEVEL 3 -->
-  <text x="55" y="780" class="level">Level 3 — Component Diagram: Order Service</text>
-  <text x="55" y="803" class="subtitle">Внутреннее устройство сервиса, отвечающего за заказы и публикацию событий</text>
-  <rect x="40" y="820" width="1420" height="220" rx="8" class="section"/>
-
-  <rect x="90" y="875" width="235" height="100" rx="7" class="component"/>
-  <text x="207" y="910" text-anchor="middle" class="cardTitle">Order Controller</text>
-  <text x="207" y="934" text-anchor="middle" class="cardBody">REST API</text>
-  <text x="207" y="954" text-anchor="middle" class="tech">Flask Routes</text>
-
-  <rect x="380" y="875" width="235" height="100" rx="7" class="component"/>
-  <text x="497" y="910" text-anchor="middle" class="cardTitle">Order Service</text>
-  <text x="497" y="934" text-anchor="middle" class="cardBody">Бизнес-логика заказа</text>
-  <text x="497" y="954" text-anchor="middle" class="tech">Python</text>
-
-  <rect x="670" y="875" width="235" height="100" rx="7" class="component"/>
-  <text x="787" y="910" text-anchor="middle" class="cardTitle">Outbox Processor</text>
-  <text x="787" y="934" text-anchor="middle" class="cardBody">Публикация событий</text>
-  <text x="787" y="954" text-anchor="middle" class="tech">Background process</text>
-
-  <rect x="960" y="875" width="235" height="100" rx="7" class="component"/>
-  <text x="1077" y="910" text-anchor="middle" class="cardTitle">Event Consumer</text>
-  <text x="1077" y="934" text-anchor="middle" class="cardBody">Обработка Kafka events</text>
-  <text x="1077" y="954" text-anchor="middle" class="tech">Kafka Consumer</text>
-
-  <rect x="1250" y="875" width="155" height="100" rx="7" class="database"/>
-  <text x="1327" y="910" text-anchor="middle" class="darkBody" font-weight="700">Repository</text>
-  <text x="1327" y="934" text-anchor="middle" class="darkBody">PostgreSQL</text>
-  <text x="1327" y="954" text-anchor="middle" class="darkBody">orders / outbox</text>
-
-  <path d="M325 925 L380 925" class="line"/>
-  <path d="M615 925 L670 925" class="line"/>
-  <path d="M905 925 L960 925" class="line"/>
-  <path d="M497 975 L497 1015 L1327 1015 L1327 975" class="dashed"/>
-  <text x="910" y="1032" text-anchor="middle" class="label">доступ к данным</text>
-
-  <!-- EVENT FLOW -->
-  <text x="55" y="1090" class="level">Event Flow — обработка заказа</text>
-  <text x="55" y="1113" class="subtitle">Последовательность ключевых событий EDA</text>
-  <rect x="40" y="1130" width="1420" height="185" rx="8" class="section"/>
-
-  <rect x="70" y="1185" width="160" height="70" rx="7" class="flowStep"/>
-  <text x="150" y="1212" text-anchor="middle" class="flowText">1. Создание заказа</text>
-  <text x="150" y="1233" text-anchor="middle" class="note">Order Service</text>
-
-  <rect x="270" y="1185" width="160" height="70" rx="7" class="flowStep"/>
-  <text x="350" y="1212" text-anchor="middle" class="flowText">2. OrderCreated</text>
-  <text x="350" y="1233" text-anchor="middle" class="note">order-events</text>
-
-  <rect x="470" y="1185" width="160" height="70" rx="7" class="flowStep"/>
-  <text x="550" y="1212" text-anchor="middle" class="flowText">3. Payment</text>
-  <text x="550" y="1233" text-anchor="middle" class="note">Payment Service</text>
-
-  <rect x="670" y="1185" width="160" height="70" rx="7" class="flowStep"/>
-  <text x="750" y="1212" text-anchor="middle" class="flowText">4. PaymentCompleted</text>
-  <text x="750" y="1233" text-anchor="middle" class="note">payment-events</text>
-
-  <rect x="870" y="1185" width="160" height="70" rx="7" class="flowStep"/>
-  <text x="950" y="1212" text-anchor="middle" class="flowText">5. OrderPaid</text>
-  <text x="950" y="1233" text-anchor="middle" class="note">Order Service</text>
-
-  <rect x="1070" y="1185" width="160" height="70" rx="7" class="flowStep"/>
-  <text x="1150" y="1212" text-anchor="middle" class="flowText">6. Notification</text>
-  <text x="1150" y="1233" text-anchor="middle" class="note">Notification Service</text>
-
-  <rect x="1270" y="1185" width="160" height="70" rx="7" class="flowStep"/>
-  <text x="1350" y="1212" text-anchor="middle" class="flowText">7. Persist state</text>
-  <text x="1350" y="1233" text-anchor="middle" class="note">PostgreSQL</text>
-
-  <path d="M230 1220 L270 1220" class="line"/>
-  <path d="M430 1220 L470 1220" class="line"/>
-  <path d="M630 1220 L670 1220" class="line"/>
-  <path d="M830 1220 L870 1220" class="line"/>
-  <path d="M1030 1220 L1070 1220" class="line"/>
-  <path d="M1230 1220 L1270 1220" class="line"/>
-
-  <text x="750" y="1285" text-anchor="middle" class="subtitle">Ключевой принцип: бизнес-изменения распространяются через события, а не через длинную цепочку синхронных вызовов.</text>
+<text x="45" y="965" class="level">Event Flow — обработка заказа</text>
+<text x="45" y="987" class="sub">Ключевая последовательность событий</text>
+<rect x="35" y="1000" width="1330" height="135" rx="8" class="box"/>
+<rect x="60" y="1043" width="170" height="60" rx="7" class="comp"/><text x="145" y="1070" text-anchor="middle" class="dt">Создание заказа</text><text x="145" y="1089" text-anchor="middle" class="d">Order Service</text>
+<rect x="270" y="1043" width="170" height="60" rx="7" class="comp"/><text x="355" y="1070" text-anchor="middle" class="dt">OrderCreated</text><text x="355" y="1089" text-anchor="middle" class="d">order-events</text>
+<rect x="480" y="1043" width="170" height="60" rx="7" class="comp"/><text x="565" y="1070" text-anchor="middle" class="dt">Payment</text><text x="565" y="1089" text-anchor="middle" class="d">Payment Service</text>
+<rect x="690" y="1043" width="180" height="60" rx="7" class="comp"/><text x="780" y="1070" text-anchor="middle" class="dt">PaymentCompleted</text><text x="780" y="1089" text-anchor="middle" class="d">payment-events</text>
+<rect x="910" y="1043" width="170" height="60" rx="7" class="comp"/><text x="995" y="1070" text-anchor="middle" class="dt">OrderPaid</text><text x="995" y="1089" text-anchor="middle" class="d">Order Service</text>
+<rect x="1120" y="1043" width="170" height="60" rx="7" class="comp"/><text x="1205" y="1070" text-anchor="middle" class="dt">Notification</text><text x="1205" y="1089" text-anchor="middle" class="d">Notification Service</text>
+<path d="M230 1073L270 1073" class="line"/><path d="M440 1073L480 1073" class="line"/><path d="M650 1073L690 1073" class="line"/><path d="M870 1073L910 1073" class="line"/><path d="M1080 1073L1120 1073" class="line"/>
 </svg>
