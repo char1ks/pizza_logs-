@@ -25,9 +25,9 @@ text{font-family:Arial,Helvetica,sans-serif}.title{font-size:26px;font-weight:70
 <path d="M735 520L825 520" class="line"/><text x="780" y="506" text-anchor="middle" class="lab">publish</text>
 <path d="M1075 480L1120 487" class="line"/><path d="M1075 550L1120 585" class="line"/>
 <path d="M645 565L645 610" class="line"/><text x="663" y="592" class="lab">SQL</text><path d="M435 565L435 610" class="line"/>
-<path d="M735 550L805 550L805 637L835 637" class="line"/><text x="770" y="625" class="lab">Outbox</text>
+<path d="M735 555L805 555L805 637L835 637" class="line"/><text x="770" y="625" class="lab">Outbox</text>
 <path d="M950 610L950 585" class="line"/>
-<path d="M825 548L735 548" class="line"/><text x="780" y="560" text-anchor="middle" class="lab">PaymentCompleted</text>
+<path d="M825 540L735 540" class="line"/><text x="780" y="530" text-anchor="middle" class="lab">PaymentCompleted</text>
 <text x="65" y="680" class="d">Frontend Service отвечает за каталог и служебные API; EDA-цепочка начинается в Order Service.</text>
 
 <text x="45" y="725" class="level">Level 3 — Component Diagram: Order Service</text><text x="45" y="747" class="sub">Внутренние компоненты Order Service</text><rect x="35" y="760" width="1330" height="170" rx="8" class="box"/>
