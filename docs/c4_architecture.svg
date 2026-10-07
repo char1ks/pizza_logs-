@@ -106,8 +106,7 @@
   <text x="837" y="537" text-anchor="middle" class="label">события</text>
 
   <path d="M410 485 L410 445 L1262 445 L1262 470" class="line"/>
-  <rect x="1110" y="418" width="155" height="22" rx="6" fill="#fff"/>
-  <text x="1187" y="434" text-anchor="middle" class="label">events / Kafka</text>
+  <text x="1187" y="437" text-anchor="middle" class="label">events / Kafka</text>
 
   <path d="M410 620 L410 655" class="line"/>
   <text x="430" y="642" class="label">SQL</text>
