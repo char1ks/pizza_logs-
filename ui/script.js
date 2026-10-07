@@ -915,7 +915,9 @@ function setupMonitoringUrls() {
     const grafanaBase = isCodespaces
         ? protocol + '//' + hostname.replace(/-80\./, '-3000.')
         : 'http://localhost:3000';
-    const base = isCodespaces ? protocol + '//' + hostname : 'http://localhost';
+    const base = isCodespaces
+        ? protocol + '//' + hostname
+        : 'http://localhost';
     const prometheus = isCodespaces
         ? protocol + '//' + hostname.replace(/-80\./, '-9090.')
         : 'http://localhost:9090';
@@ -924,14 +926,20 @@ function setupMonitoringUrls() {
         : 'http://localhost:8083';
 
     const links = {
-        'overview-dashboard-link': grafanaBase + '/d/overview',
-        'kafka-dashboard-link': grafanaBase + '/d/kafka',
-        'services-dashboard-link': grafanaBase + '/d/services',
-        'database-dashboard-link': base + '/pgadmin/',
-        'infrastructure-dashboard-link': grafanaBase + '/d/infrastructure',
+        'kafka-ui-link': isCodespaces
+            ? protocol + '//' + hostname.replace(/-80\./, '-18080.')
+            : 'http://localhost:18080',
+        'grafana-link': grafanaBase,
         'prometheus-link': prometheus,
+        'pgadmin-link': base + '/pgadmin/',
         'cadvisor-link': cadvisor,
-        'pgadmin-link': base + '/pgadmin/'
+        'node-exporter-link': isCodespaces
+            ? protocol + '//' + hostname.replace(/-80\./, '-9100.')
+            : 'http://localhost:9100',
+        'use-dashboard-link': grafanaBase + '/d/use-metrics',
+        'red-dashboard-link': grafanaBase + '/d/red-metrics',
+        'ltes-dashboard-link': grafanaBase + '/d/ltes-metrics',
+        'cpu-dashboard-link': grafanaBase + '/d/cpu-by-service'
     };
 
     Object.entries(links).forEach(([id, url]) => {
