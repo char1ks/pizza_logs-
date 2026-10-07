@@ -121,8 +121,8 @@
   <text x="1310" y="630" text-anchor="middle" class="darkTitle">заказа</text>
   <text x="1310" y="654" text-anchor="middle" class="dark">PAID</text>
 
-  <path d="M667 428 L667 545 L242 545 L242 585" class="line"/>
-  <text x="475" y="536" text-anchor="middle" class="label">PaymentCompleted</text>
+  <path d="M795 389 L825 389 L825 545 L242 545 L242 585" class="line"/>
+  <text x="530" y="536" text-anchor="middle" class="label">PaymentCompleted</text>
 
   <path d="M365 624 L500 624" class="line"/>
   <path d="M745 624 L875 624" class="line"/>
