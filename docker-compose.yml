@@ -4,6 +4,10 @@ services:
     image: postgres:15-alpine
     container_name: postgres
     restart: unless-stopped
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=pg_stat_statements
     environment:
       POSTGRES_USER: pizza_user
       POSTGRES_PASSWORD: pizza_password
@@ -278,6 +282,7 @@ services:
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/provisioning/dashboards/overview/overview.json
 
   pgadmin:
     image: dpage/pgadmin4:latest
@@ -330,7 +335,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     command:
-      - "-nginx.scrape-uri=http://host.docker.internal:80/stub_status"
+      - "-nginx.scrape-uri=http://host.docker.internal:80/nginx_status"
     depends_on:
       nginx:
         condition: service_started
