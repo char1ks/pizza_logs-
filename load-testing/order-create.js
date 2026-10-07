@@ -40,7 +40,7 @@ const orderSuccessRate = new Rate('order_success_rate');
 // Test Data
 // =================================================================================
 
-const API_BASE_URL = 'http://nginx/api/v1';
+const API_BASE_URL = 'http://host.docker.internal:80/api/v1';
 
 const pizzas = [
   { id: 'margherita', price: 59900 },
