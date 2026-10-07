@@ -118,6 +118,7 @@ services:
       PORT: 5000
     volumes:
       - logs_data:/app/logs
+      - ./load-testing:/app/load-testing:ro
     depends_on:
       postgres:
         condition: service_healthy
