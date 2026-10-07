@@ -21,10 +21,13 @@ scrape_configs:
     metrics_path: /metrics
     scrape_interval: 30s
 
+  # Monitoring targets use the same host-gateway pattern as Kafka.
+  # This avoids dependency on Docker's compose DNS and uses published host ports.
+
   # System Metrics (Node Exporter)
   - job_name: 'node-exporter'
     static_configs:
-      - targets: ['node-exporter:9100']
+      - targets: ['host.docker.internal:9100']
     metrics_path: /metrics
     scrape_interval: 15s
     scrape_timeout: 10s
@@ -39,7 +42,7 @@ scrape_configs:
   # Nginx API Gateway (via nginx-prometheus-exporter)
   - job_name: 'nginx'
     static_configs:
-      - targets: ['nginx-exporter:9113']
+      - targets: ['host.docker.internal:9113']
     metrics_path: /metrics
     scrape_interval: 15s
     scrape_timeout: 10s
@@ -57,7 +60,7 @@ scrape_configs:
   # Frontend Service
   - job_name: 'frontend-service'
     static_configs:
-      - targets: ['frontend-service:5000']
+      - targets: ['host.docker.internal:5000']
     metrics_path: /metrics
     scrape_interval: 15s
     scrape_timeout: 10s
@@ -75,7 +78,7 @@ scrape_configs:
   # Order Service
   - job_name: 'order-service'
     static_configs:
-      - targets: ['order-service:5001']
+      - targets: ['host.docker.internal:5001']
     metrics_path: /metrics
     scrape_interval: 15s
     scrape_timeout: 10s
@@ -93,7 +96,7 @@ scrape_configs:
   # Payment Service
   - job_name: 'payment-service'
     static_configs:
-      - targets: ['payment-service:5002']
+      - targets: ['host.docker.internal:5002']
     metrics_path: /metrics
     scrape_interval: 15s
     scrape_timeout: 10s
@@ -111,7 +114,7 @@ scrape_configs:
   # Notification Service
   - job_name: 'notification-service'
     static_configs:
-      - targets: ['notification-service:5004']
+      - targets: ['host.docker.internal:5004']
     metrics_path: /metrics
     scrape_interval: 15s
     scrape_timeout: 10s
@@ -129,7 +132,7 @@ scrape_configs:
   # Payment Mock Service
   - job_name: 'payment-mock'
     static_configs:
-      - targets: ['payment-mock:5003']
+      - targets: ['host.docker.internal:5003']
     metrics_path: /metrics
     scrape_interval: 15s
     scrape_timeout: 10s
@@ -147,7 +150,7 @@ scrape_configs:
   # Docker Container Metrics (cAdvisor integration)
   - job_name: 'cadvisor'
     static_configs:
-      - targets: ['cadvisor:8080']
+      - targets: ['host.docker.internal:8083']
     metrics_path: /metrics
     scrape_interval: 30s
     scrape_timeout: 10s
@@ -162,7 +165,7 @@ scrape_configs:
   # PostgreSQL Database Metrics
   - job_name: 'postgres-exporter'
     static_configs:
-      - targets: ['postgres-exporter:9187']
+      - targets: ['host.docker.internal:9187']
     metrics_path: /metrics
     scrape_interval: 30s
     scrape_timeout: 10s
@@ -177,7 +180,7 @@ scrape_configs:
   # Kafka Message Broker Metrics
   - job_name: 'kafka-exporter'
     static_configs:
-      - targets: ['kafka-exporter:9308']
+      - targets: ['host.docker.internal:9308']
     metrics_path: /metrics
     scrape_interval: 30s
     scrape_timeout: 10s
