@@ -936,10 +936,11 @@ function setupMonitoringUrls() {
         'node-exporter-link': isCodespaces
             ? protocol + '//' + hostname.replace(/-80\./, '-9100.')
             : 'http://localhost:9100',
-        'use-dashboard-link': grafanaBase + '/d/use-metrics',
-        'red-dashboard-link': grafanaBase + '/d/red-metrics',
-        'ltes-dashboard-link': grafanaBase + '/d/ltes-metrics',
-        'cpu-dashboard-link': grafanaBase + '/d/cpu-by-service'
+        'use-dashboard-link': grafanaBase + '/d/use-metrics/use-metrics',
+        'red-dashboard-link': grafanaBase + '/d/red-metrics/red-metrics',
+        'ltes-dashboard-link': grafanaBase + '/d/ltes-metrics/ltes-metrics',
+        'services-dashboard-link': grafanaBase + '/d/services/services',
+        'cpu-dashboard-link': grafanaBase + '/d/cpu-by-service/cpu-by-service'
     };
 
     Object.entries(links).forEach(([id, url]) => {
