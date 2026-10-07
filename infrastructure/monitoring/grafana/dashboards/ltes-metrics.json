@@ -102,7 +102,7 @@
           "refId": "B"
         },
         {
-          "expr": "avg(pg_slow_queries_mean_time) by (query)",
+          "expr": "avg by(query)(pg_slow_queries_mean_time)",
           "interval": "",
           "legendFormat": "DB Query Time",
           "refId": "C"
