@@ -1,0 +1,218 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "graphTooltip": 1,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "Как читать CPU по сервисам",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 5
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "Это экран для ответа на один вопрос: **какой контейнер съедает ресурсы?**\n\nЗапусти нагрузочный тест на главной странице и смотри, какая линия CPU растёт первой."
+      }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "CPU по микросервисам",
+      "description": "",
+      "datasource": "Prometheus",
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 24,
+        "h": 9
+      },
+      "targets": [
+        {
+          "expr": "rate(container_cpu_usage_seconds_total{name=~\".*frontend.*\"}[5m]) * 100",
+          "legendFormat": "Frontend",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(container_cpu_usage_seconds_total{name=~\".*order.*\"}[5m]) * 100",
+          "legendFormat": "Order",
+          "refId": "B"
+        },
+        {
+          "expr": "rate(container_cpu_usage_seconds_total{name=~\".*payment.*\"}[5m]) * 100",
+          "legendFormat": "Payment",
+          "refId": "C"
+        },
+        {
+          "expr": "rate(container_cpu_usage_seconds_total{name=~\".*notification.*\"}[5m]) * 100",
+          "legendFormat": "Notification",
+          "refId": "D"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "lineWidth": 2,
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": "table",
+      "title": "Текущее потребление CPU",
+      "description": "",
+      "datasource": "Prometheus",
+      "gridPos": {
+        "x": 0,
+        "y": 14,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "rate(container_cpu_usage_seconds_total{name=~\".*frontend.*\"}[5m]) * 100",
+          "legendFormat": "Frontend",
+          "refId": "A",
+          "format": "table",
+          "instant": true
+        },
+        {
+          "expr": "rate(container_cpu_usage_seconds_total{name=~\".*order.*\"}[5m]) * 100",
+          "legendFormat": "Order",
+          "refId": "B",
+          "format": "table",
+          "instant": true
+        },
+        {
+          "expr": "rate(container_cpu_usage_seconds_total{name=~\".*payment.*\"}[5m]) * 100",
+          "legendFormat": "Payment",
+          "refId": "C",
+          "format": "table",
+          "instant": true
+        },
+        {
+          "expr": "rate(container_cpu_usage_seconds_total{name=~\".*notification.*\"}[5m]) * 100",
+          "legendFormat": "Notification",
+          "refId": "D",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true
+      }
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Память по микросервисам",
+      "description": "",
+      "datasource": "Prometheus",
+      "gridPos": {
+        "x": 12,
+        "y": 14,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "container_memory_usage_bytes{name=~\".*frontend.*\"}",
+          "legendFormat": "Frontend",
+          "refId": "A"
+        },
+        {
+          "expr": "container_memory_usage_bytes{name=~\".*order.*\"}",
+          "legendFormat": "Order",
+          "refId": "B"
+        },
+        {
+          "expr": "container_memory_usage_bytes{name=~\".*payment.*\"}",
+          "legendFormat": "Payment",
+          "refId": "C"
+        },
+        {
+          "expr": "container_memory_usage_bytes{name=~\".*notification.*\"}",
+          "legendFormat": "Notification",
+          "refId": "D"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "lineWidth": 2,
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    }
+  ],
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": [
+    "pizza",
+    "monitoring"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": "CPU по сервисам",
+  "uid": "cpu-services",
+  "description": "Сравнение ресурсов микросервисов во время обычной работы и нагрузочного теста.",
+  "refresh": "15s"
+}
