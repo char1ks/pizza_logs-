@@ -1,47 +1,52 @@
 apiVersion: 1
 
 providers:
-  - name: 'Главная'
+  # Business Analytics & System Dashboards
+  - name: 'Pizza System Dashboards'
     orgId: 1
-    folder: 'Главное'
+    folder: 'Pizza Order System'
     type: file
     disableDeletion: false
     updateIntervalSeconds: 30
     options:
-      path: /etc/grafana/provisioning/dashboards/overview
+      path: /etc/grafana/provisioning/dashboards
 
-  - name: 'Kafka'
+  # USE Methodology Dashboard (Utilization, Saturation, Errors)
+  - name: 'USE Methodology'
     orgId: 1
-    folder: 'Kafka'
+    folder: 'Monitoring Methodologies'
     type: file
     disableDeletion: false
     updateIntervalSeconds: 30
     options:
-      path: /etc/grafana/provisioning/dashboards/kafka
+      path: /etc/grafana/provisioning/dashboards
 
-  - name: 'Сервисы'
+  # RED Methodology Dashboard (Rate, Errors, Duration)
+  - name: 'RED Methodology'
     orgId: 1
-    folder: 'Сервисы'
+    folder: 'Monitoring Methodologies'
     type: file
     disableDeletion: false
     updateIntervalSeconds: 30
     options:
-      path: /etc/grafana/provisioning/dashboards/services
+      path: /etc/grafana/provisioning/dashboards
 
-  - name: 'База данных'
+  # LTES Methodology Dashboard (Latency, Traffic, Errors, Saturation)
+  - name: 'LTES Methodology'
     orgId: 1
-    folder: 'База данных'
+    folder: 'Monitoring Methodologies'
     type: file
     disableDeletion: false
     updateIntervalSeconds: 30
     options:
-      path: /etc/grafana/provisioning/dashboards/database
+      path: /etc/grafana/provisioning/dashboards
 
-  - name: 'Сервер'
+  # Service Performance Dashboard (CPU by Service)
+  - name: 'Service Performance'
     orgId: 1
-    folder: 'Сервер'
+    folder: 'Service Monitoring'
     type: file
     disableDeletion: false
     updateIntervalSeconds: 30
     options:
-      path: /etc/grafana/provisioning/dashboards/infrastructure
+      path: /etc/grafana/provisioning/dashboards
