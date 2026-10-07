@@ -61,64 +61,96 @@
 
   <!-- LEVEL 2 -->
   <text x="55" y="380" class="level">Level 2 — Container Diagram</text>
-  <text x="55" y="403" class="subtitle">Основные приложения и инфраструктура EDA-системы</text>
+  <text x="55" y="403" class="subtitle">Основные контейнеры и связи EDA-системы</text>
   <rect x="40" y="420" width="1420" height="315" rx="8" class="section"/>
 
-  <rect x="75" y="505" width="180" height="95" rx="7" class="external"/>
-  <text x="165" y="538" text-anchor="middle" class="darkBody" font-weight="700">Web UI</text>
-  <text x="165" y="561" text-anchor="middle" class="darkBody">Каталог и оформление</text>
-  <text x="165" y="582" text-anchor="middle" class="darkBody">HTML / JavaScript</text>
+  <!-- Web UI -->
+  <rect x="70" y="505" width="155" height="90" rx="7" class="external"/>
+  <text x="147" y="538" text-anchor="middle" class="darkBody" font-weight="700">Web UI</text>
+  <text x="147" y="560" text-anchor="middle" class="darkBody">Каталог и заказ</text>
+  <text x="147" y="580" text-anchor="middle" class="darkBody">HTML / JavaScript</text>
 
-  <rect x="300" y="485" width="220" height="135" rx="7" class="container"/>
-  <text x="410" y="520" text-anchor="middle" class="cardTitle">Order Service</text>
-  <text x="410" y="544" text-anchor="middle" class="cardBody">Заказы и состояние</text>
-  <text x="410" y="564" text-anchor="middle" class="cardBody">бизнес-события</text>
-  <text x="410" y="590" text-anchor="middle" class="tech">Python / Flask</text>
+  <!-- Nginx -->
+  <rect x="265" y="490" width="145" height="120" rx="7" class="external"/>
+  <text x="337" y="527" text-anchor="middle" class="darkBody" font-weight="700">Nginx</text>
+  <text x="337" y="549" text-anchor="middle" class="darkBody">API Gateway</text>
+  <text x="337" y="571" text-anchor="middle" class="darkBody">HTTP routing</text>
 
-  <rect x="585" y="485" width="220" height="135" rx="7" class="container"/>
-  <text x="695" y="520" text-anchor="middle" class="cardTitle">Payment Service</text>
-  <text x="695" y="544" text-anchor="middle" class="cardBody">Обработка платежей</text>
-  <text x="695" y="568" text-anchor="middle" class="tech">Python / Flask</text>
+  <!-- Frontend Service -->
+  <rect x="450" y="480" width="195" height="130" rx="7" class="container"/>
+  <text x="547" y="516" text-anchor="middle" class="cardTitle">Frontend Service</text>
+  <text x="547" y="540" text-anchor="middle" class="cardBody">Каталог пицц</text>
+  <text x="547" y="561" text-anchor="middle" class="cardBody">и запуск нагрузки</text>
+  <text x="547" y="585" text-anchor="middle" class="tech">Python / Flask</text>
 
-  <rect x="870" y="485" width="220" height="135" rx="7" class="container"/>
-  <text x="980" y="520" text-anchor="middle" class="cardTitle">Notification Service</text>
-  <text x="980" y="544" text-anchor="middle" class="cardBody">Уведомления</text>
-  <text x="980" y="568" text-anchor="middle" class="tech">Python / Flask</text>
+  <!-- Order Service -->
+  <rect x="690" y="480" width="195" height="130" rx="7" class="container"/>
+  <text x="787" y="516" text-anchor="middle" class="cardTitle">Order Service</text>
+  <text x="787" y="540" text-anchor="middle" class="cardBody">Заказы и состояние</text>
+  <text x="787" y="561" text-anchor="middle" class="cardBody">бизнес-события</text>
+  <text x="787" y="585" text-anchor="middle" class="tech">Python / Flask</text>
 
-  <rect x="1135" y="470" width="255" height="165" rx="7" class="system"/>
-  <text x="1262" y="510" text-anchor="middle" class="cardTitle">Apache Kafka</text>
-  <text x="1262" y="533" text-anchor="middle" class="cardBody">Центральная шина событий</text>
-  <text x="1262" y="565" text-anchor="middle" class="cardBody">order-events</text>
-  <text x="1262" y="586" text-anchor="middle" class="cardBody">payment-events</text>
-  <text x="1262" y="607" text-anchor="middle" class="cardBody">notification-events • dlq-events</text>
+  <!-- Kafka -->
+  <rect x="930" y="470" width="250" height="150" rx="7" class="system"/>
+  <text x="1055" y="510" text-anchor="middle" class="cardTitle">Apache Kafka</text>
+  <text x="1055" y="534" text-anchor="middle" class="cardBody">Центральная шина событий</text>
+  <text x="1055" y="562" text-anchor="middle" class="cardBody">order-events</text>
+  <text x="1055" y="584" text-anchor="middle" class="cardBody">payment-events</text>
+  <text x="1055" y="606" text-anchor="middle" class="cardBody">notification-events • dlq-events</text>
 
-  <rect x="300" y="655" width="790" height="55" rx="7" class="database"/>
-  <text x="695" y="679" text-anchor="middle" class="darkBody" font-weight="700">PostgreSQL — orders • payments • notifications • outbox_events</text>
-  <text x="695" y="698" text-anchor="middle" class="note">общая БД стенда с отдельными схемами</text>
+  <!-- Payment Service -->
+  <rect x="1230" y="465" width="190" height="85" rx="7" class="container"/>
+  <text x="1325" y="499" text-anchor="middle" class="cardTitle">Payment Service</text>
+  <text x="1325" y="522" text-anchor="middle" class="cardBody">Обработка платежей</text>
+  <text x="1325" y="542" text-anchor="middle" class="tech">Kafka Consumer</text>
 
-  <path d="M255 552 L300 552" class="line"/>
-  <text x="277" y="537" text-anchor="middle" class="label">HTTP</text>
+  <!-- Notification Service -->
+  <rect x="1230" y="580" width="190" height="85" rx="7" class="container"/>
+  <text x="1325" y="614" text-anchor="middle" class="cardTitle">Notification Service</text>
+  <text x="1325" y="637" text-anchor="middle" class="cardBody">Уведомления</text>
+  <text x="1325" y="657" text-anchor="middle" class="tech">Kafka Consumer</text>
 
-  <path d="M520 552 L585 552" class="line"/>
-  <text x="552" y="537" text-anchor="middle" class="label">события</text>
+  <!-- PostgreSQL -->
+  <rect x="450" y="650" width="730" height="55" rx="7" class="database"/>
+  <text x="815" y="673" text-anchor="middle" class="darkBody" font-weight="700">PostgreSQL — orders • payments • notifications • outbox_events • pizzas</text>
+  <text x="815" y="693" text-anchor="middle" class="note">бизнес-данные и Outbox</text>
 
-  <path d="M805 552 L870 552" class="line"/>
-  <text x="837" y="537" text-anchor="middle" class="label">события</text>
+  <!-- Relationships -->
+  <path d="M225 550 L265 550" class="line"/>
+  <text x="245" y="535" text-anchor="middle" class="label">HTTP</text>
 
-  <path d="M410 485 L410 445 L1262 445 L1262 470" class="line"/>
-  <text x="1187" y="437" text-anchor="middle" class="label">events / Kafka</text>
+  <path d="M410 530 L450 530" class="line"/>
+  <text x="430" y="515" text-anchor="middle" class="label">/menu</text>
 
-  <path d="M410 620 L410 655" class="line"/>
-  <text x="430" y="642" class="label">SQL</text>
+  <path d="M410 575 L665 575 L665 545 L690 545" class="line"/>
+  <text x="520" y="566" text-anchor="middle" class="label">/orders</text>
 
-  <path d="M695 620 L695 655" class="line"/>
-  <text x="715" y="642" class="label">SQL</text>
+  <path d="M645 505 L930 505" class="line"/>
+  <text x="787" y="490" text-anchor="middle" class="label">business events</text>
 
-  <path d="M980 620 L980 655" class="line"/>
-  <text x="1000" y="642" class="label">SQL</text>
+  <path d="M885 555 L930 555" class="line"/>
+  <text x="907" y="540" text-anchor="middle" class="label">publish</text>
 
-  <path d="M1135 500 C1045 455 900 455 805 500" class="dashed"/>
-  <text x="972" y="463" text-anchor="middle" class="label">consumes</text>
+  <path d="M1180 505 L1230 505" class="line"/>
+  <text x="1205" y="490" text-anchor="middle" class="label">OrderCreated</text>
+
+  <path d="M1180 585 L1230 620" class="line"/>
+  <text x="1203" y="604" text-anchor="middle" class="label">events</text>
+
+  <path d="M547 610 L547 650" class="line"/>
+  <text x="565" y="635" class="label">SQL</text>
+
+  <path d="M787 610 L787 650" class="line"/>
+  <text x="805" y="635" class="label">SQL</text>
+
+  <path d="M1325 550 L1325 580" class="line"/>
+  <text x="1343" y="569" class="label">notify</text>
+
+  <!-- Frontend role note -->
+  <rect x="70" y="625" width="320" height="80" rx="7" class="panel"/>
+  <text x="90" y="650" class="darkBody" font-weight="700">Зачем нужен Frontend Service?</text>
+  <text x="90" y="671" class="note">Отдаёт каталог, обслуживает служебные</text>
+  <text x="90" y="689" class="note">эндпоинты и запускает нагрузочный тест.</text>
 
   <!-- LEVEL 3 -->
   <text x="55" y="780" class="level">Level 3 — Component Diagram: Order Service</text>
