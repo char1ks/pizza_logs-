@@ -2,24 +2,25 @@
 
 Учебный стенд для изучения **Event-Driven Architecture (EDA)** на примере распределённой системы обработки заказов.
 
-Здесь вы изучаете, как микросервисы взаимодействуют через **события и Kafka**, зачем нужен **Outbox Pattern**, как работает **Eventual Consistency**, что происходит с системой под нагрузкой и как это наблюдать с помощью observability-инструментов.
+Здесь вы изучаете взаимодействие микросервисов через **события и Kafka**, **Outbox Pattern**, **Eventual Consistency**, асинхронную обработку и поведение распределённой системы под нагрузкой.
 
-> **Главная тема стенда — EDA. Observability используется, чтобы увидеть и объяснить поведение этой архитектуры.**
+> **Главная тема стенда — EDA. Observability используется, чтобы увидеть и объяснить работу этой архитектуры.**
 
 ---
 
 ## 1. Что вы изучаете
 
-Основные темы:
+![C4 Architecture](docs/c4_architecture.svg)
+
+На практике вы разберёте:
 
 - Event-Driven Architecture и асинхронное взаимодействие;
-- Kafka как шина событий;
-- Publish/Subscribe;
+- Kafka и Publish/Subscribe;
 - Outbox Pattern;
 - Eventual Consistency;
 - идемпотентность, retry и DLQ;
 - взаимодействие нескольких микросервисов через события;
-- поведение EDA-системы под нагрузкой.
+- работу EDA-системы под нагрузкой.
 
 Главный принцип:
 
@@ -28,91 +29,66 @@
         ↓
       Kafka
         ↓
-Другие сервисы реагируют на событие
+Другие сервисы реагируют
 ```
 
-Сервисы не образуют одну длинную цепочку синхронных вызовов. Они реагируют на события независимо.
+В отличие от длинной цепочки синхронных вызовов, сервисы взаимодействуют через события и остаются слабо связанными.
 
 ---
 
-## 2. Архитектура системы
-
-Основная архитектура уже подробно представлена в документации проекта:
-
-![C4 Architecture](docs/c4_architecture.svg)
-
-Также доступны [исходная Mermaid-схема архитектуры](docs/pizza-system-architecture.mmd) и [диаграмма потока сообщений](docs/message_flow.md).
-
-Упрощённо основной EDA-поток выглядит так:
-
-```text
-Frontend
-   ↓
-Order Service
-   ↓
-PostgreSQL + Outbox
-   ↓
-Outbox Processor
-   ↓
-Kafka
-   ├──→ Payment Service
-   └──→ Notification Service
-             ↓
-       новые события
-```
-
----
-
-## 3. Жизненный цикл заказа
+## 2. Основной EDA-поток
 
 Центральный сценарий стенда:
 
 ```text
 Создание заказа
       ↓
-OrderCreated
+Order Service
+      ↓
+PostgreSQL + Outbox
+      ↓
+Outbox Processor
       ↓
 Kafka / order-events
       ├──────────────→ Payment Service
-      │                       ↓
-      │                PaymentCompleted
-      │                       ↓
-      └────────────────── Kafka
-                              ├──→ Order Service
-                              └──→ Notification Service
+      │                      ↓
+      │               PaymentCompleted
+      │                      ↓
+      └──────────────── Kafka / payment-events
+                             ├──→ Order Service
+                             └──→ Notification Service
                                      
 Order Service
       ↓
 OrderPaid
 ```
 
-То есть одно событие может запускать работу сразу нескольких компонентов.
+Одно событие может запускать обработку сразу в нескольких сервисах.
 
-Подробный flow находится в [docs/message_flow.md](docs/message_flow.md).
+Подробный сценарий находится в [Message Flow](docs/message_flow.md).
 
 ---
 
-## 4. Outbox Pattern
+## 3. Как работает Outbox
 
-При создании заказа Order Service сохраняет бизнес-данные и событие в одной транзакции:
+Order Service сохраняет бизнес-данные и событие в одной транзакции:
 
 ```text
-PostgreSQL transaction
-
-orders
-order_items
-outbox_events
-      ↓
-    COMMIT
-      ↓
+PostgreSQL
+ ├─ orders
+ ├─ order_items
+ └─ outbox_events
+        ↓
+      COMMIT
+        ↓
 Outbox Processor
-      ↓
-     Kafka
+        ↓
+      Kafka
 ```
 
-Это решает проблему, когда заказ уже сохранён в БД, а публикация события не состоялась.
+Это защищает систему от ситуации, когда заказ уже сохранён в БД, а событие не дошло до Kafka.
 
-В базе для изучения Outbox особенно важна таблица:
+Для изучения Outbox особенно важна таблица:
 
 ```text
 orders.outbox_events
@@ -120,46 +96,46 @@ orders.outbox_events
 
 ---
 
-## 5. Eventual Consistency
+## 4. Eventual Consistency
 
-Сервисы обновляют своё состояние не одновременно:
+Состояние разных сервисов меняется последовательно, а не одновременно:
 
 ```text
-t0  OrderCreated
- ↓
-t1  событие опубликовано в Kafka
- ↓
-t2  Payment Service обработал заказ
- ↓
-t3  PaymentCompleted
- ↓
-t4  Order Service получил событие
- ↓
-t5  заказ стал PAID
+OrderCreated
+    ↓
+Kafka
+    ↓
+Payment Service
+    ↓
+PaymentCompleted
+    ↓
+Order Service
+    ↓
+OrderPaid
 ```
 
-Поэтому некоторое время разные части системы могут видеть разное состояние. Со временем состояние сходится.
+Поэтому некоторое время разные компоненты могут видеть разное состояние. Со временем система приходит к согласованному состоянию.
 
-Это особенно хорошо наблюдать через **Kafka consumer lag**.
+При нагрузке это особенно заметно через **consumer lag**.
 
 ---
 
-## 6. Роли компонентов
+## 5. Роли компонентов
 
 | Компонент | Роль |
 |---|---|
 | **Frontend Service** | Интерфейс и запуск нагрузки |
-| **Order Service** | Работа с заказами и событиями |
+| **Order Service** | Работа с заказами и бизнес-событиями |
 | **Outbox Processor** | Публикация Outbox-событий в Kafka |
 | **Payment Service** | Обработка платежных событий |
 | **Payment Mock** | Имитация внешней платёжной системы |
-| **Notification Service** | Обработка событий и уведомления |
+| **Notification Service** | Реакция на события и уведомления |
 | **PostgreSQL** | Бизнес-данные и Outbox |
 | **Kafka** | Асинхронная шина событий |
 
 ---
 
-## 7. Kafka
+## 6. Kafka
 
 Kafka — центральный элемент EDA-архитектуры.
 
@@ -172,35 +148,27 @@ notification-events
 dlq-events
 ```
 
-В [Kafka UI](http://localhost:18080) вы можете увидеть:
+В [Kafka UI](http://localhost:18080) можно посмотреть реальные события, partitions, offsets, consumer groups и lag.
 
-- реальные события;
-- partitions;
-- offsets;
-- consumer groups;
-- consumer lag.
-
-Например, после создания заказа можно проследить событие:
+Пример цепочки:
 
 ```text
 OrderCreated
-    ↓
+     ↓
 PaymentCompleted
-    ↓
+     ↓
 OrderPaid
 ```
 
 ---
 
-## 8. Нагрузка 1000 RPS
+## 7. Нагрузка 1000 RPS
 
 На главной странице есть кнопка:
 
 **⚡ Нагрузочный тест 1000 RPS**
 
-Она создаёт нагрузку примерно на одну минуту.
-
-Во время теста смотрите, как один поток нагрузки проходит через EDA:
+Нагрузка создаёт поток запросов примерно на одну минуту:
 
 ```text
 HTTP
@@ -214,7 +182,7 @@ Kafka
 Payment / Notification
 ```
 
-И одновременно наблюдайте:
+Одновременно можно наблюдать:
 
 ```text
 HTTP Rate
@@ -228,33 +196,31 @@ PostgreSQL Activity
 
 ---
 
-## 9. Observability
+## 8. Observability
 
-После понимания EDA используйте observability, чтобы исследовать её поведение.
+После изучения EDA используйте observability, чтобы исследовать её поведение.
 
-| Инструмент | Что смотрите |
+| Инструмент | Что показывает |
 |---|---|
-| **Grafana** | графики и состояние системы |
-| **Prometheus** | исходные метрики и PromQL |
-| **Kafka UI** | реальные сообщения и consumer groups |
-| **pgAdmin** | реальные данные PostgreSQL и Outbox |
-| **cAdvisor** | ресурсы Docker-контейнеров |
-| **Node Exporter** | ресурсы хоста |
-| **Kafka Exporter** | метрики Kafka |
-| **PostgreSQL Exporter** | метрики PostgreSQL |
-| **Nginx Exporter** | метрики Nginx |
+| **Grafana** | Графики и состояние системы |
+| **Prometheus** | Исходные метрики и PromQL |
+| **Kafka UI** | Реальные сообщения и consumer groups |
+| **pgAdmin** | Реальные данные PostgreSQL и Outbox |
+| **cAdvisor** | Ресурсы Docker-контейнеров |
+| **Node Exporter** | Ресурсы хоста |
+| **Kafka Exporter** | Метрики Kafka |
+| **PostgreSQL Exporter** | Метрики PostgreSQL |
+| **Nginx Exporter** | Метрики Nginx |
 
 Главный вопрос:
 
-> **Что произошло с EDA-системой и почему?**
+> **Что произошло с EDA-системой под нагрузкой и почему?**
 
 ---
 
-## 10. Grafana
+## 9. Grafana
 
-Адрес: **http://localhost:3000**
-
-Логин и пароль:
+**http://localhost:3000**
 
 ```text
 Login:    admin
@@ -265,11 +231,11 @@ Password: admin
 
 | Dashboard | UID | Назначение |
 |---|---|---|
-| Overview | `overview` | общее состояние и нагрузка |
-| Kafka | `kafka` | messages, lag, broker |
-| Services | `services` | работа микросервисов |
-| PostgreSQL | `database` | состояние БД |
-| Infrastructure | `infrastructure` | ресурсы инфраструктуры |
+| Overview | `overview` | Общее состояние системы |
+| Kafka | `kafka` | Messages, lag, broker |
+| Services | `services` | Работа микросервисов |
+| PostgreSQL | `database` | Состояние БД |
+| Infrastructure | `infrastructure` | Ресурсы инфраструктуры |
 | RED | `red-metrics` | Rate, Errors, Duration |
 | USE | `use-metrics` | Utilization, Saturation, Errors |
 | LTES | `ltes-metrics` | Latency, Traffic, Errors, Saturation |
@@ -277,9 +243,16 @@ Password: admin
 
 ---
 
-## 11. PostgreSQL
+## 10. PostgreSQL
 
-Подключение:
+**http://localhost:8081**
+
+```text
+Login:    pgadmin@pgadmin.org
+Password: admin
+```
+
+Подключение к базе:
 
 ```text
 Host:     localhost
@@ -289,7 +262,7 @@ User:     pizza_user
 Password: pizza_password
 ```
 
-Для pgAdmin:
+Для подключения из pgAdmin:
 
 ```text
 Host:     host.docker.internal
@@ -299,43 +272,43 @@ User:     pizza_user
 Password: pizza_password
 ```
 
-pgAdmin:
+![ER Diagram](docs/er_diagram.svg)
 
-**http://localhost:8081**
-
-Логин и пароль:
+Особенно интересны:
 
 ```text
-Login:    pgadmin@pgadmin.org
-Password: admin
+orders
+order_items
+outbox_events
+payments
+payment_attempts
+notifications
 ```
-
-ER-структура базы есть в документации:
-
-![ER Diagram](docs/er_diagram.svg)
 
 ---
 
-## 12. Prometheus
+## 11. Prometheus
 
-Адрес: **http://localhost:9090**
+**http://localhost:9090**
 
-Проверка targets:
+Быстрые проверки:
 
 ```promql
 up
 ```
 
-Проверка Node Exporter:
-
 ```promql
 up{job="node-exporter"}
+```
+
+```promql
+node_load1
 ```
 
 HTTP traffic:
 
 ```promql
-sum(rate(http_requests_total{service!="\""}[5m]))
+sum(rate(http_requests_total{service!=""}[5m]))
 ```
 
 Kafka traffic:
@@ -352,15 +325,15 @@ sum(kafka_consumergroup_lag_sum)
 
 ---
 
-## 13. Запуск стенда
+## 12. Запуск стенда
 
-Требования:
+### Требования
 
-- Docker;
-- Docker Compose;
-- Git.
+- Docker
+- Docker Compose
+- Git
 
-Запуск:
+### Запуск
 
 ```bash
 git clone https://github.com/char1ks/pizza_logs-.git
@@ -380,23 +353,25 @@ docker compose ps
 
 ---
 
-## 14. Рекомендуемый сценарий работы
+## 13. Рекомендуемый сценарий
 
 1. Запустите стенд.
 2. Создайте заказ.
 3. Откройте Kafka UI.
 4. Найдите `OrderCreated`.
-5. Проследите обработку платежа и появление `PaymentCompleted`.
-6. Проверьте изменение заказа в PostgreSQL.
-7. Запустите нагрузку **1000 RPS**.
-8. Посмотрите Kafka lag, latency, errors и ресурсы.
-9. Сравните графики Grafana с реальными событиями Kafka и данными PostgreSQL.
+5. Проследите `PaymentCompleted` и `OrderPaid`.
+6. Откройте pgAdmin и найдите соответствующие данные.
+7. Запустите **1000 RPS**.
+8. Наблюдайте Kafka lag, latency, errors и ресурсы в Grafana.
+9. При необходимости подтвердите вывод через Prometheus.
+
+Главная задача — связать **архитектурное событие** с его фактическим поведением в распределённой системе.
 
 ---
 
-## 15. Что должно остаться после лабораторной работы
+## 14. Что вы должны понять
 
-Вы должны понимать:
+После лабораторной работы вы должны понимать:
 
 - как устроена EDA;
 - зачем нужна Kafka;
@@ -404,10 +379,9 @@ docker compose ps
 - зачем нужен Outbox Pattern;
 - почему возникает Eventual Consistency;
 - как несколько сервисов реагируют на одно событие;
-- почему producer и consumer могут работать с разной скоростью;
 - откуда появляется consumer lag;
-- как retry и DLQ влияют на обработку событий;
-- как observability помогает объяснить поведение распределённой системы.
+- как retry и DLQ влияют на обработку;
+- как observability помогает объяснить поведение системы.
 
 ---
 
@@ -419,14 +393,6 @@ docker compose ps
 - [ER Diagram](docs/er_diagram.svg)
 - [Architecture Source](docs/pizza-system-architecture.mmd)
 
-Исходный код сервисов:
+Исходный код: `services/`
 
-- `services/frontend/`
-- `services/order/`
-- `services/payment/`
-- `services/payment-mock/`
-- `services/notification/`
-
-Мониторинг:
-
-- `infrastructure/monitoring/`
+Мониторинг: `infrastructure/monitoring/`
