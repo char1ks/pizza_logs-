@@ -102,7 +102,7 @@
           "refId": "B"
         },
         {
-          "expr": "avg(pg_stat_statements_mean_time) by (query)",
+          "expr": "avg(pg_slow_queries_mean_time) by (query)",
           "interval": "",
           "legendFormat": "DB Query Time",
           "refId": "C"
@@ -183,19 +183,19 @@
       },
       "targets": [
         {
-          "expr": "rate(kafka_consumer_bytes_consumed_total[5m])",
+          "expr": "sum(rate(kafka_messages_received_total[5m]))",
           "interval": "",
           "legendFormat": "Kafka Consumer {{topic}}",
           "refId": "A"
         },
         {
-          "expr": "rate(kafka_producer_bytes_sent_total[5m])",
+          "expr": "sum(rate(kafka_messages_sent_total[5m]))",
           "interval": "",
           "legendFormat": "Kafka Producer {{topic}}",
           "refId": "B"
         },
         {
-          "expr": "rate(pg_stat_database_blocks_fetched[5m]) * 8192",
+          "expr": "rate(pg_database_queries_blocks_fetched[5m]) * 8192",
           "interval": "",
           "legendFormat": "DB Block Reads",
           "refId": "C"
@@ -276,19 +276,19 @@
       },
       "targets": [
         {
-          "expr": "rate(kafka_server_brokertopicmetrics_failedfetchrequestspersec[5m])",
+          "expr": "sum(rate(business_events_total{status=~\"failure|failed|error\"}[5m]))",
           "interval": "",
           "legendFormat": "Kafka Failed Requests",
           "refId": "A"
         },
         {
-          "expr": "rate(pg_stat_database_xact_rollback[5m])",
+          "expr": "rate(pg_database_queries_transactions_rollbacked[5m])",
           "interval": "",
           "legendFormat": "DB Transaction Rollbacks",
           "refId": "B"
         },
         {
-          "expr": "sum(rate(flask_http_request_total{status=~\"5..\"}[5m])) by (service_name)",
+          "expr": "sum by(service)(rate(http_requests_total{status=~\"5..\"}[5m]))",
           "interval": "",
           "legendFormat": "{{service_name}} 5xx Errors",
           "refId": "C"
@@ -369,13 +369,13 @@
       },
       "targets": [
         {
-          "expr": "pg_stat_database_active_connections / 100 * 100",
+          "expr": "sum(pg_database_queries_active_connections)",
           "interval": "",
           "legendFormat": "DB Connection Pool Utilization",
           "refId": "A"
         },
         {
-          "expr": "kafka_server_kafkarequesthandlerpool_requesthandleravgidlepercent",
+          "expr": "sum(kafka_consumergroup_lag_sum)",
           "interval": "",
           "legendFormat": "Kafka Request Handler Utilization",
           "refId": "B"
@@ -462,13 +462,13 @@
       },
       "targets": [
         {
-          "expr": "pg_stat_user_tables_seq_scan",
+          "expr": "pg_database_performance_seq_scan",
           "interval": "",
           "legendFormat": "{{schemaname}}.{{tablename}} Sequential Scans",
           "refId": "A"
         },
         {
-          "expr": "pg_stat_user_tables_idx_scan",
+          "expr": "pg_database_performance_idx_scan",
           "interval": "",
           "legendFormat": "{{schemaname}}.{{tablename}} Index Scans",
           "refId": "B"
@@ -498,4 +498,4 @@
   "title": "🌐 LTES Methodology Dashboard",
   "uid": "ltes-metrics",
   "version": 1
-} 
+}
