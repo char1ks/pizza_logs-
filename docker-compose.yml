@@ -294,8 +294,10 @@ services:
     environment:
       PGADMIN_DEFAULT_EMAIL: pgadmin@pgadmin.org
       PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_REPLACE_SERVERS_ON_STARTUP: "True"
     volumes:
       - pgadmin_data:/var/lib/pgadmin
+      - ./infrastructure/databases/pgadmin-servers.json:/pgadmin4/servers.json:ro
 
   postgres-exporter:
     image: prometheuscommunity/postgres-exporter:latest
