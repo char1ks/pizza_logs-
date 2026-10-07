@@ -154,76 +154,54 @@
             <!-- System Monitoring -->
             <section class="monitoring-section">
                 <h2>📊 Мониторинг системы</h2>
+                <p style="margin: -0.75rem 0 1.5rem; color: #64748b;">
+                    Не нужно искать нужный график: сначала откройте «Обзор», затем переходите к проблемному компоненту.
+                </p>
                 <div class="monitoring-grid">
                     <div class="monitoring-card">
-                        <h3>🔄 Kafka Events</h3>
-                        <p>Просмотр событий в реальном времени</p>
-                        <a href="#" target="_blank" class="monitor-link" data-port="18080" id="kafka-ui-link">
-                            Открыть Kafka UI
-                        </a>
+                        <h3>🧭 Обзор системы</h3>
+                        <p>Главный экран: состояние сервисов, HTTP-трафик, ошибки, задержка, Kafka и заказы.</p>
+                        <a href="#" target="_blank" class="monitor-link" id="overview-dashboard-link">Открыть обзор</a>
                     </div>
                     <div class="monitoring-card">
-                        <h3>📈 Grafana Dashboard</h3>
-                        <p>Метрики производительности и системы</p>
-                        <a href="#" target="_blank" class="monitor-link" data-port="3000" id="grafana-link">
-                            Открыть Grafana
-                        </a>
+                        <h3>📨 Kafka</h3>
+                        <p>Топики, consumer groups, lag, партиции и поток событий.</p>
+                        <a href="#" target="_blank" class="monitor-link" id="kafka-dashboard-link">Открыть Kafka</a>
                     </div>
                     <div class="monitoring-card">
-                        <h3>🎯 Prometheus Metrics</h3>
-                        <p>Сырые метрики системы</p>
-                        <a href="#" target="_blank" class="monitor-link" data-port="9090" id="prometheus-link">
-                            Открыть Prometheus
-                        </a>
+                        <h3>⚙️ Сервисы</h3>
+                        <p>HTTP-запросы, 5xx, P95, бизнес-события, CPU и память микросервисов.</p>
+                        <a href="#" target="_blank" class="monitor-link" id="services-dashboard-link">Открыть сервисы</a>
                     </div>
                     <div class="monitoring-card">
-                        <h3>🗄️ База данных</h3>
-                        <p>Управление PostgreSQL</p>
-                        <a href="#" target="_blank" class="monitor-link" data-port="8081" id="pgadmin-link">
-                            Открыть pgAdmin
-                        </a>
+                        <h3>🗄️ PostgreSQL</h3>
+                        <p>Заказы, платежи, подключения, чтение таблиц, кэш и медленные SQL.</p>
+                        <a href="#" target="_blank" class="monitor-link" id="database-dashboard-link">Открыть PostgreSQL</a>
                     </div>
                     <div class="monitoring-card">
-                        <h3>🐳 Контейнеры</h3>
-                        <p>Мониторинг Docker контейнеров</p>
-                        <a href="#" target="_blank" class="monitor-link" data-port="8083" id="cadvisor-link">
-                            Открыть cAdvisor
-                        </a>
+                        <h3>🖥️ Сервер</h3>
+                        <p>CPU, RAM, Load Average, диск, сеть и OOM на всей машине.</p>
+                        <a href="#" target="_blank" class="monitor-link" id="infrastructure-dashboard-link">Открыть сервер</a>
                     </div>
                     <div class="monitoring-card">
-                        <h3>🖥️ Система</h3>
-                        <p>Метрики железа и сети</p>
-                        <a href="#" target="_blank" class="monitor-link" data-port="9100" id="node-exporter-link">
-                            Node Exporter
-                        </a>
+                        <h3>📦 CPU сервисов</h3>
+                        <p>Какой Docker-контейнер создаёт основную нагрузку после запуска теста.</p>
+                        <a href="#" target="_blank" class="monitor-link" id="cpu-dashboard-link">Открыть CPU сервисов</a>
                     </div>
                     <div class="monitoring-card">
-                        <h3>⚖️ USE Metrics</h3>
-                        <p>Utilization, Saturation, Errors</p>
-                        <a href="#" target="_blank" class="monitor-link" data-dashboard="use-metrics" id="use-dashboard-link">
-                            Дашборд USE
-                        </a>
+                        <h3>🔎 Prometheus</h3>
+                        <p>Проверка сырых метрик, Targets и запросов PromQL.</p>
+                        <a href="#" target="_blank" class="monitor-link" id="prometheus-link">Открыть Prometheus</a>
                     </div>
                     <div class="monitoring-card">
-                        <h3>🔴 RED Metrics</h3>
-                        <p>Rate, Errors, Duration</p>
-                        <a href="#" target="_blank" class="monitor-link" data-dashboard="red-metrics" id="red-dashboard-link">
-                            Дашборд RED
-                        </a>
+                        <h3>🐳 cAdvisor</h3>
+                        <p>Низкоуровневые метрики Docker-контейнеров.</p>
+                        <a href="#" target="_blank" class="monitor-link" id="cadvisor-link">Открыть cAdvisor</a>
                     </div>
                     <div class="monitoring-card">
-                        <h3>🌐 LTES Metrics</h3>
-                        <p>Latency, Traffic, Errors, Saturation</p>
-                        <a href="#" target="_blank" class="monitor-link" data-dashboard="ltes-metrics" id="ltes-dashboard-link">
-                            Дашборд LTES
-                        </a>
-                    </div>
-                    <div class="monitoring-card">
-                        <h3>🔥 CPU по сервисам</h3>
-                        <p>Мониторинг CPU каждого микросервиса</p>
-                        <a href="#" target="_blank" class="monitor-link" data-dashboard="cpu-by-service" id="cpu-dashboard-link">
-                            Дашборд CPU
-                        </a>
+                        <h3>🛠️ pgAdmin</h3>
+                        <p>Таблицы и данные PostgreSQL: orders, payments, outbox и уведомления.</p>
+                        <a href="#" target="_blank" class="monitor-link" id="pgadmin-link">Открыть pgAdmin</a>
                     </div>
                 </div>
             </section>
