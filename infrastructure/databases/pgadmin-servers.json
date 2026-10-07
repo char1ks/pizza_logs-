@@ -3,8 +3,8 @@
     "1": {
       "Name": "Pizza System Database",
       "Group": "Servers",
-      "Host": "postgres",
-      "Port": 5432,
+      "Host": "host.docker.internal",
+      "Port": 5433,
       "MaintenanceDB": "pizza_system",
       "Username": "pizza_user",
       "SSLMode": "prefer",
