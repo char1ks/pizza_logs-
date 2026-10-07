@@ -7,7 +7,7 @@
       text{font-family:Arial,Helvetica,sans-serif}
       .title{font-size:26px;font-weight:700;fill:#263746}
       .subtitle{font-size:14px;fill:#647887}
-      .sectionTitle{font-size:15px;font-weight:700;fill:#355b7a}
+      .section{font-size:16px;font-weight:700;fill:#355b7a}
       .panel{fill:#fff;stroke:#b9c8d3;stroke-width:1.5}
       .service{fill:#6f97b4;stroke:#587a93;stroke-width:1.5}
       .system{fill:#2f5d82;stroke:#244964;stroke-width:1.5}
@@ -20,6 +20,7 @@
       .label{font-size:11px;fill:#506675}
       .eventText{font-size:12px;font-weight:700;fill:#415769}
       .line{stroke:#4f6b82;stroke-width:2;fill:none;marker-end:url(#arrow)}
+      .divider{stroke:#d5dfe6;stroke-width:1}
     </style>
   </defs>
 
@@ -27,102 +28,105 @@
   <text x="750" y="40" text-anchor="middle" class="title">Основной EDA-поток</text>
   <text x="750" y="66" text-anchor="middle" class="subtitle">Жизненный цикл заказа через Outbox, Kafka и асинхронных consumer'ов</text>
 
-  <!-- Panel 1 -->
-  <rect x="40" y="95" width="1420" height="185" rx="8" class="panel"/>
-  <text x="65" y="124" class="sectionTitle">1. Создание заказа и запись Outbox</text>
+  <rect x="40" y="95" width="1420" height="620" rx="8" class="panel"/>
 
-  <rect x="80" y="165" width="190" height="82" rx="7" class="event"/>
-  <text x="175" y="197" text-anchor="middle" class="darkTitle">Пользователь</text>
-  <text x="175" y="219" text-anchor="middle" class="dark">Создаёт заказ</text>
-  <text x="175" y="237" text-anchor="middle" class="dark">через Web UI</text>
+  <!-- Upper flow -->
+  <text x="65" y="128" class="section">Создание заказа</text>
 
-  <rect x="380" y="150" width="245" height="112" rx="7" class="service"/>
-  <text x="502" y="184" text-anchor="middle" class="cardTitle">Order Service</text>
-  <text x="502" y="207" text-anchor="middle" class="body">Создаёт заказ</text>
-  <text x="502" y="226" text-anchor="middle" class="body">и Outbox-событие</text>
-  <text x="502" y="247" text-anchor="middle" class="body">в одной транзакции</text>
+  <rect x="80" y="155" width="190" height="82" rx="7" class="event"/>
+  <text x="175" y="187" text-anchor="middle" class="darkTitle">Пользователь</text>
+  <text x="175" y="209" text-anchor="middle" class="dark">Создаёт заказ</text>
+  <text x="175" y="227" text-anchor="middle" class="dark">через Web UI</text>
 
-  <rect x="735" y="165" width="230" height="82" rx="7" class="data"/>
-  <text x="850" y="197" text-anchor="middle" class="darkTitle">PostgreSQL</text>
-  <text x="850" y="219" text-anchor="middle" class="dark">orders</text>
-  <text x="850" y="237" text-anchor="middle" class="dark">outbox_events</text>
+  <rect x="385" y="145" width="245" height="102" rx="7" class="service"/>
+  <text x="507" y="179" text-anchor="middle" class="cardTitle">Order Service</text>
+  <text x="507" y="201" text-anchor="middle" class="body">Создаёт заказ</text>
+  <text x="507" y="219" text-anchor="middle" class="body">и Outbox-событие</text>
+  <text x="507" y="237" text-anchor="middle" class="body">в одной транзакции</text>
 
-  <rect x="1075" y="150" width="250" height="112" rx="7" class="service"/>
-  <text x="1200" y="184" text-anchor="middle" class="cardTitle">Outbox Processor</text>
-  <text x="1200" y="207" text-anchor="middle" class="body">Читает непубликованные</text>
-  <text x="1200" y="226" text-anchor="middle" class="body">события и отправляет</text>
-  <text x="1200" y="247" text-anchor="middle" class="body">их в Kafka</text>
+  <rect x="745" y="155" width="230" height="82" rx="7" class="data"/>
+  <text x="860" y="187" text-anchor="middle" class="darkTitle">PostgreSQL</text>
+  <text x="860" y="209" text-anchor="middle" class="dark">orders</text>
+  <text x="860" y="227" text-anchor="middle" class="dark">outbox_events</text>
 
-  <path d="M270 206 L380 206" class="line"/>
-  <text x="325" y="192" text-anchor="middle" class="label">HTTP</text>
+  <rect x="1090" y="145" width="250" height="102" rx="7" class="service"/>
+  <text x="1215" y="179" text-anchor="middle" class="cardTitle">Outbox Processor</text>
+  <text x="1215" y="201" text-anchor="middle" class="body">Читает непубликованные</text>
+  <text x="1215" y="219" text-anchor="middle" class="body">события и отправляет</text>
+  <text x="1215" y="237" text-anchor="middle" class="body">их в Kafka</text>
 
-  <path d="M625 206 L735 206" class="line"/>
-  <text x="680" y="192" text-anchor="middle" class="label">SQL</text>
+  <path d="M270 196 L385 196" class="line"/>
+  <text x="327" y="181" text-anchor="middle" class="label">HTTP</text>
 
-  <path d="M965 206 L1075 206" class="line"/>
-  <text x="1020" y="192" text-anchor="middle" class="label">Outbox</text>
+  <path d="M630 196 L745 196" class="line"/>
+  <text x="687" y="181" text-anchor="middle" class="label">SQL</text>
 
-  <!-- Panel 2 -->
-  <rect x="40" y="305" width="1420" height="210" rx="8" class="panel"/>
-  <text x="65" y="334" class="sectionTitle">2. Публикация и распространение события</text>
+  <path d="M975 196 L1090 196" class="line"/>
+  <text x="1032" y="181" text-anchor="middle" class="label">Outbox</text>
 
-  <rect x="120" y="375" width="250" height="105" rx="7" class="system"/>
-  <text x="245" y="410" text-anchor="middle" class="cardTitle">Apache Kafka</text>
-  <text x="245" y="433" text-anchor="middle" class="body">Шина событий</text>
-  <text x="245" y="456" text-anchor="middle" class="body">order-events • payment-events</text>
+  <line x1="65" y1="275" x2="1435" y2="275" class="divider"/>
 
-  <rect x="575" y="360" width="260" height="80" rx="7" class="service"/>
-  <text x="705" y="395" text-anchor="middle" class="cardTitle">Payment Service</text>
-  <text x="705" y="418" text-anchor="middle" class="body">получает OrderCreated</text>
+  <!-- Kafka -->
+  <text x="65" y="307" class="section">Публикация и распространение события</text>
 
-  <rect x="575" y="450" width="260" height="55" rx="7" class="service"/>
-  <text x="705" y="483" text-anchor="middle" class="cardTitle">Notification Service</text>
+  <rect x="120" y="335" width="275" height="112" rx="7" class="system"/>
+  <text x="257" y="370" text-anchor="middle" class="cardTitle">Apache Kafka</text>
+  <text x="257" y="393" text-anchor="middle" class="body">Центральная шина событий</text>
+  <text x="257" y="416" text-anchor="middle" class="body">order-events • payment-events</text>
 
-  <rect x="1010" y="375" width="235" height="105" rx="7" class="event"/>
-  <text x="1127" y="410" text-anchor="middle" class="eventText">OrderCreated</text>
-  <text x="1127" y="433" text-anchor="middle" class="dark">событие доступно</text>
-  <text x="1127" y="456" text-anchor="middle" class="dark">нескольким consumer'ам</text>
+  <rect x="540" y="350" width="255" height="78" rx="7" class="service"/>
+  <text x="667" y="384" text-anchor="middle" class="cardTitle">Payment Service</text>
+  <text x="667" y="407" text-anchor="middle" class="body">получает OrderCreated</text>
 
-  <path d="M1325 206 L1325 350 L370 350 L370 405 L120 405" class="line"/>
-  <text x="800" y="341" text-anchor="middle" class="label">publish → order-events</text>
+  <rect x="540" y="445" width="255" height="62" rx="7" class="service"/>
+  <text x="667" y="482" text-anchor="middle" class="cardTitle">Notification Service</text>
 
-  <path d="M370 405 L575 405" class="line"/>
-  <text x="472" y="391" text-anchor="middle" class="label">consume</text>
+  <rect x="930" y="350" width="270" height="105" rx="7" class="event"/>
+  <text x="1065" y="385" text-anchor="middle" class="eventText">OrderCreated</text>
+  <text x="1065" y="408" text-anchor="middle" class="dark">одно событие</text>
+  <text x="1065" y="428" text-anchor="middle" class="dark">для нескольких consumer'ов</text>
 
-  <path d="M370 445 L470 445 L470 477 L575 477" class="line"/>
-  <text x="474" y="462" text-anchor="middle" class="label">consume</text>
+  <path d="M1215 247 L1215 320 L257 320 L257 335" class="line"/>
+  <text x="735" y="311" text-anchor="middle" class="label">publish → order-events</text>
 
-  <path d="M835 400 L1010 400" class="line"/>
-  <text x="922" y="386" text-anchor="middle" class="label">OrderCreated</text>
+  <path d="M395 375 L540 375" class="line"/>
+  <text x="468" y="361" text-anchor="middle" class="label">consume</text>
 
-  <!-- Panel 3 -->
-  <rect x="40" y="540" width="1420" height="180" rx="8" class="panel"/>
-  <text x="65" y="569" class="sectionTitle">3. Продолжение event chain</text>
+  <path d="M395 425 L465 425 L465 476 L540 476" class="line"/>
+  <text x="468" y="447" text-anchor="middle" class="label">consume</text>
 
-  <rect x="120" y="610" width="245" height="72" rx="7" class="event"/>
-  <text x="242" y="639" text-anchor="middle" class="eventText">PaymentCompleted</text>
-  <text x="242" y="660" text-anchor="middle" class="dark">payment-events</text>
+  <path d="M795 375 L930 375" class="line"/>
+  <text x="862" y="361" text-anchor="middle" class="label">OrderCreated</text>
 
-  <rect x="500" y="595" width="245" height="102" rx="7" class="service"/>
-  <text x="622" y="629" text-anchor="middle" class="cardTitle">Order Service</text>
-  <text x="622" y="652" text-anchor="middle" class="body">получает событие</text>
-  <text x="622" y="674" text-anchor="middle" class="body">и обновляет заказ</text>
+  <line x1="65" y1="530" x2="1435" y2="530" class="divider"/>
 
-  <rect x="875" y="610" width="230" height="72" rx="7" class="event"/>
-  <text x="990" y="639" text-anchor="middle" class="eventText">OrderPaid</text>
-  <text x="990" y="660" text-anchor="middle" class="dark">новое бизнес-событие</text>
+  <!-- Continuation -->
+  <text x="65" y="562" class="section">Продолжение event chain</text>
 
-  <rect x="1235" y="595" width="150" height="102" rx="7" class="data"/>
-  <text x="1310" y="629" text-anchor="middle" class="darkTitle">Состояние</text>
-  <text x="1310" y="651" text-anchor="middle" class="dark">заказа</text>
-  <text x="1310" y="675" text-anchor="middle" class="dark">PAID</text>
+  <rect x="120" y="585" width="245" height="78" rx="7" class="event"/>
+  <text x="242" y="617" text-anchor="middle" class="eventText">PaymentCompleted</text>
+  <text x="242" y="640" text-anchor="middle" class="dark">payment-events</text>
 
-  <path d="M705 440 L705 535 L242 535 L242 610" class="line"/>
-  <text x="480" y="525" text-anchor="middle" class="label">PaymentCompleted</text>
+  <rect x="500" y="573" width="245" height="102" rx="7" class="service"/>
+  <text x="622" y="608" text-anchor="middle" class="cardTitle">Order Service</text>
+  <text x="622" y="631" text-anchor="middle" class="body">получает событие</text>
+  <text x="622" y="652" text-anchor="middle" class="body">и обновляет заказ</text>
 
-  <path d="M365 646 L500 646" class="line"/>
-  <path d="M745 646 L875 646" class="line"/>
-  <path d="M1105 646 L1235 646" class="line"/>
+  <rect x="875" y="585" width="230" height="78" rx="7" class="event"/>
+  <text x="990" y="617" text-anchor="middle" class="eventText">OrderPaid</text>
+  <text x="990" y="640" text-anchor="middle" class="dark">новое бизнес-событие</text>
 
-  <text x="750" y="744" text-anchor="middle" class="subtitle">Одна и та же EDA-цепочка может развиваться асинхронно: producer и consumer работают независимо.</text>
+  <rect x="1235" y="573" width="150" height="102" rx="7" class="data"/>
+  <text x="1310" y="608" text-anchor="middle" class="darkTitle">Состояние</text>
+  <text x="1310" y="630" text-anchor="middle" class="darkTitle">заказа</text>
+  <text x="1310" y="654" text-anchor="middle" class="dark">PAID</text>
+
+  <path d="M667 428 L667 545 L242 545 L242 585" class="line"/>
+  <text x="475" y="536" text-anchor="middle" class="label">PaymentCompleted</text>
+
+  <path d="M365 624 L500 624" class="line"/>
+  <path d="M745 624 L875 624" class="line"/>
+  <path d="M1105 624 L1235 624" class="line"/>
+
+  <text x="750" y="697" text-anchor="middle" class="subtitle">Бизнес-изменения распространяются через события; producer и consumer работают независимо.</text>
 </svg>
