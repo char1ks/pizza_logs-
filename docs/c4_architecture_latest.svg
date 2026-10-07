@@ -10,24 +10,24 @@ text{font-family:Arial,Helvetica,sans-serif}.title{font-size:26px;font-weight:70
 <rect x="1110" y="175" width="210" height="75" rx="7" class="ext"/><text x="1215" y="204" text-anchor="middle" class="dt">Payment Provider</text><text x="1215" y="226" text-anchor="middle" class="d">Внешняя система</text>
 <path d="M290 212L545 212" class="line"/><text x="418" y="200" text-anchor="middle" class="lab">заказ</text><path d="M855 230L1110 230" class="line"/><text x="982" y="218" text-anchor="middle" class="lab">платёж</text>
 
-<text x="25" y="340" class="level">Level 2 — Container Diagram</text><text x="25" y="362" class="sub">Основные контейнеры и EDA-связи</text><rect x="20" y="375" width="1360" height="315" rx="8" class="box"/>
+<text x="45" y="340" class="level">Level 2 — Container Diagram</text><text x="45" y="362" class="sub">Основные контейнеры и EDA-связи</text><rect x="35" y="375" width="1330" height="315" rx="8" class="box"/>
 <rect x="65" y="490" width="120" height="75" rx="7" class="ext"/><text x="125" y="520" text-anchor="middle" class="dt">Web UI</text><text x="125" y="542" text-anchor="middle" class="d">Каталог / заказ</text>
 <rect x="210" y="475" width="110" height="105" rx="7" class="ext"/><text x="265" y="507" text-anchor="middle" class="dt">Nginx</text><text x="265" y="529" text-anchor="middle" class="d">API Gateway</text><text x="265" y="549" text-anchor="middle" class="d">routing</text>
 <rect x="345" y="455" width="180" height="110" rx="7" class="svc"/><text x="435" y="489" text-anchor="middle" class="wt">Frontend Service</text><text x="435" y="512" text-anchor="middle" class="w">Каталог пицц</text><text x="435" y="532" text-anchor="middle" class="w">и запуск нагрузки</text><text x="435" y="552" text-anchor="middle" class="w">Python / Flask</text>
 <rect x="555" y="455" width="180" height="110" rx="7" class="svc"/><text x="645" y="489" text-anchor="middle" class="wt">Order Service</text><text x="645" y="512" text-anchor="middle" class="w">Заказы</text><text x="645" y="532" text-anchor="middle" class="w">бизнес-события</text><text x="645" y="552" text-anchor="middle" class="w">Python / Flask</text>
-<rect x="790" y="440" width="250" height="145" rx="7" class="sys"/><text x="915" y="476" text-anchor="middle" class="wt">Apache Kafka</text><text x="915" y="500" text-anchor="middle" class="w">центральная шина событий</text><text x="915" y="527" text-anchor="middle" class="w">order-events</text><text x="915" y="549" text-anchor="middle" class="w">payment-events</text><text x="915" y="571" text-anchor="middle" class="w">notification-events</text>
-<rect x="1050" y="450" width="220" height="75" rx="7" class="svc"/><text x="1160" y="482" text-anchor="middle" class="wt">Payment Service</text><text x="1160" y="504" text-anchor="middle" class="w">Kafka Consumer</text>
-<rect x="1050" y="550" width="220" height="75" rx="7" class="svc"/><text x="1160" y="582" text-anchor="middle" class="wt">Notification Service</text><text x="1160" y="604" text-anchor="middle" class="w">Kafka Consumer</text>
+<rect x="800" y="440" width="250" height="145" rx="7" class="sys"/><text x="925" y="476" text-anchor="middle" class="wt">Apache Kafka</text><text x="925" y="500" text-anchor="middle" class="w">центральная шина событий</text><text x="925" y="527" text-anchor="middle" class="w">order-events</text><text x="925" y="549" text-anchor="middle" class="w">payment-events</text><text x="925" y="571" text-anchor="middle" class="w">notification-events</text>
+<rect x="1090" y="450" width="220" height="75" rx="7" class="svc"/><text x="1200" y="482" text-anchor="middle" class="wt">Payment Service</text><text x="1200" y="504" text-anchor="middle" class="w">Kafka Consumer</text>
+<rect x="1090" y="550" width="220" height="75" rx="7" class="svc"/><text x="1200" y="582" text-anchor="middle" class="wt">Notification Service</text><text x="1200" y="604" text-anchor="middle" class="w">Kafka Consumer</text>
 <rect x="345" y="610" width="390" height="55" rx="7" class="db"/><text x="540" y="632" text-anchor="middle" class="dt">PostgreSQL</text><text x="540" y="651" text-anchor="middle" class="d">frontend • orders • payments • notifications • outbox_events</text>
-<rect x="785" y="610" width="230" height="55" rx="7" class="comp"/><text x="900" y="632" text-anchor="middle" class="dt">Outbox Processor</text><text x="900" y="651" text-anchor="middle" class="d">публикация в Kafka</text>
+<rect x="810" y="610" width="230" height="55" rx="7" class="comp"/><text x="925" y="632" text-anchor="middle" class="dt">Outbox Processor</text><text x="925" y="651" text-anchor="middle" class="d">публикация в Kafka</text>
 <path d="M185 528L210 528" class="line"/><path d="M320 515L345 515" class="line"/><path d="M320 500L335 500L335 420L645 420L645 455" class="line"/><text x="480" y="412" text-anchor="middle" class="lab">/orders</text>
-<path d="M735 475L750 475L750 420L915 420L915 440" class="line"/><text x="832" y="412" text-anchor="middle" class="lab">OrderCreated</text>
-<path d="M735 520L790 520" class="line"/><text x="762" y="506" text-anchor="middle" class="lab">publish</text>
-<path d="M1040 480L1050 487" class="line"/><path d="M1040 550L1050 585" class="line"/>
+<path d="M735 475L765 475L765 420L925 420L925 440" class="line"/><text x="845" y="412" text-anchor="middle" class="lab">OrderCreated</text>
+<path d="M735 520L800 520" class="line"/><text x="767" y="506" text-anchor="middle" class="lab">publish</text>
+<path d="M1050 480L1090 487" class="line"/><path d="M1050 550L1090 585" class="line"/>
 <path d="M645 565L645 610" class="line"/><text x="663" y="592" class="lab">SQL</text><path d="M435 565L435 610" class="line"/>
-<path d="M735 550L755 550L755 637L785 637" class="line"/><text x="758" y="625" class="lab">Outbox</text>
-<path d="M900 610L900 585" class="line"/>
-<path d="M765 535L735 535" class="line"/><text x="748" y="566" class="lab">PaymentCompleted</text>
+<path d="M735 550L780 550L780 637L810 637" class="line"/><text x="765" y="625" class="lab">Outbox</text>
+<path d="M925 610L925 585" class="line"/>
+<path d="M1090 505L1070 505L1070 535L1050 535" class="line"/><text x="1075" y="493" text-anchor="middle" class="lab">PaymentCompleted</text>
 <text x="65" y="680" class="d">Frontend Service отвечает за каталог и служебные API; EDA-цепочка начинается в Order Service.</text>
 
 <text x="45" y="725" class="level">Level 3 — Component Diagram: Order Service</text><text x="45" y="747" class="sub">Внутренние компоненты Order Service</text><rect x="35" y="760" width="1330" height="170" rx="8" class="box"/>
