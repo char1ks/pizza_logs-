@@ -276,6 +276,7 @@ services:
     volumes:
       - grafana_data:/var/lib/grafana
       - ./infrastructure/monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./infrastructure/monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin
@@ -304,6 +305,9 @@ services:
       - "host.docker.internal:host-gateway"
     environment:
       DATA_SOURCE_NAME: postgresql://pizza_user:pizza_password@host.docker.internal:5433/pizza_system?sslmode=disable
+      PG_EXPORTER_EXTEND_QUERY_PATH: /etc/postgres_exporter/postgres-queries.yaml
+    volumes:
+      - ./infrastructure/monitoring/postgres-queries.yaml:/etc/postgres_exporter/postgres-queries.yaml:ro
     depends_on:
       postgres:
         condition: service_healthy
