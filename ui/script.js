@@ -910,82 +910,36 @@ function removeFromCart(pizzaId) {
 function setupMonitoringUrls() {
     const hostname = window.location.hostname;
     const protocol = window.location.protocol;
-    
-    // Detect Codespaces environment
-    const isCodespaces = hostname.includes('app.github.dev') || 
-                       hostname.includes('preview.app.github.dev') ||
-                       hostname.includes('.github.dev');
-    
-    if (isCodespaces) {
-        // Extract the base codespace URL pattern
-        // Support different Codespaces URL formats:
-        // - username-reponame-abcd1234-80.app.github.dev
-        // - username-reponame-abcd1234.github.dev
-        let basePattern = hostname;
-        
-        // Remove current port if present and replace with placeholder
-        if (basePattern.includes('-80.')) {
-            basePattern = basePattern.replace(/-80\./, '-{PORT}.');
-        } else if (basePattern.includes('.github.dev')) {
-            // For newer format without explicit port in hostname
-            basePattern = basePattern.replace('.github.dev', '-{PORT}.app.github.dev');
-        }
-        
-        // Update monitoring links for Codespaces
-        const monitoringLinks = [
-            { id: 'kafka-ui-link', port: '18080' },
-            { id: 'grafana-link', port: '3000' },
-            { id: 'prometheus-link', port: '9090' },
-            { id: 'pgadmin-link', port: '80', path: '/pgadmin/' },  // Use nginx proxy
-            { id: 'cadvisor-link', port: '8083' },
-            { id: 'node-exporter-link', port: '9100' },
-            { id: 'use-dashboard-link', port: '3000', dashboard: 'use-metrics' },
-            { id: 'red-dashboard-link', port: '3000', dashboard: 'red-metrics' },
-            { id: 'ltes-dashboard-link', port: '3000', dashboard: 'ltes-metrics' },
-            { id: 'cpu-dashboard-link', port: '3000', dashboard: 'cpu-by-service' }
-        ];
-        
-        monitoringLinks.forEach(({ id, port, dashboard, path }) => {
-            const link = document.getElementById(id);
-            if (link) {
-                let url = protocol + '//' + basePattern.replace('{PORT}', port);
-                if (path) {
-                    url += path;
-                } else if (dashboard) {
-                    url += `/d/${dashboard}`;
-                }
-                link.href = url;
-                console.log(`🔗 ${id}: ${url}`);
-            }
-        });
-        
-        console.log('🔧 Codespaces detected - monitoring URLs updated');
-        addEventLog('SYSTEM', 'Настроены URL для GitHub Codespaces');
-        
-    } else {
-        // Local development - use localhost
-        const localLinks = [
-            { id: 'kafka-ui-link', url: 'http://localhost:18080' },
-            { id: 'grafana-link', url: 'http://localhost:3000' },
-            { id: 'prometheus-link', url: 'http://localhost:9090' },
-            { id: 'pgadmin-link', url: 'http://localhost/pgadmin/' },  // Use nginx proxy
-            { id: 'cadvisor-link', url: 'http://localhost:8083' },
-            { id: 'node-exporter-link', url: 'http://localhost:9100' },
-            { id: 'use-dashboard-link', url: 'http://localhost:3000/d/use-metrics' },
-            { id: 'red-dashboard-link', url: 'http://localhost:3000/d/red-metrics' },
-            { id: 'ltes-dashboard-link', url: 'http://localhost:3000/d/ltes-metrics' },
-            { id: 'cpu-dashboard-link', url: 'http://localhost:3000/d/cpu-by-service' }
-        ];
-        
-        localLinks.forEach(({ id, url }) => {
-            const link = document.getElementById(id);
-            if (link) {
-                link.href = url;
-            }
-        });
-        
-        console.log('🏠 Local development detected - using localhost URLs');
-    }
+    const isCodespaces = hostname.includes('.github.dev');
+
+    const grafanaBase = isCodespaces
+        ? protocol + '//' + hostname.replace(/-80\./, '-3000.')
+        : 'http://localhost:3000';
+    const base = isCodespaces ? protocol + '//' + hostname : 'http://localhost';
+    const prometheus = isCodespaces
+        ? protocol + '//' + hostname.replace(/-80\./, '-9090.')
+        : 'http://localhost:9090';
+    const cadvisor = isCodespaces
+        ? protocol + '//' + hostname.replace(/-80\./, '-8083.')
+        : 'http://localhost:8083';
+
+    const links = {
+        'overview-dashboard-link': grafanaBase + '/d/overview',
+        'kafka-dashboard-link': grafanaBase + '/d/kafka',
+        'services-dashboard-link': grafanaBase + '/d/services',
+        'database-dashboard-link': base + '/pgadmin/',
+        'infrastructure-dashboard-link': grafanaBase + '/d/infrastructure',
+        'prometheus-link': prometheus,
+        'cadvisor-link': cadvisor,
+        'pgadmin-link': base + '/pgadmin/'
+    };
+
+    Object.entries(links).forEach(([id, url]) => {
+        const link = document.getElementById(id);
+        if (link) link.href = url;
+    });
+
+    addEventLog('SYSTEM', 'Настроены ссылки на мониторинг');
 }
 
 // ========================================
