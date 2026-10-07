@@ -138,8 +138,8 @@
   <text x="708" y="640" class="label">SQL</text>
 
   <!-- Outbox relationship -->
-  <path d="M810 550 L850 550 L850 650 L900 650" class="line"/>
-  <text x="850" y="635" text-anchor="middle" class="label">Outbox event</text>
+  <path d="M760 575 L760 650 L900 650" class="line"/>
+  <text x="815" y="638" text-anchor="middle" class="label">Outbox event</text>
 
   <path d="M1035 625 L1035 600" class="line"/>
 
