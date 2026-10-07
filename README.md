@@ -38,35 +38,11 @@
 
 ## 2. Основной EDA-поток
 
-Центральный сценарий стенда:
+![Основной EDA-поток](docs/eda_event_flow.svg)
 
-```text
-Создание заказа
-      ↓
-Order Service
-      ↓
-PostgreSQL + Outbox
-      ↓
-Outbox Processor
-      ↓
-Kafka / order-events
-      ├──────────────→ Payment Service
-      │                      ↓
-      │               PaymentCompleted
-      │                      ↓
-      └──────────────── Kafka / payment-events
-                             ├──→ Order Service
-                             └──→ Notification Service
-                                     
-Order Service
-      ↓
-OrderPaid
-```
-
-Одно событие может запускать обработку сразу в нескольких сервисах.
+Это центральный сценарий стенда: заказ создаётся в Order Service, событие сохраняется через Outbox, публикуется в Kafka, после чего его обрабатывают несколько сервисов.
 
 Подробный сценарий находится в [Message Flow](docs/message_flow.md).
-
 ---
 
 ## 3. Как работает Outbox
