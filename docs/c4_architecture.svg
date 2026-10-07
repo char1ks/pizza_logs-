@@ -105,8 +105,9 @@
   <path d="M805 552 L870 552" class="line"/>
   <text x="837" y="537" text-anchor="middle" class="label">события</text>
 
-  <path d="M520 598 C740 650 990 650 1135 575" class="line"/>
-  <text x="845" y="644" text-anchor="middle" class="label">publish / subscribe</text>
+  <path d="M520 598 L520 640 L1105 640 L1105 575 L1135 575" class="line"/>
+  <rect x="760" y="622" width="150" height="22" rx="6" fill="#fff"/>
+  <text x="835" y="637" text-anchor="middle" class="label">publish / subscribe</text>
 
   <path d="M410 620 L410 655" class="line"/>
   <text x="430" y="642" class="label">SQL</text>
